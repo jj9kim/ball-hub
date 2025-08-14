@@ -1,0 +1,6 @@
+setup.py
+ballhub.egg-info/PKG-INFO
+ballhub.egg-info/SOURCES.txt
+ballhub.egg-info/dependency_links.txt
+ballhub.egg-info/requires.txt
+ballhub.egg-info/top_level.txt
