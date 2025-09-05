@@ -31,17 +31,12 @@ class PlayerStatsScraper:
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         
-        # Player basic info table
+        # Player basic info table (simplified as requested)
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS players (
             player_id INTEGER PRIMARY KEY,
-            first_name TEXT,
-            last_name TEXT,
-            full_name TEXT,
-            position TEXT,
             team TEXT,
             current_age INTEGER,
-            url TEXT,
             scraped_timestamp DATETIME,
             UNIQUE(player_id)
         )
@@ -211,58 +206,83 @@ class PlayerStatsScraper:
     
     def get_player_data(self, player_id: int) -> Optional[Dict]:
         """Get comprehensive player data"""
+        # First try without specifying team
         params = {
             'id': player_id,
-            'team': 'GSW',
             'nba': 'true'
         }
-        
+    
         try:
             response = self.session.get(self.base_url, params=params)
             response.raise_for_status()
             data = response.json()
-            
-            if data and 'basic' in data and data['basic']['nba']['body']:
+        
+            # Check if we have valid player data with the expected structure
+            if data and isinstance(data, dict) and 'basic' in data:
                 return data
-            return None
+        
+            # If no data, try with a common team parameter
+            params['team'] = 'GSW'
+            response = self.session.get(self.base_url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        
+            if data and isinstance(data, dict) and 'basic' in data:
+                return data
             
+            return None
+        
         except requests.exceptions.RequestException as e:
             print(f"Error fetching data for player {player_id}: {e}")
             return None
         except json.JSONDecodeError as e:
             print(f"Error parsing JSON for player {player_id}: {e}")
             return None
-    
-    def extract_player_info_from_data(self, data: Dict, player_id: int) -> Dict:
-        """Extract player information focusing on MOST RECENT season"""
-        player_info = {
-            'player_id': player_id,
-            'first_name': '',
-            'last_name': '',
-            'full_name': '',
-            'position': '',
-            'team': '',
-            'current_age': None,
-            'url': ''
-        }
         
-        # Get MOST RECENT NBA season (not first season)
+    def debug_player_info(self, player_id: int):
+        """Debug method to help identify extraction issues"""
+        data = self.get_player_data(player_id)
+        if not data:
+            print(f"No data for player {player_id}")
+            return
+    
+        print(f"=== Debug info for player {player_id} ===")
+    
+        # Check basic stats for team info
         if 'basic' in data and 'nba' in data['basic'] and 'body' in data['basic']['nba']:
             seasons = data['basic']['nba']['body']
+            nba_seasons = [s for s in seasons if s.get('team') not in ['CBB', '']]
+            print(f"NBA seasons found: {len(nba_seasons)}")
+            for season in nba_seasons:
+                print(f"  Season: {season.get('season')}, Team: {season.get('team')}, Age: {season.get('age')}")
+    
+        # Test the extraction
+        player_info = self.extract_player_info_from_data(data, player_id)
+        print(f"Extracted info: {player_info}")
+    
+    def extract_player_info_from_data(self, data: Dict, player_id: int) -> Dict:
+        """Extract player information from the API response"""
+        player_info = {
+            'player_id': player_id,
+            'team': '',
+            'current_age': None,
+        }
+    
+        # Get team and age from the most recent NBA season
+        if 'basic' in data and 'nba' in data['basic'] and 'body' in data['basic']['nba']:
+            seasons = data['basic']['nba']['body']
+            nba_seasons = [s for s in seasons if s.get('team') not in ['CBB', '']]
+        
+            # Get the MOST RECENT NBA season (last one in the list)
+            if nba_seasons:
+                most_recent_season = nba_seasons[-1]
+                player_info['team'] = most_recent_season.get('team', '')
             
-            # Find the most recent NBA season (skip college)
-            # HERE!!!!HERE
-            for season in seasons:
-                if season.get('team') not in ['CBB', '']:
-                    player_info['team'] = season.get('team', '')
-                    if season.get('age') and season.get('age').isdigit():
-                        player_info['current_age'] = int(season.get('age'))
-        
-        # Try to get name from other sources if available
-        player_info['full_name'] = f"Player_{player_id}"
-        player_info['first_name'] = "Player"
-        player_info['last_name'] = str(player_id)
-        
+                # Extract age if available
+                age_str = most_recent_season.get('age', '')
+                if age_str and age_str.isdigit():
+                    player_info['current_age'] = int(age_str)
+    
         return player_info
     
     def is_nba_player(self, data: Dict) -> bool:
@@ -512,21 +532,16 @@ class PlayerStatsScraper:
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         
-        # Save player info
+        # Save player info (simplified to match the new table structure)
         try:
             cursor.execute('''
             INSERT OR REPLACE INTO players 
-            (player_id, first_name, last_name, full_name, position, team, current_age, url, scraped_timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (player_id, team, current_age, scraped_timestamp)
+            VALUES (?, ?, ?, ?)
             ''', (
                 player_info['player_id'],
-                player_info['first_name'],
-                player_info['last_name'],
-                player_info['full_name'],
-                player_info['position'],
                 player_info['team'],
                 player_info['current_age'],
-                player_info['url'],
                 datetime.now()
             ))
         except Exception as e:
@@ -550,7 +565,7 @@ class PlayerStatsScraper:
                     stats['turnovers'], stats['offensive_rebounds'], stats['defensive_rebounds'], 
                     stats['three_point_attempted'], stats['three_point_percentage'], stats['fg_made'], 
                     stats['fg_attempted'], stats['ft_made'], stats['ft_attempted'], stats['three_point_made_total'], 
-                    stats['three_point_attempted_total'], stats['fg_made_total'], stats['fg_attempted_total'], 
+                    stats['three_point_attempted'], stats['fg_made_total'], stats['fg_attempted_total'], 
                     stats['ft_made_total'], stats['ft_attempted_total'], stats['stat_type'], stats['scraped_timestamp']
                 ))
             except Exception as e:
@@ -755,7 +770,7 @@ def main():
     
     # Show successfully scraped players
     successful_players = pd.read_sql_query("""
-        SELECT p.player_id, p.full_name, p.team, p.position
+        SELECT p.player_id, p.team, p.current_age
         FROM players p
         JOIN scraping_log sl ON p.player_id = sl.player_id
         WHERE sl.success = 1 AND p.player_id BETWEEN ? AND ?
