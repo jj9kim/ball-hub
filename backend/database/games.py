@@ -7,10 +7,10 @@ import sqlite3
 from datetime import datetime
 
 start = 2879653
-end = 2879645
+end = 2879651
 
 class RotowireScraper:
-    def __init__(self, db_name: str = "basketball_stats.db"):
+    def __init__(self, db_name: str = "games.db"):
         self.base_url = "https://www.rotowire.com/basketball/tables/box-score.php"
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:124.0) Gecko/20100101 Firefox/124.0',
@@ -34,9 +34,9 @@ class RotowireScraper:
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         
-        # Create player_stats table
+        # Create games table
         cursor.execute('''
-        CREATE TABLE IF NOT EXISTS player_stats (
+        CREATE TABLE IF NOT EXISTS games (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             player_id INTEGER,
             player_name TEXT,
@@ -69,7 +69,42 @@ class RotowireScraper:
             ortg TEXT,
             usg TEXT,
             url TEXT,
-            scraped_timestamp DATETIME
+            scraped_timestamp DATETIME,
+            UNIQUE(player_id, game_id, team_id)  -- Prevent duplicates
+        )
+        ''')
+        
+        # Create team_stats table for position_sort = 4 data (team totals)
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS team_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_id INTEGER,
+            team_id INTEGER,
+            minutes TEXT,
+            points INTEGER,
+            fg_made INTEGER,
+            fg_attempted INTEGER,
+            fg_percentage REAL,
+            three_pt_made INTEGER,
+            three_pt_attempted INTEGER,
+            three_pt_percentage REAL,
+            ft_made INTEGER,
+            ft_attempted INTEGER,
+            ft_percentage REAL,
+            offensive_rebounds INTEGER,
+            defensive_rebounds INTEGER,
+            total_rebounds INTEGER,
+            assists INTEGER,
+            steals INTEGER,
+            blocks INTEGER,
+            turnovers INTEGER,
+            personal_fouls INTEGER,
+            technical_fouls TEXT,
+            ejected TEXT,
+            ortg TEXT,
+            usg TEXT,
+            scraped_timestamp DATETIME,
+            UNIQUE(game_id, team_id)  -- Prevent duplicate team stats
         )
         ''')
         
@@ -108,8 +143,9 @@ class RotowireScraper:
         processed_data = []
         
         for player in player_data:
-            # Skip summary rows (they have playerID 0 or empty strings)
-            if player.get('playerID') == 0 or not player.get('nameLong') or player.get('nameLong') in ['Game Total', '']:
+            # Skip empty rows but keep team totals (position_sort = 4)
+            position_sort = player.get('positionSort', 0)
+            if (player.get('playerID') == 0 and position_sort != 4) or not player.get('nameLong') or player.get('nameLong') in ['', 'Game Total']:
                 continue
                 
             # Add game and team context
@@ -171,17 +207,73 @@ class RotowireScraper:
         
         return processed_data
     
-    def save_to_database(self, data: List[Dict]):
-        """Save processed data to SQLite database"""
+    def extract_team_totals(self, player_data: List[Dict], game_id: int, team_id: int) -> Optional[Dict]:
+        """Extract team totals from position_sort = 4 data"""
+        for player in player_data:
+            if player.get('positionSort') == 4 and player.get('nameLong') == 'Game Total':
+                team_totals = {
+                    'game_id': game_id,
+                    'team_id': team_id,
+                    'minutes': player.get('minutes', ''),
+                    'points': self._extract_numeric(player.get('points', 0)),
+                    'fg_made': self._extract_numeric(player.get('fg', '0-0').split('-')[0]),
+                    'fg_attempted': self._extract_numeric(player.get('fg', '0-0').split('-')[1]),
+                    'three_pt_made': self._extract_numeric(player.get('pt3', '0-0').split('-')[0]),
+                    'three_pt_attempted': self._extract_numeric(player.get('pt3', '0-0').split('-')[1]),
+                    'ft_made': self._extract_numeric(player.get('ft', '0-0').split('-')[0]),
+                    'ft_attempted': self._extract_numeric(player.get('ft', '0-0').split('-')[1]),
+                    'offensive_rebounds': self._extract_numeric(player.get('oreb', 0)),
+                    'defensive_rebounds': self._extract_numeric(player.get('dreb', 0)),
+                    'assists': self._extract_numeric(player.get('ast', 0)),
+                    'steals': self._extract_numeric(player.get('stl', 0)),
+                    'blocks': self._extract_numeric(player.get('blk', 0)),
+                    'turnovers': self._extract_numeric(player.get('turnovers', 0)),
+                    'personal_fouls': self._extract_numeric(player.get('personalFouls', 0)),
+                    'technical_fouls': player.get('technicalFouls', ''),
+                    'ejected': player.get('ejected', ''),
+                    'ortg': player.get('ortg', ''),
+                    'usg': player.get('usg', ''),
+                    'scraped_timestamp': datetime.now()
+                }
+                
+                # Calculate percentages
+                if team_totals['fg_attempted'] > 0:
+                    team_totals['fg_percentage'] = round(team_totals['fg_made'] / team_totals['fg_attempted'] * 100, 1)
+                if team_totals['three_pt_attempted'] > 0:
+                    team_totals['three_pt_percentage'] = round(team_totals['three_pt_made'] / team_totals['three_pt_attempted'] * 100, 1)
+                if team_totals['ft_attempted'] > 0:
+                    team_totals['ft_percentage'] = round(team_totals['ft_made'] / team_totals['ft_attempted'] * 100, 1)
+                
+                team_totals['total_rebounds'] = team_totals['offensive_rebounds'] + team_totals['defensive_rebounds']
+                
+                return team_totals
+        return None
+    
+    def _extract_numeric(self, value):
+        """Extract numeric value from potentially HTML-formatted text"""
+        if isinstance(value, str) and '<' in value:
+            import re
+            numbers = re.findall(r'\d+', value)
+            return int(numbers[0]) if numbers else 0
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
+    
+    def save_to_database(self, data: List[Dict], team_totals_data: List[Dict]):
+        """Save processed data to SQLite database with duplicate prevention"""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         
         games_processed = set()
+        players_saved = 0
+        teams_saved = 0
         
+        # Save player data with ON CONFLICT IGNORE to prevent duplicates
         for player in data:
             try:
                 cursor.execute('''
-                INSERT INTO player_stats (
+                INSERT OR IGNORE INTO games (
                     player_id, player_name, player_name_short, position, position_sort,
                     game_id, team_id, minutes, points, fg_made, fg_attempted, fg_percentage,
                     three_pt_made, three_pt_attempted, three_pt_percentage,
@@ -195,7 +287,7 @@ class RotowireScraper:
                     player.get('nameLong'),
                     player.get('nameShort'),
                     player.get('position'),
-                    player.get('positionSort', 0),  # Added position_sort
+                    player.get('positionSort', 0),
                     player.get('game_id'),
                     player.get('team_id'),
                     player.get('minutes', 0),
@@ -225,12 +317,61 @@ class RotowireScraper:
                     datetime.now()
                 ))
                 
+                if cursor.rowcount > 0:  # If a row was actually inserted
+                    players_saved += 1
+                
                 # Track which games we've processed
                 games_processed.add(player.get('game_id'))
                 
             except Exception as e:
                 print(f"Error inserting player data: {e}")
-                print(f"Problematic player data: {player}")
+        
+        # Save team totals data
+        for team_totals in team_totals_data:
+            try:
+                cursor.execute('''
+                INSERT OR IGNORE INTO team_stats (
+                    game_id, team_id, minutes, points, fg_made, fg_attempted, fg_percentage,
+                    three_pt_made, three_pt_attempted, three_pt_percentage,
+                    ft_made, ft_attempted, ft_percentage,
+                    offensive_rebounds, defensive_rebounds, total_rebounds,
+                    assists, steals, blocks, turnovers, personal_fouls,
+                    technical_fouls, ejected, ortg, usg, scraped_timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    team_totals['game_id'],
+                    team_totals['team_id'],
+                    team_totals['minutes'],
+                    team_totals['points'],
+                    team_totals['fg_made'],
+                    team_totals['fg_attempted'],
+                    team_totals.get('fg_percentage', 0),
+                    team_totals['three_pt_made'],
+                    team_totals['three_pt_attempted'],
+                    team_totals.get('three_pt_percentage', 0),
+                    team_totals['ft_made'],
+                    team_totals['ft_attempted'],
+                    team_totals.get('ft_percentage', 0),
+                    team_totals['offensive_rebounds'],
+                    team_totals['defensive_rebounds'],
+                    team_totals['total_rebounds'],
+                    team_totals['assists'],
+                    team_totals['steals'],
+                    team_totals['blocks'],
+                    team_totals['turnovers'],
+                    team_totals['personal_fouls'],
+                    team_totals['technical_fouls'],
+                    team_totals['ejected'],
+                    team_totals['ortg'],
+                    team_totals['usg'],
+                    team_totals['scraped_timestamp']
+                ))
+                
+                if cursor.rowcount > 0:
+                    teams_saved += 1
+                    
+            except Exception as e:
+                print(f"Error inserting team totals: {e}")
         
         # Update game info table
         for game_id in games_processed:
@@ -244,11 +385,12 @@ class RotowireScraper:
         
         conn.commit()
         conn.close()
-        print(f"Saved {len(data)} player records to database")
+        print(f"Saved {players_saved} new player records and {teams_saved} team totals to database")
     
-    def scrape_games_range(self, start_game_id: int, end_game_id: int, team_ids: List[int], delay: float = 1.0) -> List[Dict]:
+    def scrape_games_range(self, start_game_id: int, end_game_id: int, team_ids: List[int], delay: float = 1.0):
         """Scrape data for a range of game IDs"""
-        all_data = []
+        all_player_data = []
+        all_team_totals = []
         
         # Create the range of game IDs (inclusive, descending order)
         game_ids = list(range(start_game_id, end_game_id - 1, -1))
@@ -269,11 +411,16 @@ class RotowireScraper:
                 
                 if team_data:
                     game_has_data = True
-                    # Process and add to results
+                    # Process player data
                     processed_data = self.process_player_data(team_data, game_id, team_id)
-                    all_data.extend(processed_data)
+                    all_player_data.extend(processed_data)
                     
-                    print(f"    Found {len(processed_data)} players for team {team_id}")
+                    # Extract team totals
+                    team_totals = self.extract_team_totals(team_data, game_id, team_id)
+                    if team_totals:
+                        all_team_totals.append(team_totals)
+                    
+                    print(f"    Found {len(processed_data)} players and team totals for team {team_id}")
                 else:
                     print(f"    No data found for team {team_id}")
                 
@@ -283,11 +430,11 @@ class RotowireScraper:
             if not game_has_data:
                 print(f"  No data found for game {game_id}")
         
-        return all_data
+        return all_player_data, all_team_totals
 
 # Example usage
 def main():
-    scraper = RotowireScraper(db_name="basketball_stats.db")
+    scraper = RotowireScraper(db_name="games.db")
     
     # Define team IDs to scrape
     common_team_ids = list(range(1, 30)) + [5312]  # 1-29 + 5312
@@ -298,18 +445,22 @@ def main():
     
     # Scrape data for the range of games
     print(f"Scraping games from {start_game_id} to {end_game_id}...")
-    all_data = scraper.scrape_games_range(start_game_id, end_game_id, common_team_ids, delay=0.5)
+    player_data, team_totals = scraper.scrape_games_range(start_game_id, end_game_id, common_team_ids, delay=0.5)
     
     # Save results to database
-    if all_data:
-        scraper.save_to_database(all_data)
-        print(f"Scraped data for {len(all_data)} players across {len(set(p['game_id'] for p in all_data))} games")
+    if player_data or team_totals:
+        scraper.save_to_database(player_data, team_totals)
+        print(f"Scraped {len(player_data)} player records and {len(team_totals)} team totals")
         
-        # Optional: Show a sample of the data with position_sort
-        conn = sqlite3.connect("basketball_stats.db")
-        df = pd.read_sql_query("SELECT player_name, position, position_sort, game_id, team_id, points FROM player_stats LIMIT 10", conn)
-        print("\nSample of stored data (with position_sort):")
-        print(df)
+        # Show sample of both tables
+        conn = sqlite3.connect("games.db")
+        print("\nSample player data:")
+        player_sample = pd.read_sql_query("SELECT player_name, position, position_sort, game_id, team_id, points FROM games LIMIT 5", conn)
+        print(player_sample)
+        
+        print("\nSample team totals:")
+        team_sample = pd.read_sql_query("SELECT game_id, team_id, points, fg_made, fg_attempted FROM team_stats LIMIT 5", conn)
+        print(team_sample)
         conn.close()
     else:
         print("No data was scraped")
