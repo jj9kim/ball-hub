@@ -5,6 +5,7 @@ import json
 from typing import List, Dict, Optional
 import sqlite3
 from datetime import datetime
+import re
 
 start = 2879653
 end = 2879651
@@ -112,6 +113,7 @@ class RotowireScraper:
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS game_info (
             game_id INTEGER PRIMARY KEY,
+            game_date TEXT,
             scraped_timestamp DATETIME,
             teams_found INTEGER
         )
@@ -136,6 +138,30 @@ class RotowireScraper:
             return None
         except json.JSONDecodeError as e:
             print(f"Error parsing JSON for game {game_global_id}, team {team_global_id}: {e}")
+            return None
+    
+    def extract_game_date_from_url(self, game_id: int) -> Optional[str]:
+        """Extract the game date from the box score URL"""
+        try:
+            # Construct the URL pattern
+            url = f"https://www.rotowire.com/basketball/box-score/game-{game_id}"
+            
+            # Make a request to get the final URL (after redirects)
+            response = self.session.get(url, timeout=10, allow_redirects=True)
+            
+            # Extract date from the final URL using regex
+            # Pattern for URLs like: .../timberwolves-vs-warriors-2025-05-14-2878782
+            date_pattern = r'(\d{4}-\d{2}-\d{2})-\d+$'
+            match = re.search(date_pattern, response.url)
+            
+            if match:
+                return match.group(1)
+            else:
+                print(f"Could not extract date from URL: {response.url}")
+                return None
+                
+        except Exception as e:
+            print(f"Error extracting date for game {game_id}: {e}")
             return None
     
     def process_player_data(self, player_data: List[Dict], game_id: int, team_id: int) -> List[Dict]:
@@ -373,13 +399,16 @@ class RotowireScraper:
             except Exception as e:
                 print(f"Error inserting team totals: {e}")
         
-        # Update game info table
+        # Update game info table with date information
         for game_id in games_processed:
             try:
+                # Extract date from URL
+                game_date = self.extract_game_date_from_url(game_id)
+                
                 cursor.execute('''
-                INSERT OR REPLACE INTO game_info (game_id, scraped_timestamp, teams_found)
-                VALUES (?, ?, ?)
-                ''', (game_id, datetime.now(), len([p for p in data if p.get('game_id') == game_id])))
+                INSERT OR REPLACE INTO game_info (game_id, game_date, scraped_timestamp, teams_found)
+                VALUES (?, ?, ?, ?)
+                ''', (game_id, game_date, datetime.now(), len([p for p in data if p.get('game_id') == game_id])))
             except Exception as e:
                 print(f"Error updating game info: {e}")
         
@@ -461,6 +490,11 @@ def main():
         print("\nSample team totals:")
         team_sample = pd.read_sql_query("SELECT game_id, team_id, points, fg_made, fg_attempted FROM team_stats LIMIT 5", conn)
         print(team_sample)
+        
+        print("\nSample game info with dates:")
+        game_info_sample = pd.read_sql_query("SELECT game_id, game_date, teams_found FROM game_info LIMIT 5", conn)
+        print(game_info_sample)
+        
         conn.close()
     else:
         print("No data was scraped")
