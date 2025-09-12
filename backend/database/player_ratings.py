@@ -59,7 +59,7 @@ class PlayerRatingCalculator:
     
         # Handle foul rating
         if fouls > 5:
-            foulrating = -2
+            foulrating = 2
         else:
             foulrating = ((0.3 * math.log(fouls + 1)) + (0.05 * fouls))  # Added +1 to avoid log(0)
     
@@ -86,7 +86,7 @@ class PlayerRatingCalculator:
         )
     
         # Ensure rating is reasonable (adjust min/max as needed)
-        rating = max(0, min(10, rating))  # Adjust max value based on your formula
+        rating = max(0, min(10, (6 + rating)))  # Adjust max value based on your formula
     
         return round(rating, 2)
     

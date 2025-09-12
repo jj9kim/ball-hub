@@ -9,7 +9,7 @@ import re
 from player_ratings import PlayerRatingCalculator  # ADD THIS IMPORT
 
 start = 2879653
-end = 2879651
+end = 2879653
 
 class RotowireScraper:
     def __init__(self, db_name: str = "games.db"):
