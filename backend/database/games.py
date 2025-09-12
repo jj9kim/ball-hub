@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 import sqlite3
 from datetime import datetime
 import re
+from player_ratings import PlayerRatingCalculator  # ADD THIS IMPORT
 
 start = 2879653
 end = 2879651
@@ -35,7 +36,7 @@ class RotowireScraper:
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         
-        # Create games table
+        # Create games table WITH player_rating column
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS games (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,6 +71,7 @@ class RotowireScraper:
             ortg TEXT,
             usg TEXT,
             url TEXT,
+            player_rating REAL,  -- ADDED THIS COLUMN
             scraped_timestamp DATETIME,
             UNIQUE(player_id, game_id, team_id)  -- Prevent duplicates
         )
@@ -202,7 +204,7 @@ class RotowireScraper:
                 if len(ft_parts) == 2:
                     player_with_context['ft_made'] = int(ft_parts[0])
                     player_with_context['ft_attempted'] = int(ft_parts[1])
-                    player_with_context['ft_percentage'] = round(int(ft_parts[0]) / int(ft_parts[1]) * 100, 1) if int(ft_parts[1]) > 0 else 0
+                    player_with_context['ft_percentage'] = round(int(fg_parts[0]) / int(fg_parts[1]) * 100, 1) if int(fg_parts[1]) > 0 else 0
             
             # Convert other numeric fields including position_sort
             numeric_fields = ['minutes', 'points', 'oreb', 'dreb', 'ast', 'stl', 'blk', 'turnovers', 'personalFouls', 'technicalFouls', 'ejected', 'positionSort']
@@ -306,8 +308,8 @@ class RotowireScraper:
                     ft_made, ft_attempted, ft_percentage,
                     offensive_rebounds, defensive_rebounds, total_rebounds,
                     assists, steals, blocks, turnovers, personal_fouls,
-                    technical_fouls, ejected, ortg, usg, url, scraped_timestamp
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    technical_fouls, ejected, ortg, usg, url, player_rating, scraped_timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     player.get('playerID'),
                     player.get('nameLong'),
@@ -340,6 +342,7 @@ class RotowireScraper:
                     player.get('ortg', ''),
                     player.get('usg', ''),
                     player.get('URL', ''),
+                    None,  # player_rating will be calculated later
                     datetime.now()
                 ))
                 
@@ -416,6 +419,14 @@ class RotowireScraper:
         conn.close()
         print(f"Saved {players_saved} new player records and {teams_saved} team totals to database")
     
+    def calculate_player_ratings(self):
+        """
+        Calculate and add player ratings to the database using your custom formula
+        """
+        calculator = PlayerRatingCalculator(self.db_name)
+        calculator.add_ratings_to_database()
+        calculator.validate_ratings(sample_size=10)
+    
     def scrape_games_range(self, start_game_id: int, end_game_id: int, team_ids: List[int], delay: float = 1.0):
         """Scrape data for a range of game IDs"""
         all_player_data = []
@@ -481,10 +492,17 @@ def main():
         scraper.save_to_database(player_data, team_totals)
         print(f"Scraped {len(player_data)} player records and {len(team_totals)} team totals")
         
+        # Calculate player ratings after scraping
+        print("\nCalculating player ratings...")
+        scraper.calculate_player_ratings()
+        
         # Show sample of both tables
         conn = sqlite3.connect("games.db")
-        print("\nSample player data:")
-        player_sample = pd.read_sql_query("SELECT player_name, position, position_sort, game_id, team_id, points FROM games LIMIT 5", conn)
+        print("\nSample player data with ratings:")
+        player_sample = pd.read_sql_query(
+            "SELECT player_name, position, points, total_rebounds, assists, steals, blocks, turnovers, player_rating FROM games LIMIT 5", 
+            conn
+        )
         print(player_sample)
         
         print("\nSample team totals:")

@@ -5,7 +5,7 @@ function Header() {
   return (
       <div className="h-1/10 w-full mt-0 bg-[#1a1a1a] flex">
           <div className="flex pl-15 bg-[#1a1a1a] pt-1">
-              <img src={logo} className="h-20 w-20 right-30 hover:rotate-4" alt="logo" />
+              <img src={logo} className="h-20 w-20 right-30 hover:rotate-7" alt="logo" />
               <h2 className="pt-4 font-bold text-white text-5xl hover:text-[#9f9f9f]">BallHub</h2>
         </div>
         <div className="pl-20 pt-6">
@@ -31,7 +31,7 @@ function Header() {
               <p className="text-white text-5xl">|</p>
           </div>
           <div className="pl-7 pt-6">
-              <img src={settings} alt="settings" className="h-8 w-8 hover:rotate-4"/>
+              <img src={settings} alt="settings" className="h-8 w-8 hover:rotate-7"/>
           </div>
     </div>
   )
