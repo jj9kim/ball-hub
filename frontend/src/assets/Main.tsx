@@ -1,11 +1,13 @@
 import React from "react";
-import { useState } from "react"
-import Popup from './Popup';
 
-function Main() {
-    const [caretUp, setCaretUp] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(new Date());
+interface MainProps {
+    isCalendarOpen: boolean;
+    onOpenCalendar: () => void;
+    selectedDate: Date;
+    onDateSelect: (date: Date) => void;
+}
 
+function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: MainProps) {
     // Function to get display text for the date
     const getDateDisplayText = (date: Date) => {
         const today = new Date();
@@ -39,7 +41,7 @@ function Main() {
     const changeDate = (offset: number) => {
         const newDate = new Date(selectedDate);
         newDate.setDate(newDate.getDate() + offset);
-        setSelectedDate(newDate);
+        onDateSelect(newDate);
     };
 
     return (
@@ -55,7 +57,7 @@ function Main() {
                     </button>
                     <button
                         className="hover:text-[#9f9f9f] flex flex-row justify-center items-center w-30"
-                        onClick={() => setCaretUp(!caretUp)}
+                        onClick={onOpenCalendar}
                     >
                         {getDateDisplayText(selectedDate)}&nbsp;
                         <svg
@@ -63,7 +65,7 @@ function Main() {
                             width="16"
                             height="16"
                             fill="currentColor"
-                            className={`pt-0.5 transition-transform ${caretUp ? 'rotate-180' : ''}`}
+                            className={`pt-0.5 transition-transform ${isCalendarOpen ? 'rotate-180' : ''}`}
                         >
                             <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z" />
                         </svg>
@@ -77,15 +79,13 @@ function Main() {
                 </div>
             </div>
 
-            {/* Calendar popup */}
-            <Popup
-                trigger={caretUp}
-                onClose={() => setCaretUp(false)}
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-            />
+            {/* Rest of your main content would go here */}
+            <div className="p-4">
+                <h1>Your App Content</h1>
+                <p>Selected date: {selectedDate.toDateString()}</p>
+            </div>
         </React.Fragment>
-    )
+    );
 }
 
-export default Main
+export default Main;

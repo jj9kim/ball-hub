@@ -28,10 +28,13 @@ function Popup({ trigger, children, onClose, selectedDate, onDateSelect }: Popup
 
         if (trigger) {
             document.addEventListener('mousedown', handleClickOutside);
+            // Prevent scrolling when calendar is open
+            document.body.style.overflow = 'hidden';
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
+            document.body.style.overflow = 'unset';
         };
     }, [trigger, onClose]);
 
@@ -97,8 +100,8 @@ function Popup({ trigger, children, onClose, selectedDate, onDateSelect }: Popup
     const calendarDays = generateCalendarDays();
 
     return (
-        <div className="fixed top-0 left-0 w-screen h-screen bg-black/70 flex justify-center items-start z-50 pt-20">
-            <div ref={popupRef} className="relative p-4 w-full max-w-md bg-white rounded-lg shadow-xl mt-30">
+        <div className="fixed top-0 left-0 w-screen h-screen bg-black/70 flex justify-center items-start z-1000 pt-50">
+            <div ref={popupRef} className="relative p-4 w-full max-w-md bg-white rounded-lg shadow-xl">
                 <div className="calendar-container">
                     <div className="flex justify-between items-center mb-4">
                         <button

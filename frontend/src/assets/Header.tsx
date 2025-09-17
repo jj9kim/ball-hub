@@ -3,7 +3,7 @@ import settings from "../img/settings.svg"
 
 function Header() {
     return (
-        <div className="h-1/10 mt-0 bg-[#1a1a1a] flex justify-between w-screen z-1000 sticky top-0">
+        <div className="h-1/10 mt-0 bg-[#1a1a1a] flex justify-between w-screen z-500 sticky top-0">
             <div className="flex pl-15 bg-[#1a1a1a] pt-1">
                 <img src={logo} className="h-20 w-20 right-30 hover:rotate-7" alt="logo" />
                 <h2 className="pt-4 font-bold text-white text-5xl hover:text-[#9f9f9f]">BallHub</h2>
