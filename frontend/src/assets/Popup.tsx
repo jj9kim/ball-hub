@@ -98,6 +98,7 @@ function Popup({ trigger, children, onClose, selectedDate, onDateSelect }: Popup
     if (!trigger) return null;
 
     const calendarDays = generateCalendarDays();
+    const today = new Date(); // Get today's date for highlighting
 
     return (
         <div className="fixed top-0 left-0 w-screen h-screen bg-black/70 flex justify-center items-start z-1000 pt-50">
@@ -136,15 +137,24 @@ function Popup({ trigger, children, onClose, selectedDate, onDateSelect }: Popup
                                 day.date.getMonth() === selectedDate.getMonth() &&
                                 day.date.getFullYear() === selectedDate.getFullYear();
 
+                            // Check if this day is today
+                            const isToday = day.date.getDate() === today.getDate() &&
+                                day.date.getMonth() === today.getMonth() &&
+                                day.date.getFullYear() === today.getFullYear();
+
                             return (
                                 <div
                                     key={index}
-                                    className={`h-8 flex items-center justify-center rounded-full cursor-pointer transition-all text-sm
+                                    className={`h-8 flex items-center justify-center rounded-full cursor-pointer transition-all text-sm relative
                     ${day.isCurrentMonth ? 'text-black' : 'text-gray-400'}
                     ${isSelected ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
                                     onClick={() => handleDateSelect(day.date)}
                                 >
                                     {day.day}
+                                    {/* Light circle for today's date */}
+                                    {isToday && !isSelected && (
+                                        <div className="absolute inset-0 border-2 border-gray-500 rounded-full"></div>
+                                    )}
                                 </div>
                             );
                         })}

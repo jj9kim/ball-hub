@@ -29,11 +29,15 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         } else if (compareDate.getTime() === tomorrow.getTime()) {
             return "Tomorrow";
         } else {
-            // Format date as MM/DD/YYYY
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const year = date.getFullYear();
-            return `${month}/${day}/${year}`;
+            const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const months = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+
+            const weekday = weekdays[date.getDay()];
+            const month = months[date.getMonth()];
+            const day = date.getDate();
+
+            return `${weekday}, ${month} ${day}`;
         }
     };
 
@@ -56,7 +60,7 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                         &lt;
                     </button>
                     <button
-                        className="hover:text-[#9f9f9f] flex flex-row justify-center items-center w-30"
+                        className="hover:text-[#9f9f9f] flex flex-row justify-center items-center w-60"
                         onClick={onOpenCalendar}
                     >
                         {getDateDisplayText(selectedDate)}&nbsp;
@@ -80,9 +84,10 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
             </div>
 
             {/* Rest of your main content would go here */}
-            <div className="p-4">
-                <h1>Your App Content</h1>
-                <p>Selected date: {selectedDate.toDateString()}</p>
+            <div className="p-4 w-screen border-white border-4 flex justify-center">
+                <div className="w-1/2 border-red-600 border-2 flex justify-center">
+                    <p className="text-white">Selected date: {selectedDate.toDateString()}</p>
+                </div>
             </div>
         </React.Fragment>
     );
