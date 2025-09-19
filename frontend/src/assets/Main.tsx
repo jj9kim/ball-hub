@@ -14,14 +14,37 @@ interface Game {
     teams_found: number
 }
 
+interface Team {
+    game_id: number,
+    team_id: number,
+    minutes: string,
+    points: number,
+    offensive_rebounds: number,
+    defensive_rebounds: number,
+    total_rebounds: number,
+    assists: number,
+    steals: number,
+    blocks: number,
+    turnovers: number,
+    personal_fouls: number
+}
+
 function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: MainProps) {
     const [data, setData] = useState<Game[]>([]);
+    const [team, setTeam] = useState<Team[]>([]);
+
     useEffect(() => {
         fetch('http://localhost:8081/game_info')
             .then(res => res.json())
             .then((data: Game[]) => setData(data))
             .catch(err => console.log(err));
+        fetch('http://localhost:8081/team_stats')
+            .then(res => res.json())
+            .then((team: Team[]) => setTeam(team))
+            .catch(err => console.log(err));
     }, [])
+
+    console.log(team)
 
     // Function to get display text for the date
     const getDateDisplayText = (date: Date) => {
@@ -63,6 +86,29 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         onDateSelect(newDate);
     };
 
+    let SelectedGame = [];
+    let SelectedGameNumber = 0
+
+    for (let i = 0; i < data.length; ++i) {
+        let newDate = new Date(data[i].game_date)
+        if (newDate.toDateString() == selectedDate.toDateString()) {
+            SelectedGame[SelectedGameNumber] = data[i].game_id
+            SelectedGameNumber += 1
+        }
+    }
+
+    let SelectedTeam = [];
+    let SelectedTeamNumber = 0;
+
+    for (let i = 0; i < team.length; ++i) {
+        for (let j = 0; j < SelectedGame.length; ++j) {
+            if (team[i].game_id == SelectedGame[j]) {
+                SelectedTeam[SelectedTeamNumber] = team[i].team_id
+                SelectedTeamNumber += 1
+            }
+        }
+    }
+
     return (
         <React.Fragment>
             {/* Date bar - always visible regardless of calendar state */}
@@ -99,13 +145,9 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
             </div>
             <div className="p-4 w-screen border-white border-4 flex justify-center">
                 <div className="w-1/2 border-red-600 border-2 flex justify-center">
-                    <p className="text-white">Selected date: {selectedDate.toDateString()}</p>
-                    {data.map((d, i) => (
-                        <div key={i} className="text-white">
-                            <p>{d.game_id}</p>
-                            <p>{d.game_date}</p>
-                            <p>{d.scraped_timestamp}</p>
-                            <p>{d.teams_found}</p>
+                    {SelectedTeam.map((d, i) => (
+                        <div key={i} className="text-white flex justify-between h-5">
+                            <p>{d}</p>
                         </div>
                     ))}
                 </div>

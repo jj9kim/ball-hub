@@ -28,6 +28,28 @@ app.get("/game_info", (req, res) => {
   });
 });
 
+app.get("/games", (req, res) => {
+  const sql = "SELECT * FROM games";
+  db.all(sql, (err, data) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    return res.json(data);
+  });
+});
+
+app.get("/team_stats", (req, res) => {
+  const sql = "SELECT * FROM team_stats";
+  db.all(sql, (err, data) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    return res.json(data);
+  });
+});
+
 app.listen(8081, ()=>{
     console.log("listening")
 })
