@@ -90,12 +90,17 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
     let SelectedGameNumber = 0
 
     for (let i = 0; i < data.length; ++i) {
-        let newDate = new Date(data[i].game_date)
+        const dateString = data[i].game_date;
+        const [year, month, day] = dateString.split('-').map(Number);
+        let newDate = new Date(year, month - 1, day);
+        console.log(newDate)
         if (newDate.toDateString() == selectedDate.toDateString()) {
             SelectedGame[SelectedGameNumber] = data[i].game_id
             SelectedGameNumber += 1
         }
     }
+
+    console.log(SelectedGame)
 
     let SelectedTeam = [];
     let SelectedTeamNumber = 0;
@@ -144,12 +149,22 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                 </div>
             </div>
             <div className="p-4 w-screen border-white border-4 flex justify-center">
-                <div className="w-1/2 border-red-600 border-2 flex justify-center">
-                    {SelectedTeam.map((d, i) => (
-                        <div key={i} className="text-white flex justify-between h-5">
-                            <p>{d}</p>
-                        </div>
-                    ))}
+                <div className="w-1/2 flex flex-col space-y-2">
+                    {SelectedGame.map((gameId) => {
+                        const teamsForThisGame = team.filter(t => t.game_id === gameId);
+                        return (
+                            <button
+                                key={gameId}
+                                className="border-red-600 border-2 flex justify-between items-center h-10 hover:border-amber-400 px-4"
+                            >
+                                {teamsForThisGame.map((d, i) => (
+                                    <div key={i} className="text-white flex-1 text-center">
+                                        <p>{d.team_id}</p>
+                                    </div>
+                                ))}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
         </React.Fragment>

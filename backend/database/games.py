@@ -8,8 +8,9 @@ from datetime import datetime
 import re
 from player_ratings import PlayerRatingCalculator  # ADD THIS IMPORT
 
-start = 2879653
-end = 2879652
+start = 2878571
+end = 2878571
+      
 
 class RotowireScraper:
     def __init__(self, db_name: str = "games.db"):
