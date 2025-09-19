@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface MainProps {
     isCalendarOpen: boolean;
@@ -7,7 +7,22 @@ interface MainProps {
     onDateSelect: (date: Date) => void;
 }
 
+interface Game {
+    game_id: number,
+    game_date: string,
+    scraped_timestamp: string,
+    teams_found: number
+}
+
 function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: MainProps) {
+    const [data, setData] = useState<Game[]>([]);
+    useEffect(() => {
+        fetch('http://localhost:8081/game_info')
+            .then(res => res.json())
+            .then((data: Game[]) => setData(data))
+            .catch(err => console.log(err));
+    }, [])
+
     // Function to get display text for the date
     const getDateDisplayText = (date: Date) => {
         const today = new Date();
@@ -82,11 +97,17 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                     </button>
                 </div>
             </div>
-
-            {/* Rest of your main content would go here */}
             <div className="p-4 w-screen border-white border-4 flex justify-center">
                 <div className="w-1/2 border-red-600 border-2 flex justify-center">
                     <p className="text-white">Selected date: {selectedDate.toDateString()}</p>
+                    {data.map((d, i) => (
+                        <div key={i} className="text-white">
+                            <p>{d.game_id}</p>
+                            <p>{d.game_date}</p>
+                            <p>{d.scraped_timestamp}</p>
+                            <p>{d.teams_found}</p>
+                        </div>
+                    ))}
                 </div>
             </div>
         </React.Fragment>

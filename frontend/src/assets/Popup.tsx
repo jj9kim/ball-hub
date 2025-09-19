@@ -102,35 +102,35 @@ function Popup({ trigger, children, onClose, selectedDate, onDateSelect }: Popup
 
     return (
         <div className="fixed top-0 left-0 w-screen h-screen bg-black/70 flex justify-center items-start z-1000 pt-50">
-            <div ref={popupRef} className="relative p-4 w-full max-w-md bg-white rounded-lg shadow-xl">
+            <div ref={popupRef} className="relative p-4 w-full max-w-md bg-[#2b2b2b] rounded-lg shadow-xl">
                 <div className="calendar-container">
                     <div className="flex justify-between items-center mb-4">
                         <button
                             onClick={() => changeMonth(-1)}
-                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-full"
+                            className="p-2 text-white hover:bg-blue-100 rounded-full"
                         >
                             &lt;
                         </button>
-                        <span className="font-bold">
+                        <span className="font-bold text-white">
                             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                         </span>
                         <button
                             onClick={() => changeMonth(1)}
-                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-full"
+                            className="p-2 text-white hover:bg-blue-100 rounded-full"
                         >
                             &gt;
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 mb-2">
+                    <div className="grid grid-cols-7 gap-2 mb-2">
                         {daysOfWeek.map(day => (
-                            <div key={day} className="text-center font-bold text-gray-600 text-sm py-1">
+                            <div key={day} className="text-center font-bold text-white text-sm py-1">
                                 {day}
                             </div>
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1">
+                    <div className="grid grid-cols-7 gap-4">
                         {calendarDays.map((day, index) => {
                             const isSelected = selectedDate &&
                                 day.date.getDate() === selectedDate.getDate() &&
@@ -146,8 +146,8 @@ function Popup({ trigger, children, onClose, selectedDate, onDateSelect }: Popup
                                 <div
                                     key={index}
                                     className={`h-8 flex items-center justify-center rounded-full cursor-pointer transition-all text-sm relative
-                    ${day.isCurrentMonth ? 'text-black' : 'text-gray-400'}
-                    ${isSelected ? 'bg-blue-600 text-white' : 'hover:bg-gray-200'}`}
+                    ${day.isCurrentMonth ? 'text-white' : 'text-gray-400'}
+                    ${isSelected ? 'bg-white !text-[#2b2b2b]' : 'hover:bg-[#3333]'}`}
                                     onClick={() => handleDateSelect(day.date)}
                                 >
                                     {day.day}
