@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { getTeamLogoUrl } from '../utils/teamMappings';
 
 interface MainProps {
     isCalendarOpen: boolean;
@@ -159,7 +160,14 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                             >
                                 {teamsForThisGame.map((d, i) => (
                                     <div key={i} className="text-white flex-1 text-center">
-                                        <p>{d.team_id}</p>
+                                        <img
+                                            src={getTeamLogoUrl(d.team_id)}
+                                            alt={d.team_id.toString()}
+                                            className="w-8 h-8 mr-2"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
                                     </div>
                                 ))}
                             </button>
