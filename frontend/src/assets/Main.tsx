@@ -45,6 +45,19 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
     const { date: urlDate } = useParams<{ date?: string }>();
     const navigate = useNavigate();
 
+    // Revert to original useEffect (remove urlDate dependency)
+    useEffect(() => {
+        fetch('http://localhost:8081/game_info')
+            .then(res => res.json())
+            .then((data: Game[]) => setData(data))
+            .catch(err => console.log(err));
+        fetch('http://localhost:8081/team_stats')
+            .then(res => res.json())
+            .then((team: Team[]) => setTeam(team))
+            .catch(err => console.log(err));
+    }, []); // Empty dependency array - fetch only once on mount
+
+    // Sync selectedDate with URL parameter
     useEffect(() => {
         if (urlDate) {
             try {
@@ -60,17 +73,6 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
             }
         }
     }, [urlDate, onDateSelect, navigate]);
-
-    useEffect(() => {
-        fetch('http://localhost:8081/game_info')
-            .then(res => res.json())
-            .then((data: Game[]) => setData(data))
-            .catch(err => console.log(err));
-        fetch('http://localhost:8081/team_stats')
-            .then(res => res.json())
-            .then((team: Team[]) => setTeam(team))
-            .catch(err => console.log(err));
-    }, [])
 
     const getDateDisplayText = (date: Date) => {
         const today = new Date();
@@ -114,25 +116,27 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         onDateSelect(newDate);
     };
 
-    let SelectedGame = [];
-    let SelectedGameNumber = 0
+    const getGamesForSelectedDate = () => {
+        if (!data.length || !team.length) return [];
 
-    for (let i = 0; i < data.length; ++i) {
-        const dateString = data[i].game_date;
-        const [year, month, day] = dateString.split('-').map(Number);
-        let newDate = new Date(year, month - 1, day);
+        const selectedGames = data.filter(game => {
+            const dateString = game.game_date;
+            const [year, month, day] = dateString.split('-').map(Number);
+            const gameDate = new Date(year, month - 1, day);
 
-        const selectedDateLocal = new Date(selectedDate);
-        selectedDateLocal.setHours(0, 0, 0, 0);
-        newDate.setHours(0, 0, 0, 0);
+            // Compare dates without time components
+            const compareSelectedDate = new Date(selectedDate);
+            compareSelectedDate.setHours(0, 0, 0, 0);
+            gameDate.setHours(0, 0, 0, 0);
 
-        if (newDate.getTime() === selectedDateLocal.getTime()) {
-            SelectedGame[SelectedGameNumber] = data[i].game_id
-            SelectedGameNumber += 1
-        }
-    }
+            return gameDate.getTime() === compareSelectedDate.getTime();
+        });
 
-    console.log(SelectedGame)
+        console.log('Games for date:', selectedDate, 'found:', selectedGames.length);
+        return selectedGames;
+    };
+
+    const gamesForSelectedDate = getGamesForSelectedDate();
 
     let SelectedTeam = [];
     let SelectedTeamNumber = 0;
@@ -181,13 +185,13 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                 </div>
             </div>
             <div className="p-4 w-screen border-white border-4 flex justify-center">
-                <div className="w-1/2 flex flex-col space-y-2">
+                <div className="flex flex-col space-y-2 w-1/2">
                     {SelectedGame.map((gameId) => {
                         const teamsForThisGame = team.filter(t => t.game_id === gameId);
                         return (
                             <button
                                 key={gameId}
-                                className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
+                                className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d]"
                                 onClick={() => {
                                     const dateString = formatDateForURL(selectedDate);
                                     navigate(`/${dateString}/game/${gameId}`);
@@ -195,11 +199,11 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                             >
                                 {/* Team 1 */}
                                 <div className="flex items-center justify-end flex-1">
-                                    <p className="mr-2 text-white">{getTeamName(teamsForThisGame[0].team_id)}</p>
+                                    <p className="mr-2 max-sm:mr-0 text-white max-sm:text-xs">{getTeamName(teamsForThisGame[0].team_id)}</p>
                                     <img
                                         src={getTeamLogoUrl(teamsForThisGame[0].team_id)}
                                         alt={teamsForThisGame[0].team_id.toString()}
-                                        className="w-8 h-8"
+                                        className="w-8 h-8 max-sm:w-6 max-sm:h-8"
                                         onError={(e) => {
                                             e.currentTarget.style.display = 'none';
                                         }}
@@ -207,7 +211,7 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                 </div>
 
                                 {/* Scores - Centered */}
-                                <div className="flex items-center gap-2 mx-4">
+                                <div className="flex items-center gap-2 max-sm:gap-0 mx-4">
                                     <p className="text-white">{teamsForThisGame[0].points}</p>
                                     <span className="text-gray-400">-</span>
                                     <p className="text-white">{teamsForThisGame[1].points}</p>
@@ -218,12 +222,12 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                     <img
                                         src={getTeamLogoUrl(teamsForThisGame[1].team_id)}
                                         alt={teamsForThisGame[1].team_id.toString()}
-                                        className="w-8 h-8 mr-2"
+                                        className="w-8 h-8 mr-2 max-sm:mr-0 max-sm:w-6 max-sm:h-8"
                                         onError={(e) => {
                                             e.currentTarget.style.display = 'none';
                                         }}
                                     />
-                                    <p className="text-white">{getTeamName(teamsForThisGame[1].team_id)}</p>
+                                    <p className="text-white max-sm:text-xs">{getTeamName(teamsForThisGame[1].team_id)}</p>
                                 </div>
                             </button>
                         );
