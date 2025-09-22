@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { getTeamLogoUrl, getTeamName } from '../utils/teamMappings';
+import { useParams, useNavigate } from 'react-router-dom';
+
+const formatDateForURL = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 
 interface MainProps {
     isCalendarOpen: boolean;
@@ -33,6 +42,24 @@ interface Team {
 function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: MainProps) {
     const [data, setData] = useState<Game[]>([]);
     const [team, setTeam] = useState<Team[]>([]);
+    const { date: urlDate } = useParams<{ date?: string }>();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (urlDate) {
+            try {
+                const [year, month, day] = urlDate.split('-').map(Number);
+                const newDate = new Date(year, month - 1, day);
+
+                if (!isNaN(newDate.getTime())) {
+                    onDateSelect(newDate);
+                }
+            } catch (error) {
+                console.error('Invalid date in URL:', urlDate);
+                navigate('/');
+            }
+        }
+    }, [urlDate, onDateSelect, navigate]);
 
     useEffect(() => {
         fetch('http://localhost:8081/game_info')
@@ -77,10 +104,13 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         }
     };
 
-    // Function to change the selected date by offset days
     const changeDate = (offset: number) => {
         const newDate = new Date(selectedDate);
         newDate.setDate(newDate.getDate() + offset);
+
+        // Use local date string instead of ISO string
+        const dateString = formatDateForURL(newDate);
+        navigate(`/${dateString}`);
         onDateSelect(newDate);
     };
 
@@ -91,8 +121,12 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         const dateString = data[i].game_date;
         const [year, month, day] = dateString.split('-').map(Number);
         let newDate = new Date(year, month - 1, day);
-        console.log(newDate)
-        if (newDate.toDateString() == selectedDate.toDateString()) {
+
+        const selectedDateLocal = new Date(selectedDate);
+        selectedDateLocal.setHours(0, 0, 0, 0);
+        newDate.setHours(0, 0, 0, 0);
+
+        if (newDate.getTime() === selectedDateLocal.getTime()) {
             SelectedGame[SelectedGameNumber] = data[i].game_id
             SelectedGameNumber += 1
         }
@@ -154,6 +188,10 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                             <button
                                 key={gameId}
                                 className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
+                                onClick={() => {
+                                    const dateString = formatDateForURL(selectedDate);
+                                    navigate(`/${dateString}/game/${gameId}`);
+                                }}
                             >
                                 {/* Team 1 */}
                                 <div className="flex items-center justify-end flex-1">

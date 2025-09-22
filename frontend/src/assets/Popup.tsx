@@ -1,4 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const formatDateForURL = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 
 interface PopupProps {
     trigger: boolean;
@@ -84,9 +93,13 @@ function Popup({ trigger, children, onClose, selectedDate, onDateSelect }: Popup
         setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
     };
 
+    const navigate = useNavigate();
+
     const handleDateSelect = (date: Date) => {
         onDateSelect(date);
-        onClose(); // Close the calendar immediately after selecting a date
+        const dateString = formatDateForURL(date); // Use local date formatting
+        navigate(`/${dateString}`);
+        onClose();
     };
 
     useEffect(() => {

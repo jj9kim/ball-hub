@@ -35,7 +35,7 @@ export const teamIdToAbbreviation: { [key: number]: string } = {
     1: "Hawks",
     2: "Celtics",
     3: "Pelicans", 
-    4: "BUlls",
+    4: "Bulls",
     5: "Cavaliers",
     6: "Mavericks",
     7: "Nuggets",
