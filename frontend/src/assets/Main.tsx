@@ -138,18 +138,6 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
 
     const gamesForSelectedDate = getGamesForSelectedDate();
 
-    let SelectedTeam = [];
-    let SelectedTeamNumber = 0;
-
-    for (let i = 0; i < team.length; ++i) {
-        for (let j = 0; j < SelectedGame.length; ++j) {
-            if (team[i].game_id == SelectedGame[j]) {
-                SelectedTeam[SelectedTeamNumber] = team[i].team_id
-                SelectedTeamNumber += 1
-            }
-        }
-    }
-
     return (
         <React.Fragment>
             {/* Date bar - always visible regardless of calendar state */}
@@ -185,53 +173,65 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                 </div>
             </div>
             <div className="p-4 w-screen border-white border-4 flex justify-center">
-                <div className="flex flex-col space-y-2 w-1/2">
-                    {SelectedGame.map((gameId) => {
-                        const teamsForThisGame = team.filter(t => t.game_id === gameId);
-                        return (
-                            <button
-                                key={gameId}
-                                className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d]"
-                                onClick={() => {
-                                    const dateString = formatDateForURL(selectedDate);
-                                    navigate(`/${dateString}/game/${gameId}`);
-                                }}
-                            >
-                                {/* Team 1 */}
-                                <div className="flex items-center justify-end flex-1">
-                                    <p className="mr-2 max-sm:mr-0 text-white max-sm:text-xs">{getTeamName(teamsForThisGame[0].team_id)}</p>
-                                    <img
-                                        src={getTeamLogoUrl(teamsForThisGame[0].team_id)}
-                                        alt={teamsForThisGame[0].team_id.toString()}
-                                        className="w-8 h-8 max-sm:w-6 max-sm:h-8"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                        }}
-                                    />
-                                </div>
+                <div className="w-1/2 flex flex-col space-y-2">
+                    {gamesForSelectedDate.length === 0 ? (
+                        <div className="text-white text-center py-4">
+                            No games found for {selectedDate.toLocaleDateString()}
+                        </div>
+                    ) : (
+                        gamesForSelectedDate.map((game) => {
+                            const teamsForThisGame = team.filter(t => t.game_id === game.game_id);
 
-                                {/* Scores - Centered */}
-                                <div className="flex items-center gap-2 max-sm:gap-0 mx-4">
-                                    <p className="text-white">{teamsForThisGame[0].points}</p>
-                                    <span className="text-gray-400">-</span>
-                                    <p className="text-white">{teamsForThisGame[1].points}</p>
-                                </div>
+                            if (teamsForThisGame.length !== 2) {
+                                console.log('Incomplete game data for game:', game.game_id);
+                                return null;
+                            }
 
-                                {/* Team 2 */}
-                                <div className="flex items-center justify-start flex-1">
-                                    <img
-                                        src={getTeamLogoUrl(teamsForThisGame[1].team_id)}
-                                        alt={teamsForThisGame[1].team_id.toString()}
-                                        className="w-8 h-8 mr-2 max-sm:mr-0 max-sm:w-6 max-sm:h-8"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                        }}
-                                    />
-                                    <p className="text-white max-sm:text-xs">{getTeamName(teamsForThisGame[1].team_id)}</p>
-                                </div>
-                            </button>
-                        );
-                    })}
+                            return (
+                                <button
+                                    key={game.game_id}
+                                    className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
+                                    onClick={() => {
+                                        const dateString = formatDateForURL(selectedDate);
+                                        navigate(`/${dateString}/game/${game.game_id}`);
+                                    }}
+                                >
+                                    {/* Team 1 */}
+                                    <div className="flex items-center justify-end flex-1">
+                                        <p className="mr-2 text-white">{getTeamName(teamsForThisGame[0].team_id)}</p>
+                                        <img
+                                            src={getTeamLogoUrl(teamsForThisGame[0].team_id)}
+                                            alt={teamsForThisGame[0].team_id.toString()}
+                                            className="w-8 h-8"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Scores - Centered */}
+                                    <div className="flex items-center gap-2 mx-4">
+                                        <p className="text-white">{teamsForThisGame[0].points}</p>
+                                        <span className="text-gray-400">-</span>
+                                        <p className="text-white">{teamsForThisGame[1].points}</p>
+                                    </div>
+
+                                    {/* Team 2 */}
+                                    <div className="flex items-center justify-start flex-1">
+                                        <img
+                                            src={getTeamLogoUrl(teamsForThisGame[1].team_id)}
+                                            alt={teamsForThisGame[1].team_id.toString()}
+                                            className="w-8 h-8 mr-2"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
+                                        <p className="text-white">{getTeamName(teamsForThisGame[1].team_id)}</p>
+                                    </div>
+                                </button>
+                            );
+                        })
+                    )}
                 </div>
             </div>
         </React.Fragment>

@@ -28,17 +28,16 @@ export default function GamePage() {
         }
     };
 
-    // Fix: Display the date correctly
     const displayDate = date ? parseLocalDate(date) : null;
 
     return (
-        <div className="min-h-screen bg-[#1d1d1d] text-white pt-4">
-            <div className="container mx-auto px-4">
+        <div className="min-h-[80vh] bg-[#1d1d1d] text-white w-2/3 flex mt-25 justify-center mx-auto border-2 border-red-500 rounded-2xl">
+            <div className="container mx-auto px-4 w-full">
                 <button
                     onClick={handleBack}
-                    className="bg-red-600 px-4 py-2 rounded mb-4 hover:bg-red-700"
+                    className="px-4 py-2 rounded mb-4 hover:underline hover:font-bold"
                 >
-                    ← Back to {displayDate ? displayDate.toLocaleDateString() : 'Games'}
+                    ← Games
                 </button>
 
                 <h1 className="text-3xl font-bold mb-2">Game Stats: {id}</h1>
