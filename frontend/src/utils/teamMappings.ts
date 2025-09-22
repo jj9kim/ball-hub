@@ -30,8 +30,48 @@ export const teamIdToAbbreviation: { [key: number]: string } = {
     29: "MEM",
     5312: "CHA"
   };
+
+  export const teamIdToName: { [key: number]: string } = {
+    1: "Hawks",
+    2: "Celtics",
+    3: "Pelicans", 
+    4: "BUlls",
+    5: "Cavaliers",
+    6: "Mavericks",
+    7: "Nuggets",
+    8: "Pistons",
+    9: "Warriors",
+    10: "Rockets",
+    11: "Pacers",
+    12: "Clippers",
+    13: "Lakers",
+    14: "Hear",
+    15: "Bucks",
+    16: "Timberwolves",
+    17: "Nets",
+    18: "Knicks",
+    19: "Magic",
+    20: "76ers",
+    21: "Suns",
+    22: "Trailblazers",
+    23: "Kings",
+    24: "Spurs",
+    25: "Thunder",
+    26: "Jazz",
+    27: "Wizards",
+    28: "Raptors",
+    29: "Grizzlies",
+    5312: "Hornets"
+  };
+
+
   
   export const getTeamLogoUrl = (teamId: number): string => {
     const abbreviation = teamIdToAbbreviation[teamId];
     return `https://content.rotowire.com/images/teamlogo/basketball/100${abbreviation}.png?v=7`;
   };
+
+  export const getTeamName = (teamId: number): string => {
+    const name = teamIdToName[teamId];
+    return name;
+  }

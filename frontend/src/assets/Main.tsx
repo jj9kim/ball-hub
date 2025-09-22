@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getTeamLogoUrl } from '../utils/teamMappings';
+import { getTeamLogoUrl, getTeamName } from '../utils/teamMappings';
 
 interface MainProps {
     isCalendarOpen: boolean;
@@ -45,9 +45,6 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
             .catch(err => console.log(err));
     }, [])
 
-    console.log(team)
-
-    // Function to get display text for the date
     const getDateDisplayText = (date: Date) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -156,20 +153,40 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                         return (
                             <button
                                 key={gameId}
-                                className="border-red-600 border-2 flex justify-between items-center h-10 hover:border-amber-400 px-4"
+                                className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
                             >
-                                {teamsForThisGame.map((d, i) => (
-                                    <div key={i} className="text-white flex-1 text-center">
-                                        <img
-                                            src={getTeamLogoUrl(d.team_id)}
-                                            alt={d.team_id.toString()}
-                                            className="w-8 h-8 mr-2"
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none';
-                                            }}
-                                        />
-                                    </div>
-                                ))}
+                                {/* Team 1 */}
+                                <div className="flex items-center justify-end flex-1">
+                                    <p className="mr-2 text-white">{getTeamName(teamsForThisGame[0].team_id)}</p>
+                                    <img
+                                        src={getTeamLogoUrl(teamsForThisGame[0].team_id)}
+                                        alt={teamsForThisGame[0].team_id.toString()}
+                                        className="w-8 h-8"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Scores - Centered */}
+                                <div className="flex items-center gap-2 mx-4">
+                                    <p className="text-white">{teamsForThisGame[0].points}</p>
+                                    <span className="text-gray-400">-</span>
+                                    <p className="text-white">{teamsForThisGame[1].points}</p>
+                                </div>
+
+                                {/* Team 2 */}
+                                <div className="flex items-center justify-start flex-1">
+                                    <img
+                                        src={getTeamLogoUrl(teamsForThisGame[1].team_id)}
+                                        alt={teamsForThisGame[1].team_id.toString()}
+                                        className="w-8 h-8 mr-2"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                    <p className="text-white">{getTeamName(teamsForThisGame[1].team_id)}</p>
+                                </div>
                             </button>
                         );
                     })}
