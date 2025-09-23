@@ -193,7 +193,7 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                     className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
                                     onClick={() => {
                                         const dateString = formatDateForURL(selectedDate);
-                                        navigate(`/${dateString}/game/${game.game_id}`);
+                                        navigate(`/${dateString}/game/${game.game_id}`, {state: {game:game, t:team, teamsThisGame:teamsForThisGame}});
                                     }}
                                 >
                                     {/* Team 1 */}
