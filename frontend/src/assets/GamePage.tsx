@@ -1,11 +1,90 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getTeamLogoUrl, getTeamName } from '../utils/teamMappings';
+import { useEffect, useState } from "react";
+
+interface Stats {
+    player_id: number,
+    player_name: string,
+    player_name_short: string,
+    position: string,
+    position_sort: number,
+    game_id: number,
+    team_id: number,
+    minutes: number,
+    points: number,
+    fg_made: number,
+    fg_attempted: number,
+    fg_percentage: number,
+    three_pt_made: number,
+    three_pt_attempted: number,
+    three_pt_percentage: number,
+    ft_made: number,
+    ft_attempted: number,
+    ft_percentage: number,
+    offensive_rebounds: number,
+    defensive_rebounds: number,
+    total_rebounds: number,
+    assists: number,
+    steals: number,
+    blocks: number,
+    turnovers: number,
+    personal_fouls: number,
+    technical_fouls: number,
+    ejected: number,
+    ortg: number,
+    usg: number,
+    url: string,
+    player_rating: number
+}
 
 export default function GamePage() {
-    const { date } = useParams<{ date?: string; id: string }>();
+    const [gameStats, setGameStats] = useState<Stats[]>([]);
+    const { date, id } = useParams<{ date?: string; id: string }>();
     const navigate = useNavigate();
     const location = useLocation();
     const teamsThisGame = location.state.teamsThisGame
+    const teamStats = location.state.t
+
+     useEffect(() => {
+            fetch('http://localhost:8081/games')
+                .then(res => res.json())
+                .then((gameStats: Stats[]) => setGameStats(gameStats))
+                .catch(err => console.log(err));
+    }, []);
+
+    const getStatsForTeams = () => {
+        const statsPerTeam = gameStats.filter(g => g.game_id === Number(id));
+        const Team1 = statsPerTeam.filter(s => s.team_id === teamsThisGame[0].team_id)
+        const Team2 = statsPerTeam.filter(s => s.team_id === teamsThisGame[1].team_id)
+
+        const allStats = teamStats.filter((s: Stats) => s.game_id === Number(id));
+        const Team1All = allStats.find((g: Stats) => g.team_id === teamsThisGame[0].team_id);
+        const Team2All = allStats.find((g: Stats) => g.team_id === teamsThisGame[1].team_id);
+
+        function sumField(arr: any[], field: string): number {
+            return arr.reduce((sum, obj) => sum + (obj[field] || 0), 0);
+        }
+
+        Team1All.fg_attempted = sumField(Team1, "fg_attempted");
+        Team1All.fg_made = sumField(Team1, "fg_made");
+        Team1All.ft_attempted = sumField(Team1, "ft_attempted");
+        Team1All.ft_made = sumField(Team1, "ft_made");
+        Team1All.three_pt_attempted = sumField(Team1, "three_pt_attempted");
+        Team1All.three_pt_made = sumField(Team1, "three_pt_made");
+
+        Team2All.fg_attempted = sumField(Team2, "fg_attempted");
+        Team2All.fg_made = sumField(Team2, "fg_made");
+        Team2All.ft_attempted = sumField(Team2, "ft_attempted");
+        Team2All.ft_made = sumField(Team2, "ft_made");
+        Team2All.three_pt_attempted = sumField(Team2, "three_pt_attempted");
+        Team2All.three_pt_made = sumField(Team2, "three_pt_made");
+
+        return {Team1, Team2, Team1All, Team2All}
+    }
+
+    const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
+
+    console.log(Team2All.three_pt_made)
 
     // Fix: Parse the date correctly as local time
     const parseLocalDate = (dateString: string): Date => {
@@ -124,6 +203,7 @@ export default function GamePage() {
                     </div>
                 </div>
                 <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d]'>
+                    <h1 className='text-white'>{Team1All.fg_attempted}</h1>
                 </div>
             </div>
             <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
