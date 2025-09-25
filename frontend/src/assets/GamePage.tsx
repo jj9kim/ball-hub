@@ -45,11 +45,11 @@ export default function GamePage() {
     const teamsThisGame = location.state.teamsThisGame
     const teamStats = location.state.t
 
-     useEffect(() => {
-            fetch('http://localhost:8081/games')
-                .then(res => res.json())
-                .then((gameStats: Stats[]) => setGameStats(gameStats))
-                .catch(err => console.log(err));
+    useEffect(() => {
+        fetch('http://localhost:8081/games')
+            .then(res => res.json())
+            .then((gameStats: Stats[]) => setGameStats(gameStats))
+            .catch(err => console.log(err));
     }, []);
 
     const getStatsForTeams = () => {
@@ -79,7 +79,7 @@ export default function GamePage() {
         Team2All.three_pt_attempted = sumField(Team2, "three_pt_attempted");
         Team2All.three_pt_made = sumField(Team2, "three_pt_made");
 
-        return {Team1, Team2, Team1All, Team2All}
+        return { Team1, Team2, Team1All, Team2All }
     }
 
     const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
@@ -180,7 +180,6 @@ export default function GamePage() {
                                 <p className="text-gray-400 text-lg pt-5">Final</p>
                             </div>
 
-
                             {/* Team 2 */}
                             <div className="flex items-center ml-10">
                                 <img
@@ -202,8 +201,50 @@ export default function GamePage() {
                         <button className='text-[#9f9f9f] hover:text-[#6f6f6f]'>Stats</button>
                     </div>
                 </div>
-                <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d]'>
-                    <h1 className='text-white'>{Team1All.fg_attempted}</h1>
+                <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>
+                    <div className='flex justify-center'><h1 className='text-white'>Statistics</h1></div>
+                    <div className='text-white flex flex-row'>
+                        <div className='w-full border-2 border-green-400 min-h-[20vh]'>
+                            <div className='flex justify-between'>
+                                <p>{Team1All.ft_made}/{Team1All.ft_attempted}</p>
+                                <p>FT</p>
+                                <p>{Team2All.ft_made}/{Team2All.ft_attempted}</p>
+                            </div>
+                            <div className='flex justify-between'>
+                                <p>{Team1All.three_pt_made}/{Team1All.three_pt_attempted}</p>
+                                <p>3PT</p>
+                                <p>{Team2All.three_pt_made}/{Team2All.three_pt_attempted}</p>
+                            </div>
+
+                            <div className='flex justify-between'>
+                                <p>{Team1All.fg_made}/{Team1All.fg_attempted}</p>
+                                <p>FG</p>
+                                <p>{Team2All.fg_made}/{Team2All.fg_attempted}</p>
+                            </div>
+
+                            <div className='flex justify-between'>
+                                <p>{Team1All.total_rebounds}</p>
+                                <p>Rebounds</p>
+                                <p>{Team2All.total_rebounds}</p>
+                            </div>
+                            <div className="flex justify-center">
+                                <div className="relative w-4/5 overflow-hidden rounded-full h-5">
+                                    <div
+                                        className="absolute top-0 left-0 bottom-0 bg-red-600"
+                                        style={{
+                                            width: `${(Team1All.total_rebounds / (Team1All.total_rebounds + Team2All.total_rebounds)) * 100}%`
+                                        }}
+                                    ></div>
+                                    <div
+                                        className="absolute top-0 right-0 bottom-0 bg-blue-600"
+                                        style={{
+                                            width: `${(Team2All.total_rebounds / (Team1All.total_rebounds + Team2All.total_rebounds)) * 100}%`
+                                        }}
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
