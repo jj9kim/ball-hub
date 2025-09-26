@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getTeamLogoUrl, getTeamName } from '../utils/teamMappings';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface Stats {
     player_id: number,
@@ -37,6 +37,13 @@ interface Stats {
     player_rating: number
 }
 
+interface UnderlineStyle {
+    width: number;
+    left: number;
+}
+
+type TabType = 'facts' | 'lineup' | 'table' | 'stats';
+
 export default function GamePage() {
     const [gameStats, setGameStats] = useState<Stats[]>([]);
     const { date, id } = useParams<{ date?: string; id: string }>();
@@ -44,6 +51,463 @@ export default function GamePage() {
     const location = useLocation();
     const teamsThisGame = location.state.teamsThisGame
     const teamStats = location.state.t
+    
+    const [activeTab, setActiveTab] = useState<TabType>('facts');
+    const [underlineStyle, setUnderlineStyle] = useState<UnderlineStyle>({ width: 0, left: 0 });
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const tabs: { key: TabType; label: string }[] = [
+        { key: 'facts', label: 'Facts' },
+        { key: 'lineup', label: 'Lineup' },
+        { key: 'table', label: 'Table' },
+        { key: 'stats', label: 'Stats' }
+    ];
+
+    useEffect(() => {
+        buttonRefs.current = buttonRefs.current.slice(0, tabs.length);
+        updateUnderlinePosition(0);
+    }, [tabs.length]);
+
+    const updateUnderlinePosition = (tabIndex: number) => {
+        const activeButton = buttonRefs.current[tabIndex];
+        const container = containerRef.current;
+
+        if (!activeButton || !container) return;
+
+        const buttonRect = activeButton.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        setUnderlineStyle({
+            width: buttonRect.width,
+            left: buttonRect.left - containerRect.left,
+        });
+    };
+
+    const handleTabClick = (tabKey: TabType, index: number) => {
+        setActiveTab(tabKey);
+        updateUnderlinePosition(index);
+    };
+
+    // Content for each tab - replace with your actual content
+    const renderTabContent = () => {
+        switch (activeTab) {
+            case 'facts':
+                return (
+                    <div>
+                        <div className='flex justify-center'><h1 className='text-white'>Statistics</h1></div>
+                        <div className='text-white flex flex-row'>
+                            <div className='w-full border-2 border-green-400 min-h-[20vh]'>
+                                <div className='flex justify-between pt-5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.ft_made}/{Team1All.ft_attempted}
+                                        </p>
+                                    </div>
+                                    <p>FT</p>
+                                    <div className="flex justify-center">
+                                        <p className="bg-blue-600 text-white rounded-full px-5 py-1 mr-5">
+                                            {Team2All.ft_made}/{Team2All.ft_attempted}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.ft_made / (Team1All.ft_attempted + Team2All.ft_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-red-400"
+                                            style={{
+                                                width: `${((Team1All.ft_attempted - Team1All.ft_made) / (Team1All.ft_attempted + Team2All.ft_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.ft_made / (Team1All.ft_attempted + Team2All.ft_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-400"
+                                            style={{
+                                                width: `${((Team2All.ft_attempted - Team2All.ft_made) / (Team1All.ft_attempted + Team2All.ft_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className='flex justify-between pt-5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.three_pt_made}/{Team1All.three_pt_attempted}
+                                        </p>
+                                    </div>
+                                    <p>3PT</p>
+                                    <div className="flex justify-center">
+                                        <p className="bg-blue-600 text-white rounded-full px-5 py-1 mr-5">
+                                            {Team2All.three_pt_made}/{Team2All.three_pt_attempted}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.three_pt_made / (Team1All.three_pt_attempted + Team2All.three_pt_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-red-400"
+                                            style={{
+                                                width: `${((Team1All.three_pt_attempted - Team1All.three_pt_made) / (Team1All.three_pt_attempted + Team2All.three_pt_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.three_pt_made / (Team1All.three_pt_attempted + Team2All.three_pt_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-400"
+                                            style={{
+                                                width: `${((Team2All.three_pt_attempted - Team2All.three_pt_made) / (Team1All.three_pt_attempted + Team2All.three_pt_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className='flex justify-between pt-5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.fg_made}/{Team1All.fg_attempted}
+                                        </p>
+                                    </div>
+                                    <p>FG</p>
+                                    <div className="flex justify-center">
+                                        <p className="bg-blue-600 text-white rounded-full px-5 py-1 mr-5">
+                                            {Team2All.fg_made}/{Team2All.fg_attempted}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.fg_made / (Team1All.fg_attempted + Team2All.fg_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-red-400"
+                                            style={{
+                                                width: `${((Team1All.fg_attempted - Team1All.fg_made) / (Team1All.fg_attempted + Team2All.fg_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.fg_made / (Team1All.fg_attempted + Team2All.fg_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-400"
+                                            style={{
+                                                width: `${((Team2All.fg_attempted - Team2All.fg_made) / (Team1All.fg_attempted + Team2All.fg_attempted)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className='flex justify-between pt-5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.total_rebounds}
+                                        </p>
+                                    </div>
+                                    <p>Rebounds</p>
+                                    <div className='flex justify-center'>
+                                        <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.total_rebounds}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center pb-5'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.total_rebounds / (Team1All.total_rebounds + Team2All.total_rebounds)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.total_rebounds / (Team1All.total_rebounds + Team2All.total_rebounds)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className='flex justify-between pt-1 pb-2.5'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.offensive_rebounds}
+                                        </p>
+                                    </div>
+                                    <p>Offensive Rebounds</p>
+                                    <div className='flex justify-center'>
+                                        <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.offensive_rebounds}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center pb-5'>
+                                    <div className="flex justify-center w-4/5 overflow-hidden rounded-full h-2.5">
+                                        <div className="flex w-6/10 overflow-hidden rounded-full h-2.5">
+                                            <div
+                                                className="bg-red-600"
+                                                style={{
+                                                    width: `${(Team1All.offensive_rebounds / (Team1All.offensive_rebounds + Team2All.offensive_rebounds)) * 100}%`,
+                                                }}
+                                            />
+                                            <div
+                                                className="bg-red-400"
+                                                style={{
+                                                    width: `${(((Team1All.offensive_rebounds + Team2All.offensive_rebounds) - Team1All.offensive_rebounds) / (Team1All.offensive_rebounds + Team2All.offensive_rebounds)) * 100}%`,
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-center w-4/5 overflow-hidden rounded-full h-2.5">
+                                        <div className="flex w-6/10 overflow-hidden rounded-full h-2.5">
+                                            <div
+                                                className="bg-blue-600"
+                                                style={{
+                                                    width: `${(Team2All.offensive_rebounds / (Team1All.offensive_rebounds + Team2All.offensive_rebounds)) * 100}%`,
+                                                }}
+                                            />
+                                            <div
+                                                className="bg-blue-400"
+                                                style={{
+                                                    width: `${(((Team1All.offensive_rebounds + Team2All.offensive_rebounds) - Team2All.offensive_rebounds) / (Team1All.offensive_rebounds + Team2All.offensive_rebounds)) * 100}%`,
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className='flex justify-between pt-1 pb-2.5'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.defensive_rebounds}
+                                        </p>
+                                    </div>
+                                    <p>Defensive Rebounds</p>
+                                    <div className='flex justify-center'>
+                                        <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.defensive_rebounds}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center pb-5'>
+                                    <div className="flex justify-center w-4/5 overflow-hidden rounded-full h-2.5">
+                                        <div className="flex w-6/10 overflow-hidden rounded-full h-2.5">
+                                            <div
+                                                className="bg-red-600"
+                                                style={{
+                                                    width: `${(Team1All.defensive_rebounds / (Team1All.defensive_rebounds + Team2All.defensive_rebounds)) * 100}%`,
+                                                }}
+                                            />
+                                            <div
+                                                className="bg-red-400"
+                                                style={{
+                                                    width: `${(((Team1All.defensive_rebounds + Team2All.defensive_rebounds) - Team1All.defensive_rebounds) / (Team1All.defensive_rebounds + Team2All.defensive_rebounds)) * 100}%`,
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-center w-4/5 overflow-hidden rounded-full h-2.5">
+                                        <div className="flex w-6/10 overflow-hidden rounded-full h-2.5">
+                                            <div
+                                                className="bg-blue-600"
+                                                style={{
+                                                    width: `${(Team2All.defensive_rebounds / (Team1All.defensive_rebounds + Team2All.defensive_rebounds)) * 100}%`,
+                                                }}
+                                            />
+                                            <div
+                                                className="bg-blue-400"
+                                                style={{
+                                                    width: `${(((Team1All.defensive_rebounds + Team2All.defensive_rebounds) - Team2All.defensive_rebounds) / (Team1All.defensive_rebounds + Team2All.defensive_rebounds)) * 100}%`,
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className='flex justify-between pt-2.5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.assists}
+                                        </p>
+                                    </div>
+                                    <p>Assists</p>
+                                    <div className='flex justify-center'>
+                                        <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.assists}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center pb-5'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.assists / (Team1All.assists + Team2All.assists)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.assists / (Team1All.assists + Team2All.assists)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className='flex justify-between pt-2.5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.steals}
+                                        </p>
+                                    </div>
+                                    <p>Steals</p>
+                                    <div className='flex justify-center'>
+                                        <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.steals}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center pb-5'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.steals / (Team1All.steals + Team2All.steals)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.steals / (Team1All.steals + Team2All.steals)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className='flex justify-between pt-2.5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.blocks}
+                                        </p>
+                                    </div>
+                                    <p>Blocks</p>
+                                    <div className='flex justify-center'>
+                                        <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.blocks}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center pb-5'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.blocks / (Team1All.blocks + Team2All.blocks)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.blocks / (Team1All.blocks + Team2All.blocks)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className='flex justify-between pt-2.5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.personal_fouls}
+                                        </p>
+                                    </div>
+                                    <p>Fouls</p>
+                                    <div className='flex justify-center'>
+                                        <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.personal_fouls}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center pb-5'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.personal_fouls / (Team1All.personal_fouls + Team2All.personal_fouls)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.personal_fouls / (Team1All.personal_fouls + Team2All.personal_fouls)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className='flex justify-between pt-2.5 pb-3'>
+                                    <div className="flex justify-center">
+                                        <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
+                                            {Team1All.turnovers}
+                                        </p>
+                                    </div>
+                                    <p>Turnovers</p>
+                                    <div className='flex justify-center'>
+                                        <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.turnovers}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-center pb-5'>
+                                    <div className="flex w-4/5 overflow-hidden rounded-full h-5">
+                                        <div
+                                            className="bg-red-600"
+                                            style={{
+                                                width: `${(Team1All.turnovers / (Team1All.turnovers + Team2All.turnovers)) * 100}%`,
+                                            }}
+                                        />
+                                        <div
+                                            className="bg-blue-600"
+                                            style={{
+                                                width: `${(Team2All.turnovers / (Team1All.turnovers + Team2All.turnovers)) * 100}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            case 'lineup':
+                return (
+                    <div className="p-6">
+                        <h3 className="text-xl font-bold text-white mb-4">Lineup Content</h3>
+                        <p className="text-gray-300">This is the lineup tab content. Show your team lineup here.</p>
+                    </div>
+                );
+            case 'table':
+                return (
+                    <div className="p-6">
+                        <h3 className="text-xl font-bold text-white mb-4">Table Content</h3>
+                        <p className="text-gray-300">This is the table tab content. Display your data tables here.</p>
+                    </div>
+                );
+            case 'stats':
+                return (
+                    <div className="p-6">
+                        <h3 className="text-xl font-bold text-white mb-4">Stats Content</h3>
+                        <p className="text-gray-300">This is the stats tab content. Show statistics and charts here.</p>
+                    </div>
+                );
+            default:
+                return (
+                    <div className="p-6">
+                        <p className="text-gray-300">Select a tab to view content.</p>
+                    </div>
+                );
+        }
+    };
 
     useEffect(() => {
         fetch('http://localhost:8081/games')
@@ -157,14 +621,14 @@ export default function GamePage() {
                     </div>
                     <div className='border-b-2 border-b-[#5b5b5b33]'></div>
                     <div className="flex flex-col w-full pt-5">
-                        <div className='flex flex-row pb-10 justify-center'>
-                            {/* Team 1 */}
-                            <div className="flex items-center mr-10">
-                                <p className="mr-5 text-white text-2xl">{getTeamName(teamsThisGame[0].team_id)}</p>
+                        <div className='grid grid-cols-3 items-center pb-10 justify-center'>
+                            {/* Team 1 - Left */}
+                            <div className="flex items-center justify-end">
+                                <p className="mr-5 text-white text-2xl text-right">{getTeamName(teamsThisGame[0].team_id)}</p>
                                 <img
                                     src={getTeamLogoUrl(teamsThisGame[0].team_id)}
                                     alt={teamsThisGame[0].team_id.toString()}
-                                    className="w-16 h-16 mr-7"
+                                    className="w-16 h-16"
                                     onError={(e) => {
                                         e.currentTarget.style.display = 'none';
                                     }}
@@ -172,7 +636,7 @@ export default function GamePage() {
                             </div>
 
                             {/* Scores - Centered */}
-                            <div className="flex flex-col pb-5 items-center">
+                            <div className="flex flex-col pb-5 items-center justify-center">
                                 <div className="flex items-center gap-2">
                                     <p className="text-white text-2xl">{teamsThisGame[0].points}</p>
                                     <span className="text-gray-400 text-2xl">-</span>
@@ -181,410 +645,59 @@ export default function GamePage() {
                                 <p className="text-gray-400 text-lg pt-5">Final</p>
                             </div>
 
-                            {/* Team 2 */}
-                            <div className="flex items-center ml-10">
+                            {/* Team 2 - Right */}
+                            <div className="flex items-center justify-start">
                                 <img
                                     src={getTeamLogoUrl(teamsThisGame[1].team_id)}
                                     alt={teamsThisGame[1].team_id.toString()}
-                                    className="w-16 h-16 mr-7"
+                                    className="w-16 h-16 mr-5"
                                     onError={(e) => {
                                         e.currentTarget.style.display = 'none';
                                     }}
                                 />
-                                <p className="text-white text-2xl">{getTeamName(teamsThisGame[1].team_id)}</p>
+                                <p className="text-white text-2xl text-left">{getTeamName(teamsThisGame[1].team_id)}</p>
                             </div>
                         </div>
                     </div>
-                    <div className='flex w-2/3 justify-between pb-5 pl-5'>
-                        <button className='text-[#9f9f9f] hover:text-[#6f6f6f]'>Facts</button>
-                        <button className='text-[#9f9f9f] hover:text-[#6f6f6f]'>Lineup</button>
-                        <button className='text-[#9f9f9f] hover:text-[#6f6f6f]'>Table</button>
-                        <button className='text-[#9f9f9f] hover:text-[#6f6f6f]'>Stats</button>
+                    <div className="w-full">
+                        {/* Your existing tab navigation code */}
+                        <div className="relative w-2/3">
+                            <div ref={containerRef} className='flex justify-between pb-1 pl-5 relative'>
+                                {tabs.map((tab, index) => (
+                                    <button
+                                        key={tab.key}
+                                        ref={(el: HTMLButtonElement | null) => {
+                                            buttonRefs.current[index] = el;
+                                        }}
+                                        className={`relative px-4 py-2 transition-colors duration-200 z-10 ${activeTab === tab.key
+                                                ? 'text-white font-medium'
+                                                : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
+                                            }`}
+                                        onClick={() => handleTabClick(tab.key, index)}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+
+                                <div
+                                    className="absolute bottom-0 h-1 rounded-t-full bg-white transition-all duration-300 ease-out"
+                                    style={{
+                                        width: `${underlineStyle.width}px`,
+                                        left: `${underlineStyle.left}px`,
+                                    }}
+                                />
+                            </div>
+
+                            <div className='flex justify-between ml-4 rounded-t-full'>
+                                {tabs.map((_, index) => (
+                                    <div key={index} className='border-2 border-white opacity-0 flex-1' />
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>
-                    <div className='flex justify-center'><h1 className='text-white'>Statistics</h1></div>
-                    <div className='text-white flex flex-row'>
-                        <div className='w-full border-2 border-green-400 min-h-[20vh]'>
-                            <div className='flex justify-between pt-5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.ft_made}/{Team1All.ft_attempted}
-                                    </p>
-                                </div>
-                                <p>FT</p>
-                                <div className="flex justify-center">
-                                    <p className="bg-blue-600 text-white rounded-full px-5 py-1 mr-5">
-                                        {Team2All.ft_made}/{Team2All.ft_attempted}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.ft_made / (Team1All.ft_attempted + Team2All.ft_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-red-400"
-                                        style={{
-                                            width: `${((Team1All.ft_attempted - Team1All.ft_made) / (Team1All.ft_attempted + Team2All.ft_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.ft_made / (Team1All.ft_attempted + Team2All.ft_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-400"
-                                        style={{
-                                            width: `${((Team2All.ft_attempted - Team2All.ft_made) / (Team1All.ft_attempted + Team2All.ft_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            <div className='flex justify-between pt-5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.three_pt_made}/{Team1All.three_pt_attempted}
-                                    </p>
-                                </div>
-                                <p>3PT</p>
-                                <div className="flex justify-center">
-                                    <p className="bg-blue-600 text-white rounded-full px-5 py-1 mr-5">
-                                        {Team2All.three_pt_made}/{Team2All.three_pt_attempted}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.three_pt_made / (Team1All.three_pt_attempted + Team2All.three_pt_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-red-400"
-                                        style={{
-                                            width: `${((Team1All.three_pt_attempted - Team1All.three_pt_made) / (Team1All.three_pt_attempted + Team2All.three_pt_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.three_pt_made / (Team1All.three_pt_attempted + Team2All.three_pt_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-400"
-                                        style={{
-                                            width: `${((Team2All.three_pt_attempted - Team2All.three_pt_made) / (Team1All.three_pt_attempted + Team2All.three_pt_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className='flex justify-between pt-5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.fg_made}/{Team1All.fg_attempted}
-                                    </p>
-                                </div>
-                                <p>FG</p>
-                                <div className="flex justify-center">
-                                    <p className="bg-blue-600 text-white rounded-full px-5 py-1 mr-5">
-                                        {Team2All.fg_made}/{Team2All.fg_attempted}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.fg_made / (Team1All.fg_attempted + Team2All.fg_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-red-400"
-                                        style={{
-                                            width: `${((Team1All.fg_attempted - Team1All.fg_made) / (Team1All.fg_attempted + Team2All.fg_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.fg_made / (Team1All.fg_attempted + Team2All.fg_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-400"
-                                        style={{
-                                            width: `${((Team2All.fg_attempted - Team2All.fg_made) / (Team1All.fg_attempted + Team2All.fg_attempted)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className='flex justify-between pt-5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.total_rebounds}
-                                    </p>
-                                </div>
-                                <p>Rebounds</p>
-                                <div className='flex justify-center'>
-                                    <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.total_rebounds}</p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center pb-5'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.total_rebounds / (Team1All.total_rebounds + Team2All.total_rebounds)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.total_rebounds / (Team1All.total_rebounds + Team2All.total_rebounds)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            <div className='flex justify-between pt-1 pb-2.5'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.offensive_rebounds}
-                                    </p>
-                                </div>
-                                <p>Offensive Rebounds</p>
-                                <div className='flex justify-center'>
-                                    <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.offensive_rebounds}</p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center pb-5'>
-                                <div className="flex justify-center w-4/5 overflow-hidden rounded-full h-2.5">
-                                    <div className="flex w-6/10 overflow-hidden rounded-full h-2.5">
-                                        <div
-                                            className="bg-red-600"
-                                            style={{
-                                                width: `${(Team1All.offensive_rebounds / (Team1All.offensive_rebounds + Team2All.offensive_rebounds)) * 100}%`,
-                                            }}
-                                        />
-                                        <div
-                                            className="bg-red-400"
-                                            style={{
-                                                width: `${(((Team1All.offensive_rebounds + Team2All.offensive_rebounds) - Team1All.offensive_rebounds) / (Team1All.offensive_rebounds + Team2All.offensive_rebounds)) * 100}%`,
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex justify-center w-4/5 overflow-hidden rounded-full h-2.5">
-                                    <div className="flex w-6/10 overflow-hidden rounded-full h-2.5">
-                                        <div
-                                            className="bg-blue-600"
-                                            style={{
-                                                width: `${(Team2All.offensive_rebounds / (Team1All.offensive_rebounds + Team2All.offensive_rebounds)) * 100}%`,
-                                            }}
-                                        />
-                                        <div
-                                            className="bg-blue-400"
-                                            style={{
-                                                width: `${(((Team1All.offensive_rebounds + Team2All.offensive_rebounds) - Team2All.offensive_rebounds) / (Team1All.offensive_rebounds + Team2All.offensive_rebounds)) * 100}%`,
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className='flex justify-between pt-1 pb-2.5'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.defensive_rebounds}
-                                    </p>
-                                </div>
-                                <p>Defensive Rebounds</p>
-                                <div className='flex justify-center'>
-                                    <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.defensive_rebounds}</p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center pb-5'>
-                                <div className="flex justify-center w-4/5 overflow-hidden rounded-full h-2.5">
-                                    <div className="flex w-6/10 overflow-hidden rounded-full h-2.5">
-                                        <div
-                                            className="bg-red-600"
-                                            style={{
-                                                width: `${(Team1All.defensive_rebounds / (Team1All.defensive_rebounds + Team2All.defensive_rebounds)) * 100}%`,
-                                            }}
-                                        />
-                                        <div
-                                            className="bg-red-400"
-                                            style={{
-                                                width: `${(((Team1All.defensive_rebounds + Team2All.defensive_rebounds) - Team1All.defensive_rebounds) / (Team1All.defensive_rebounds + Team2All.defensive_rebounds)) * 100}%`,
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex justify-center w-4/5 overflow-hidden rounded-full h-2.5">
-                                    <div className="flex w-6/10 overflow-hidden rounded-full h-2.5">
-                                        <div
-                                            className="bg-blue-600"
-                                            style={{
-                                                width: `${(Team2All.defensive_rebounds / (Team1All.defensive_rebounds + Team2All.defensive_rebounds)) * 100}%`,
-                                            }}
-                                        />
-                                        <div
-                                            className="bg-blue-400"
-                                            style={{
-                                                width: `${(((Team1All.defensive_rebounds + Team2All.defensive_rebounds) - Team2All.defensive_rebounds) / (Team1All.defensive_rebounds + Team2All.defensive_rebounds)) * 100}%`,
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className='flex justify-between pt-2.5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.assists}
-                                    </p>
-                                </div>
-                                <p>Assists</p>
-                                <div className='flex justify-center'>
-                                    <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.assists}</p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center pb-5'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.assists / (Team1All.assists + Team2All.assists)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.assists / (Team1All.assists + Team2All.assists)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            <div className='flex justify-between pt-2.5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.steals}
-                                    </p>
-                                </div>
-                                <p>Steals</p>
-                                <div className='flex justify-center'>
-                                    <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.steals}</p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center pb-5'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.steals / (Team1All.steals + Team2All.steals)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.steals / (Team1All.steals + Team2All.steals)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            <div className='flex justify-between pt-2.5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.blocks}
-                                    </p>
-                                </div>
-                                <p>Blocks</p>
-                                <div className='flex justify-center'>
-                                    <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.blocks}</p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center pb-5'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.blocks / (Team1All.blocks + Team2All.blocks)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.blocks / (Team1All.blocks + Team2All.blocks)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            <div className='flex justify-between pt-2.5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.personal_fouls}
-                                    </p>
-                                </div>
-                                <p>Fouls</p>
-                                <div className='flex justify-center'>
-                                    <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.personal_fouls}</p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center pb-5'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.personal_fouls / (Team1All.personal_fouls + Team2All.personal_fouls)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.personal_fouls / (Team1All.personal_fouls + Team2All.personal_fouls)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                            <div className='flex justify-between pt-2.5 pb-3'>
-                                <div className="flex justify-center">
-                                    <p className="bg-red-600 text-white rounded-full px-5 py-1 ml-5">
-                                        {Team1All.turnovers}
-                                    </p>
-                                </div>
-                                <p>Turnovers</p>
-                                <div className='flex justify-center'>
-                                    <p className='bg-blue-600 rounded-full px-5 py-1 mr-5'>{Team2All.turnovers}</p>
-                                </div>
-                            </div>
-                            <div className='flex justify-center pb-5'>
-                                <div className="flex w-4/5 overflow-hidden rounded-full h-5">
-                                    <div
-                                        className="bg-red-600"
-                                        style={{
-                                            width: `${(Team1All.turnovers / (Team1All.turnovers + Team2All.turnovers)) * 100}%`,
-                                        }}
-                                    />
-                                    <div
-                                        className="bg-blue-600"
-                                        style={{
-                                            width: `${(Team2All.turnovers / (Team1All.turnovers + Team2All.turnovers)) * 100}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {renderTabContent()}
                 </div>
             </div>
             <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
