@@ -51,11 +51,18 @@ export default function GamePage() {
     const location = useLocation();
     const teamsThisGame = location.state.teamsThisGame
     const teamStats = location.state.t
-    
+
     const [activeTab, setActiveTab] = useState<TabType>('facts');
     const [underlineStyle, setUnderlineStyle] = useState<UnderlineStyle>({ width: 0, left: 0 });
     const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        fetch('http://localhost:8081/games')
+            .then(res => res.json())
+            .then((gameStats: Stats[]) => setGameStats(gameStats))
+            .catch(err => console.log(err));
+    }, []);
 
     const tabs: { key: TabType; label: string }[] = [
         { key: 'facts', label: 'Facts' },
@@ -89,7 +96,6 @@ export default function GamePage() {
         updateUnderlinePosition(index);
     };
 
-    // Content for each tab - replace with your actual content
     const renderTabContent = () => {
         switch (activeTab) {
             case 'facts':
@@ -481,9 +487,53 @@ export default function GamePage() {
                 );
             case 'lineup':
                 return (
-                    <div className="p-6">
-                        <h3 className="text-xl font-bold text-white mb-4">Lineup Content</h3>
-                        <p className="text-gray-300">This is the lineup tab content. Show your team lineup here.</p>
+                    <div className="min-h-[100vh] rounded-2xl">
+                        <div className='bg-[#343434] h-15 rounded-t-2xl'></div>
+                        <div className='bg-[#2c2c2c] h-1'></div>
+                        <div className='bg-[#343434] h-15'></div>
+                        <div className="relative w-full mx-auto aspect-[3/2] bg-[#2c2c2c] overflow-hidden shadow-2xl">
+                            {/* Court Base */}
+                            <div className="absolute inset-0 bg-[#2c2c2c]"></div>
+
+                            {/* Half-Court Line */}
+                            <div className="absolute top-0 bottom-0 left-1/2 w-1 bg-[#343434] transform -translate-x-1/2"></div>
+
+                            {/* Center Circle */}
+                            <div className="absolute top-1/2 left-1/2 w-28 h-28 border-4 border-[#343434] rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+                            <div className="absolute top-1/2 left-1/2 w-3 h-3 bg-[#343434] rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+
+                            {/* Left Key/Paint Area */}
+                            <div className="absolute top-1/2 w-60 h-50 border-4 border-[#343434] transform -translate-y-1/2 border-l-0"></div>
+
+                            {/* Right Key/Paint Area */}
+                            <div className="absolute top-1/2 right-0 w-60 h-50 border-4 border-[#343434] transform -translate-y-1/2 border-r-0"></div>
+
+                            {/* Left Free Throw Circle */}
+                            <div className="absolute top-1/2 left-41 w-36 h-36 border-4 border-[#343434] rounded-full transform -translate-y-1/2"></div>
+
+                            {/* Right Free Throw Circle */}
+                            <div className="absolute top-1/2 right-41 w-36 h-36 border-4 border-[#343434] rounded-full transform -translate-y-1/2"></div>
+
+                            {/* Left Three-Point Line */}
+                            <div className="absolute top-1/2 left-0 transform -translate-y-1/2">
+                                <div className="relative">
+                                    {/* Curved section */}
+                                    <div className="pt-10 pb-10">
+                                        <div className="w-90 h-130 border-4 border-l-0 border-[#343434] rounded-r-full"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right Three-Point Line */}
+                            <div className="absolute top-1/2 right-0 transform -translate-y-1/2">
+                                <div className="relative">
+                                    {/* Curved section */}
+                                    <div className="pt-10 pb-10">
+                                        <div className="w-90 h-130 border-4 border-r-0 border-[#343434] rounded-l-full"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 );
             case 'table':
@@ -508,13 +558,6 @@ export default function GamePage() {
                 );
         }
     };
-
-    useEffect(() => {
-        fetch('http://localhost:8081/games')
-            .then(res => res.json())
-            .then((gameStats: Stats[]) => setGameStats(gameStats))
-            .catch(err => console.log(err));
-    }, []);
 
     const getStatsForTeams = () => {
         const statsPerTeam = gameStats.filter(g => g.game_id === Number(id));
@@ -621,10 +664,12 @@ export default function GamePage() {
                     </div>
                     <div className='border-b-2 border-b-[#5b5b5b33]'></div>
                     <div className="flex flex-col w-full pt-5">
-                        <div className='grid grid-cols-3 items-center pb-10 justify-center'>
-                            {/* Team 1 - Left */}
-                            <div className="flex items-center justify-end">
-                                <p className="mr-5 text-white text-2xl text-right">{getTeamName(teamsThisGame[0].team_id)}</p>
+                        <div className='grid grid-cols-[1fr_auto_1fr] items-center pb-10 px-10'>
+                            {/* Team 1 - Left aligned but contained */}
+                            <div className="flex items-center justify-end gap-4">
+                                <p className="text-white text-2xl text-right whitespace-nowrap">
+                                    {getTeamName(teamsThisGame[0].team_id)}
+                                </p>
                                 <img
                                     src={getTeamLogoUrl(teamsThisGame[0].team_id)}
                                     alt={teamsThisGame[0].team_id.toString()}
@@ -635,8 +680,8 @@ export default function GamePage() {
                                 />
                             </div>
 
-                            {/* Scores - Centered */}
-                            <div className="flex flex-col pb-5 items-center justify-center">
+                            {/* Scores - Perfectly centered */}
+                            <div className="flex flex-col items-center mx-4">
                                 <div className="flex items-center gap-2">
                                     <p className="text-white text-2xl">{teamsThisGame[0].points}</p>
                                     <span className="text-gray-400 text-2xl">-</span>
@@ -645,17 +690,19 @@ export default function GamePage() {
                                 <p className="text-gray-400 text-lg pt-5">Final</p>
                             </div>
 
-                            {/* Team 2 - Right */}
-                            <div className="flex items-center justify-start">
+                            {/* Team 2 - Right aligned but contained */}
+                            <div className="flex items-center justify-start gap-4">
                                 <img
                                     src={getTeamLogoUrl(teamsThisGame[1].team_id)}
                                     alt={teamsThisGame[1].team_id.toString()}
-                                    className="w-16 h-16 mr-5"
+                                    className="w-16 h-16"
                                     onError={(e) => {
                                         e.currentTarget.style.display = 'none';
                                     }}
                                 />
-                                <p className="text-white text-2xl text-left">{getTeamName(teamsThisGame[1].team_id)}</p>
+                                <p className="text-white text-2xl text-left whitespace-nowrap">
+                                    {getTeamName(teamsThisGame[1].team_id)}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -670,8 +717,8 @@ export default function GamePage() {
                                             buttonRefs.current[index] = el;
                                         }}
                                         className={`relative px-4 py-2 transition-colors duration-200 z-10 ${activeTab === tab.key
-                                                ? 'text-white font-medium'
-                                                : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
+                                            ? 'text-white font-medium'
+                                            : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
                                             }`}
                                         onClick={() => handleTabClick(tab.key, index)}
                                     >
