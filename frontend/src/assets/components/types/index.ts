@@ -48,6 +48,7 @@ export interface Player {
     x: number;
     y: number;
     team: 'home' | 'away';
+    photoUrl?: string;
     stats?: Partial<Stats>;
 }
 
@@ -56,4 +57,10 @@ export interface GamePageProps {
     id: string;
     teamsThisGame: any[];
     teamStats: Stats[];
+}
+
+
+export interface PlayerCardProps {
+    player: Player | null;
+    onClose: () => void;
 }
