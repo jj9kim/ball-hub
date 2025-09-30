@@ -1,5 +1,5 @@
 import type { Player } from './types/index.ts';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 interface PlayerCardProps {
     player: Player | null;
@@ -8,8 +8,9 @@ interface PlayerCardProps {
 
 export default function PlayerCard({ player, onClose }: PlayerCardProps) {
     const playerCardRef = useRef<HTMLDivElement>(null);
+    const [isVisible, setIsVisible] = useState(false);
 
-    // Handle scrollbar preservation
+    // Handle scrollbar preservation and transitions
     useEffect(() => {
         if (player) {
             // Calculate scrollbar width
@@ -20,6 +21,13 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
             if (scrollbarWidth > 0) {
                 document.body.style.paddingRight = `${scrollbarWidth}px`;
             }
+
+            // Trigger animation after a small delay
+            requestAnimationFrame(() => {
+                setIsVisible(true);
+            });
+        } else {
+            setIsVisible(false);
         }
 
         return () => {
@@ -33,7 +41,7 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (playerCardRef.current && !playerCardRef.current.contains(event.target as Node)) {
-                onClose();
+                handleClose();
             }
         };
 
@@ -44,14 +52,25 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [player, onClose]);
+    }, [player]);
+
+    const handleClose = () => {
+        setIsVisible(false);
+        // Wait for animation to complete before closing
+        setTimeout(() => {
+            onClose();
+        }, 200);
+    };
 
     if (!player) return null;
 
     return (
         <div
-            className="fixed inset-0 bg-black/70 z-1000 flex items-center justify-center black"
-            onClick={onClose}
+            className={`fixed inset-0 bg-black/70 z-1000 flex items-center justify-center transition-all duration-500 ${isVisible
+                    ? 'opacity-100'
+                    : 'opacity-0'
+                }`}
+            onClick={handleClose}
         >
             <div
                 ref={playerCardRef}
@@ -59,17 +78,8 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Card Header */}
-                <div className="flex justify-between items-center p-4 border-b border-white border-opacity-20">
-                    <button
-                        onClick={onClose}
-                        className="text-white text-2xl hover:text-gray-300 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white hover:bg-opacity-10"
-                    >
-                        ×
-                    </button>
-                </div>
-
                 {/* Player Info */}
-                <div className="p-6 h-130">
+                <div className="p-6 min-h-[80vh]">
                     <div className="flex items-center space-x-4 mb-6">
                         {/* Player Photo or Jersey Circle */}
                         <div className="relative">
