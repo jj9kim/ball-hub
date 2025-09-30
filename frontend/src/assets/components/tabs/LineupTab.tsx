@@ -1,8 +1,13 @@
 import { useState } from 'react';
-import type { Player } from '../types/index.ts';
+import type { Player, Stats } from '../types/index.ts';
 import PlayerIndicator from '../PlayerIndicator';
 import PlayerCard from '../PlayerCard';
 
+interface LineupTabProps {
+    Team1: Stats[];
+    Team2: Stats[];
+    onPlayerClick: (player: Player) => void;
+}
 // Sample player data - replace with your actual data
 const samplePlayers: Player[] = [
     {
@@ -10,8 +15,8 @@ const samplePlayers: Player[] = [
         name: "Stephen Curry",
         number: "30",
         position: "PG",
-        x: 25,
-        y: 85,
+        x: 40,
+        y: 60,
         team: 'home',
         photoUrl: "https://cdn.nba.com/headshots/nba/latest/1040x760/201939.png",
         stats: {
@@ -29,8 +34,8 @@ const samplePlayers: Player[] = [
         name: "Klay Thompson",
         number: "11",
         position: "SG",
-        x: 40,
-        y: 70,
+        x: 30,
+        y: 95,
         team: 'home',
         stats: {
             points: 22,
@@ -81,12 +86,11 @@ const samplePlayers: Player[] = [
     }
 ];
 
-export default function LineupTab() {
+export default function LineupTab({ Team1, Team2, onPlayerClick }: LineupTabProps) {
     const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+    console.log(Team1[0].player_rating)
+    console.log(Team2[0].player_rating)
 
-    const handlePlayerClick = (player: Player) => {
-        setSelectedPlayer(player);
-    };
 
     const handleCloseCard = () => {
         setSelectedPlayer(null);
@@ -146,7 +150,8 @@ export default function LineupTab() {
                         <PlayerIndicator
                             key={player.id}
                             player={player}
-                            onPlayerClick={handlePlayerClick}
+                            rating={player.stats?.player_rating}
+                            onPlayerClick={onPlayerClick}
                         />
                     ))}
                 </div>

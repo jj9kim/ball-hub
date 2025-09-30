@@ -1,21 +1,44 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState } from "react";
-import type { Stats, TabType } from './components/types/index.ts';
+import { useEffect, useState, useRef } from "react";
+import type { Stats, TabType, Player } from './components/types/index.ts';
 import GameHeader from './components/GameHeader';
 import FactsTab from './components/tabs/FactsTab';
 import LineupTab from './components/tabs/LineupTab';
 import TableTab from './components/tabs/TableTab';
 import StatsTab from './components/tabs/StatsTab';
+import PlayerCard from './components/PlayerCard';
 
 export default function GamePage() {
     const [gameStats, setGameStats] = useState<Stats[]>([]);
     const [activeTab, setActiveTab] = useState<TabType>('facts');
+    const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+    const playerCardRef = useRef<HTMLDivElement>(null);
 
     const { date, id } = useParams<{ date?: string; id: string }>();
     const navigate = useNavigate();
     const location = useLocation();
     const teamsThisGame = location.state.teamsThisGame;
     const teamStats = location.state.t;
+
+    // Handle click outside to close PlayerCard (like Popup)
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (playerCardRef.current && !playerCardRef.current.contains(event.target as Node)) {
+                setSelectedPlayer(null);
+            }
+        };
+
+        if (selectedPlayer) {
+            document.addEventListener('mousedown', handleClickOutside);
+            // Prevent scrolling when player card is open
+            document.body.style.overflow = 'hidden';
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.body.style.overflow = 'unset';
+        };
+    }, [selectedPlayer]);
 
     useEffect(() => {
         fetch('http://localhost:8081/games')
@@ -77,12 +100,24 @@ export default function GamePage() {
         setActiveTab(tabKey);
     };
 
+    const handlePlayerClick = (player: Player) => {
+        setSelectedPlayer(player);
+    };
+
+    const handleClosePlayerCard = () => {
+        setSelectedPlayer(null);
+    };
+
     const renderTabContent = () => {
         switch (activeTab) {
             case 'facts':
                 return <FactsTab Team1All={Team1All} Team2All={Team2All} />;
             case 'lineup':
-                return <LineupTab />;
+                return <LineupTab
+                    Team1={Team1}
+                    Team2={Team2}
+                    onPlayerClick={handlePlayerClick}
+                />;
             case 'table':
                 return <TableTab />;
             case 'stats':
@@ -93,24 +128,30 @@ export default function GamePage() {
     };
 
     return (
-        <div className='w-full flex flex-row justify-center'>
-            <div className='w-2/3 min-h-[80vh]'>
-                {/* GameHeader now includes the tab navigation */}
-                <GameHeader
-                    date={date}
-                    teamsThisGame={teamsThisGame}
-                    onBack={handleBack}
-                    activeTab={activeTab}
-                    onTabClick={handleTabClick}
-                />
+        <>
+            <div className='w-full flex flex-row justify-center'>
+                <div className='w-2/3 min-h-[80vh]'>
+                    <GameHeader
+                        date={date}
+                        teamsThisGame={teamsThisGame}
+                        onBack={handleBack}
+                        activeTab={activeTab}
+                        onTabClick={handleTabClick}
+                    />
 
-                {/* Content area - this stays below the red-bordered div */}
-                <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>
-                    {renderTabContent()}
+                    <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>
+                        {renderTabContent()}
+                    </div>
                 </div>
+
+                <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
             </div>
 
-            <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
-        </div>
+            {/* PlayerCard - works exactly like Popup */}
+            <PlayerCard
+                player={selectedPlayer}
+                onClose={handleClosePlayerCard}
+            />
+        </>
     );
 }
