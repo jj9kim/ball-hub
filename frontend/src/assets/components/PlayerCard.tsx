@@ -1,4 +1,4 @@
-import type{ Player } from './types/index.ts';
+import type { Player } from './types/index.ts';
 import { useRef, useEffect } from 'react';
 
 interface PlayerCardProps {
@@ -8,9 +8,28 @@ interface PlayerCardProps {
 
 export default function PlayerCard({ player, onClose }: PlayerCardProps) {
     const playerCardRef = useRef<HTMLDivElement>(null);
-    const scrollYRef = useRef<number>(0);
 
-    // Handle click outside and scroll prevention
+    // Handle scrollbar preservation
+    useEffect(() => {
+        if (player) {
+            // Calculate scrollbar width
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+            // Prevent scrolling but preserve scrollbar space
+            document.body.style.overflow = 'hidden';
+            if (scrollbarWidth > 0) {
+                document.body.style.paddingRight = `${scrollbarWidth}px`;
+            }
+        }
+
+        return () => {
+            // Restore scrolling
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        };
+    }, [player]);
+
+    // Handle click outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (playerCardRef.current && !playerCardRef.current.contains(event.target as Node)) {
@@ -19,50 +38,28 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
         };
 
         if (player) {
-            // Save current scroll position
-            scrollYRef.current = window.scrollY;
-
-            // Calculate scrollbar width to prevent layout shift
-            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-            // Prevent scrolling without layout shift
-            document.body.style.position = 'fixed';
-            document.body.style.top = `-${scrollYRef.current}px`;
-            document.body.style.left = '0';
-            document.body.style.right = '0';
-            document.body.style.overflow = 'hidden';
-
-            // Compensate for scrollbar removal to prevent layout shift
-            if (scrollbarWidth > 0) {
-                document.body.style.paddingRight = `${scrollbarWidth}px`;
-            }
-
             document.addEventListener('mousedown', handleClickOutside);
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
-
-            // Restore scrolling and layout
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.left = '';
-            document.body.style.right = '';
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-
-            // Restore scroll position
-            window.scrollTo(0, scrollYRef.current);
         };
     }, [player, onClose]);
 
     if (!player) return null;
 
     return (
-        <div className="fixed top-0 left-0 w-screen h-screen bg-black/70 flex justify-center items-start z-1000 pt-20">
-            <div ref={playerCardRef} className="relative p-4 w-full max-w-md bg-[#1d1d1d] rounded-lg shadow-xl border-2 border-white">
+        <div
+            className="fixed inset-0 bg-black/70 z-1000 flex items-center justify-center black"
+            onClick={onClose}
+        >
+            <div
+                ref={playerCardRef}
+                className="bg-[#1d1d1d] border-2 border-white rounded-2xl max-w-md w-full mx-auto shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {/* Card Header */}
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center p-4 border-b border-white border-opacity-20">
                     <button
                         onClick={onClose}
                         className="text-white text-2xl hover:text-gray-300 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white hover:bg-opacity-10"
@@ -72,7 +69,7 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
                 </div>
 
                 {/* Player Info */}
-                <div className="p-4 h-130">
+                <div className="p-6 h-130">
                     <div className="flex items-center space-x-4 mb-6">
                         {/* Player Photo or Jersey Circle */}
                         <div className="relative">
