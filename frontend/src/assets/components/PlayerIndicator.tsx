@@ -7,21 +7,6 @@ interface PlayerIndicatorProps {
 }
 
 export default function PlayerIndicator({ player, onPlayerClick, rating }: PlayerIndicatorProps) {
-    const teamColors = {
-        home: {
-            bg: 'bg-blue-500',
-            border: 'border-blue-300',
-            hover: 'hover:bg-blue-600'
-        },
-        away: {
-            bg: 'bg-red-500',
-            border: 'border-red-300',
-            hover: 'hover:bg-red-600'
-        }
-    };
-
-    const colors = teamColors[player.team];
-
     return (
         <div
             className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-20"

@@ -15,7 +15,7 @@ const samplePlayers: Player[] = [
         name: "Stephen Curry",
         number: "30",
         position: "PG",
-        x: 40,
+        x: 42,
         y: 60,
         team: 'home',
         photoUrl: "https://cdn.nba.com/headshots/nba/latest/1040x760/201939.png",
@@ -34,7 +34,7 @@ const samplePlayers: Player[] = [
         name: "Klay Thompson",
         number: "11",
         position: "SG",
-        x: 30,
+        x: 32,
         y: 95,
         team: 'home',
         stats: {
@@ -52,8 +52,8 @@ const samplePlayers: Player[] = [
         name: "Anthony Edwards",
         number: "5",
         position: "SG",
-        x: 75,
-        y: 85,
+        x: 68,
+        y: 25,
         team: 'away',
         photoUrl: "https://cdn.nba.com/headshots/nba/latest/1040x760/1630162.png",
         stats: {
@@ -68,11 +68,119 @@ const samplePlayers: Player[] = [
     },
     {
         id: 4,
+        name: "Rudy Gobert",
+        number: "20",
+        position: "C",
+        x: 90,
+        y: 72,
+        team: 'away',
+        stats: {
+            points: 12,
+            total_rebounds: 11,
+            assists: 1,
+            steals: 1,
+            blocks: 4,
+            minutes: 33,
+            player_rating: 4.3
+        }
+    },
+    {
+        id: 5,
+        name: "Draymond Green",
+        number: "23",
+        position: "C",
+        x: 10,
+        y: 50,
+        team: 'home',
+        stats: {
+            points: 7,
+            total_rebounds: 6,
+            assists: 5,
+            steals: 1,
+            blocks: 2,
+            minutes: 33,
+            player_rating: 4.1
+        }
+    },
+    {
+        id: 6,
+        name: "Jimmy Butler",
+        number: "10",
+        position: "SF",
+        x: 27,
+        y: 27,
+        team: 'home',
+        stats: {
+            points: 19,
+            total_rebounds: 6,
+            assists: 4,
+            steals: 3,
+            blocks: 0,
+            minutes: 37,
+            player_rating: 4.8
+        }
+    },
+    {
+        id: 7,
+        name: "Jonathan Kuminga",
+        number: "00",
+        position: "PF",
+        x: 10,
+        y: 85,
+        team: 'home',
+        stats: {
+            points: 15,
+            total_rebounds: 5,
+            assists: 2,
+            steals: 0,
+            blocks: 1,
+            minutes: 30,
+            player_rating: 4.2
+        }
+    },
+    {
+        id: 8,
+        name: "Jaden McDaniels",
+        number: "1",
+        position: "SF",
+        x: 73,
+        y: 95,
+        team: 'away',
+        stats: {
+            points: 21,
+            total_rebounds: 11,
+            assists: 3,
+            steals: 1,
+            blocks: 2,
+            minutes: 33,
+            player_rating: 4.3
+        }
+    },
+    {
+        id: 8,
+        name: "Mike Conley",
+        number: "7",
+        position: "PG",
+        x: 58,
+        y: 60,
+        team: 'away',
+        stats: {
+            points: 21,
+            total_rebounds: 11,
+            assists: 3,
+            steals: 1,
+            blocks: 2,
+            minutes: 33,
+            player_rating: 4.3
+        }
+    },
+    {
+        id: 8,
         name: "Karl-Anthony Towns",
         number: "32",
-        position: "C",
-        x: 60,
-        y: 70,
+        position: "PF",
+        x: 90,
+        y: 37,
         team: 'away',
         stats: {
             points: 21,
@@ -84,6 +192,7 @@ const samplePlayers: Player[] = [
             player_rating: 4.3
         }
     }
+
 ];
 
 export default function LineupTab({ Team1, Team2, onPlayerClick }: LineupTabProps) {
