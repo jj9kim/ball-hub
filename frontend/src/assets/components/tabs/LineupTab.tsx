@@ -182,12 +182,13 @@ export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClic
             </div>
             <div className="grid grid-cols-2 gap-8 w-full">
                 <h2 className='col-span-2 text-center text-white font-bold mt-8'>Bench</h2>
+
+                {/* Left column for team 1 */}
                 <div className="space-y-4">
                     {benchPlayers.filter(player => player.team_id === team1Id).map((player) => (
-                        <div>
-                            <div className='bg-[#2c2c2c] h-0.5 flex align-center ml-7'></div>
+                        <div key={player.player_id}>
+                            <div className='bg-[#2c2c2c] h-0.5 ml-5 mr-5'></div> {/* Keep margins */}
                             <BenchIndicator
-                                key={player.player_id}
                                 player={player}
                                 team1Id={team1Id}
                                 team2Id={team2Id}
@@ -200,10 +201,9 @@ export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClic
                 {/* Right column for team 2 */}
                 <div className="space-y-4">
                     {benchPlayers.filter(player => player.team_id === team2Id).map((player) => (
-                        <div>
-                            <div className='bg-[#2c2c2c] h-0.5 flex align-center mr-7'></div>
+                        <div key={player.player_id}>
+                            <div className='bg-[#2c2c2c] h-0.5 ml-5 mr-5'></div> {/* Keep margins */}
                             <BenchIndicator
-                                key={player.player_id}
                                 player={player}
                                 team1Id={team1Id}
                                 team2Id={team2Id}
