@@ -1,5 +1,6 @@
 import type { Player, Stats } from '../types/index.ts';
 import PlayerIndicator from '../PlayerIndicator';
+import BenchIndicator from '../BenchIndicator.tsx';
 
 interface LineupTabProps {
     Team1: Stats[];
@@ -80,20 +81,44 @@ const mapStatsToPlayers = (teamStats: Stats[], teamId: number, isHomeTeam: boole
                 steals: stat.steals || 0,
                 blocks: stat.blocks || 0,
                 minutes: stat.minutes,
-                player_rating: stat.player_rating || 0
+                player_rating: parseFloat(stat.player_rating.toFixed(1)) || 0
             }
         };
     });
 };
+
+const mapPlayersToBench = (teamStats: Stats[], teamId: number): Player[] => {
+    const courtPlayers = teamStats.filter(player => player.position_sort == 3)
+    return courtPlayers.map((stat) => {
+        return {
+            player_id: stat.player_id,
+            player_name: stat.player_name,
+            number: String(stat.player_id),
+            position: stat.position,
+            x: 0,
+            y: 0,
+            team_id: teamId,
+            stats: {
+                points: stat.points || 0,
+                total_rebounds: stat.total_rebounds || 0,
+                assists: stat.assists || 0,
+                steals: stat.steals || 0,
+                blocks: stat.blocks || 0,
+                minutes: stat.minutes,
+                player_rating: parseFloat(stat.player_rating.toFixed(1)) || 0
+            }
+        }
+    })
+}
 
 export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClick }: LineupTabProps) {
     // Team1 = home team (left side), Team2 = away team (right side)
     const homePlayers = mapStatsToPlayers(Team1, team1Id, true);   // true = home team
     const awayPlayers = mapStatsToPlayers(Team2, team2Id, false);  // false = away team
     const allPlayers = [...homePlayers, ...awayPlayers];
-
-    console.log('Home team players:', homePlayers);
-    console.log('Away team players:', awayPlayers);
+    const benchHome = mapPlayersToBench(Team1, team1Id);
+    const benchAway = mapPlayersToBench(Team2, team2Id);
+    const benchPlayers = [...benchHome, ...benchAway];
 
     return (
         <div className="min-h-[100vh] rounded-2xl">
@@ -101,10 +126,10 @@ export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClic
             <div className='bg-[#2c2c2c] h-1'></div>
             <div className='bg-[#343434] h-15'></div>
 
-            {/* Court Container */}
-            <div className="relative w-full mx-auto aspect-[3/2] bg-[#2c2c2c] overflow-hidden shadow-2xl">
-                {/* Court Container */}
-                <div className="relative w-full mx-auto aspect-[3/2] bg-[#2c2c2c] overflow-hidden shadow-2xl">
+            {/* Court Container with relative positioning for absolute children */}
+            <div className="relative w-full mx-auto aspect-[3/2] bg-[#2c2c2c] shadow-2xl">
+                {/* Court Container - remove overflow-hidden or keep it for court elements only */}
+                <div className="relative w-full h-full bg-[#2c2c2c] overflow-hidden">
                     {/* Court Base */}
                     <div className="absolute inset-0 bg-[#2c2c2c]"></div>
 
@@ -144,12 +169,41 @@ export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClic
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Player Indicators */}
-                    {allPlayers.map((player) => (
-                        <PlayerIndicator
+                {/* Player Indicators - OUTSIDE the overflow-hidden container but inside the relative parent */}
+                {allPlayers.map((player) => (
+                    <PlayerIndicator
+                        key={player.player_id}
+                        player={player}
+                        onPlayerClick={onPlayerClick}
+                    />
+                ))}
+            </div>
+            <div className="grid grid-cols-2 gap-8 w-full">
+                {/* Left column for team 1 */}
+                <div className="space-y-4">
+                    <h3 className="text-white text-center">Team 1 Bench</h3>
+                    {benchPlayers.filter(player => player.team_id === team1Id).map((player) => (
+                        <BenchIndicator
                             key={player.player_id}
                             player={player}
+                            team1Id={team1Id}
+                            team2Id={team2Id}
+                            onPlayerClick={onPlayerClick}
+                        />
+                    ))}
+                </div>
+
+                {/* Right column for team 2 */}
+                <div className="space-y-4">
+                    <h3 className="text-white text-center">Team 2 Bench</h3>
+                    {benchPlayers.filter(player => player.team_id === team2Id).map((player) => (
+                        <BenchIndicator
+                            key={player.player_id}
+                            player={player}
+                            team1Id={team1Id}
+                            team2Id={team2Id}
                             onPlayerClick={onPlayerClick}
                         />
                     ))}
