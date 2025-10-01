@@ -181,9 +181,8 @@ export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClic
                 ))}
             </div>
             <div className="grid grid-cols-2 gap-8 w-full">
-                {/* Left column for team 1 */}
+                <h2 className='col-span-2 text-center text-white font-bold'>Bench</h2>
                 <div className="space-y-4">
-                    <h3 className="text-white text-center">Team 1 Bench</h3>
                     {benchPlayers.filter(player => player.team_id === team1Id).map((player) => (
                         <BenchIndicator
                             key={player.player_id}
@@ -197,7 +196,6 @@ export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClic
 
                 {/* Right column for team 2 */}
                 <div className="space-y-4">
-                    <h3 className="text-white text-center">Team 2 Bench</h3>
                     {benchPlayers.filter(player => player.team_id === team2Id).map((player) => (
                         <BenchIndicator
                             key={player.player_id}
