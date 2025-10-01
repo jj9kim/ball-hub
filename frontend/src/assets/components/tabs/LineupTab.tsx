@@ -81,7 +81,7 @@ const mapStatsToPlayers = (teamStats: Stats[], teamId: number, isHomeTeam: boole
                 steals: stat.steals || 0,
                 blocks: stat.blocks || 0,
                 minutes: stat.minutes,
-                player_rating: parseFloat(stat.player_rating.toFixed(1)) || 0
+                player_rating: stat.player_rating
             }
         };
     });
@@ -105,7 +105,7 @@ const mapPlayersToBench = (teamStats: Stats[], teamId: number): Player[] => {
                 steals: stat.steals || 0,
                 blocks: stat.blocks || 0,
                 minutes: stat.minutes,
-                player_rating: parseFloat(stat.player_rating.toFixed(1)) || 0
+                player_rating: stat.player_rating
             }
         }
     })

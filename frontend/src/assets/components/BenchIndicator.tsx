@@ -20,7 +20,7 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
                 {/* Player Circle with Number */}
                 <div className="relative hover:opacity-50 w-50 h-50 flex flex-col items-center">
                     <div className='absolute -top-3 right-15 bg-[#32c771] rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-sm z-10'>
-                        {player.stats?.player_rating}
+                        {player.stats?.player_rating?.toFixed(1)}
                     </div>
                     {player.photoUrl ? (
                         <div className="w-16 h-16 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a]">
