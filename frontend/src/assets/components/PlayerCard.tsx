@@ -1,5 +1,6 @@
 import type { Player } from './types/index.ts';
 import { useRef, useEffect, useState } from 'react';
+import { teamIdToName } from '../../utils/teamMappings.ts';
 
 interface PlayerCardProps {
     player: Player | null;
@@ -86,7 +87,7 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
                             {player.photoUrl ? (
                                 <img
                                     src={player.photoUrl}
-                                    alt={player.name}
+                                    alt={player.player_name}
                                     className="w-20 h-20 rounded-full border-2 border-white object-cover"
                                 />
                             ) : (
@@ -100,8 +101,8 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
                         </div>
 
                         <div className="flex-1">
-                            <h4 className="text-white text-2xl font-bold mb-1">{player.name}</h4>
-                            <p className="text-white text-opacity-80 mb-2">#{player.number} • {player.team === 'home' ? 'Home' : 'Away'} Team</p>
+                            <h4 className="text-white text-2xl font-bold mb-1">{player.player_name}</h4>
+                            <p className="text-white text-opacity-80 mb-2">#{player.number} • {teamIdToName[player.team_id]}</p>
                             <div className="flex items-center space-x-2">
                                 <span className="text-white text-opacity-90 text-sm">Rating:</span>
                                 <div className="flex items-center">

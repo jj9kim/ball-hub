@@ -1,217 +1,108 @@
-import { useState } from 'react';
 import type { Player, Stats } from '../types/index.ts';
 import PlayerIndicator from '../PlayerIndicator';
-import PlayerCard from '../PlayerCard';
 
 interface LineupTabProps {
     Team1: Stats[];
     Team2: Stats[];
+    team1Id: number;
+    team2Id: number;
     onPlayerClick: (player: Player) => void;
 }
-// Sample player data - replace with your actual data
-const samplePlayers: Player[] = [
-    {
-        id: 1,
-        name: "Stephen Curry",
-        number: "30",
-        position: "PG",
-        x: 42,
-        y: 60,
-        team: 'home',
-        photoUrl: "https://cdn.nba.com/headshots/nba/latest/1040x760/201939.png",
-        stats: {
-            points: 28,
-            total_rebounds: 5,
-            assists: 7,
-            steals: 2,
-            blocks: 0,
-            minutes: 36,
-            player_rating: 4.8
-        }
-    },
-    {
-        id: 2,
-        name: "Klay Thompson",
-        number: "11",
-        position: "SG",
-        x: 32,
-        y: 95,
-        team: 'home',
-        stats: {
-            points: 22,
-            total_rebounds: 4,
-            assists: 3,
-            steals: 1,
-            blocks: 1,
-            minutes: 32,
-            player_rating: 4.2
-        }
-    },
-    {
-        id: 3,
-        name: "Anthony Edwards",
-        number: "5",
-        position: "SG",
-        x: 68,
-        y: 25,
-        team: 'away',
-        photoUrl: "https://cdn.nba.com/headshots/nba/latest/1040x760/1630162.png",
-        stats: {
-            points: 24,
-            total_rebounds: 6,
-            assists: 4,
-            steals: 2,
-            blocks: 1,
-            minutes: 34,
-            player_rating: 4.5
-        }
-    },
-    {
-        id: 4,
-        name: "Rudy Gobert",
-        number: "20",
-        position: "C",
-        x: 90,
-        y: 72,
-        team: 'away',
-        stats: {
-            points: 12,
-            total_rebounds: 11,
-            assists: 1,
-            steals: 1,
-            blocks: 4,
-            minutes: 33,
-            player_rating: 4.3
-        }
-    },
-    {
-        id: 5,
-        name: "Draymond Green",
-        number: "23",
-        position: "C",
-        x: 10,
-        y: 50,
-        team: 'home',
-        stats: {
-            points: 7,
-            total_rebounds: 6,
-            assists: 5,
-            steals: 1,
-            blocks: 2,
-            minutes: 33,
-            player_rating: 4.1
-        }
-    },
-    {
-        id: 6,
-        name: "Jimmy Butler",
-        number: "10",
-        position: "SF",
-        x: 27,
-        y: 27,
-        team: 'home',
-        stats: {
-            points: 19,
-            total_rebounds: 6,
-            assists: 4,
-            steals: 3,
-            blocks: 0,
-            minutes: 37,
-            player_rating: 4.8
-        }
-    },
-    {
-        id: 7,
-        name: "Jonathan Kuminga",
-        number: "00",
-        position: "PF",
-        x: 10,
-        y: 85,
-        team: 'home',
-        stats: {
-            points: 15,
-            total_rebounds: 5,
-            assists: 2,
-            steals: 0,
-            blocks: 1,
-            minutes: 30,
-            player_rating: 4.2
-        }
-    },
-    {
-        id: 8,
-        name: "Jaden McDaniels",
-        number: "1",
-        position: "SF",
-        x: 73,
-        y: 95,
-        team: 'away',
-        stats: {
-            points: 21,
-            total_rebounds: 11,
-            assists: 3,
-            steals: 1,
-            blocks: 2,
-            minutes: 33,
-            player_rating: 4.3
-        }
-    },
-    {
-        id: 8,
-        name: "Mike Conley",
-        number: "7",
-        position: "PG",
-        x: 58,
-        y: 60,
-        team: 'away',
-        stats: {
-            points: 21,
-            total_rebounds: 11,
-            assists: 3,
-            steals: 1,
-            blocks: 2,
-            minutes: 33,
-            player_rating: 4.3
-        }
-    },
-    {
-        id: 8,
-        name: "Karl-Anthony Towns",
-        number: "32",
-        position: "PF",
-        x: 90,
-        y: 37,
-        team: 'away',
-        stats: {
-            points: 21,
-            total_rebounds: 11,
-            assists: 3,
-            steals: 1,
-            blocks: 2,
-            minutes: 33,
-            player_rating: 4.3
-        }
-    }
 
-];
+// Function to convert Stats to Player with smart position mapping
+const mapStatsToPlayers = (teamStats: Stats[], teamId: number, isHomeTeam: boolean): Player[] => {
+    // Filter out bench players for now (position_sort = 3)
+    const courtPlayers = teamStats.filter(player => player.position_sort !== 3);
 
-export default function LineupTab({ Team1, Team2, onPlayerClick }: LineupTabProps) {
-    const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-    console.log(Team1[0].player_rating)
-    console.log(Team2[0].player_rating)
+    return courtPlayers.map((stat, index) => {
+        let position = '';
+        let courtPosition = { x: 50, y: 50 }; // default
 
+        // Map position_sort to actual positions based on stats
+        if (stat.position_sort === 1) {
+            // Center
+            position = 'C';
+            courtPosition = isHomeTeam ? { x: 10, y: 50 } : { x: 90, y: 72 };
+        }
+        else if (stat.position_sort === 0) {
+            // Forwards - higher rebounds becomes PF, lower becomes SF
+            const forwards = teamStats.filter(p => p.position_sort === 0);
+            const sortedForwards = [...forwards].sort((a, b) => (b.total_rebounds || 0) - (a.total_rebounds || 0));
 
-    const handleCloseCard = () => {
-        setSelectedPlayer(null);
-    };
+            if (stat === sortedForwards[0]) {
+                position = 'PF'; // Higher rebounds = Power Forward
+                courtPosition = isHomeTeam ? { x: 10, y: 85 } : { x: 90, y: 37 };
+            } else {
+                position = 'SF'; // Lower rebounds = Small Forward
+                courtPosition = isHomeTeam ? { x: 27, y: 27 } : { x: 73, y: 95 };
+            }
+        }
+        else if (stat.position_sort === 2) {
+            // Guards - higher assists becomes PG, lower becomes SG
+            const guards = teamStats.filter(p => p.position_sort === 2);
+            const sortedGuards = [...guards].sort((a, b) => (b.assists || 0) - (a.assists || 0));
+
+            if (stat === sortedGuards[0]) {
+                position = 'PG'; // Higher assists = Point Guard
+                courtPosition = isHomeTeam ? { x: 42, y: 60 } : { x: 58, y: 60 };
+            } else {
+                position = 'SG'; // Lower assists = Shooting Guard
+                courtPosition = isHomeTeam ? { x: 32, y: 95 } : { x: 68, y: 25 };
+            }
+        }
+        else {
+            // Fallback for any other position_sort values
+            position = stat.position || 'Player';
+            const fallbackPositions = isHomeTeam
+                ? [
+                    { x: 25, y: 85 }, { x: 40, y: 70 }, { x: 60, y: 70 },
+                    { x: 75, y: 85 }, { x: 50, y: 90 }
+                ]
+                : [
+                    { x: 75, y: 85 }, { x: 60, y: 70 }, { x: 40, y: 70 },
+                    { x: 25, y: 85 }, { x: 50, y: 90 }
+                ];
+            courtPosition = fallbackPositions[index % fallbackPositions.length];
+        }
+
+        return {
+            player_id: stat.player_id,
+            player_name: stat.player_name,
+            number: String(stat.player_id),
+            position: position,
+            x: courtPosition.x,
+            y: courtPosition.y,
+            team_id: teamId,
+            stats: {
+                points: stat.points || 0,
+                total_rebounds: stat.total_rebounds || 0,
+                assists: stat.assists || 0,
+                steals: stat.steals || 0,
+                blocks: stat.blocks || 0,
+                minutes: stat.minutes,
+                player_rating: stat.player_rating || 0
+            }
+        };
+    });
+};
+
+export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClick }: LineupTabProps) {
+    // Team1 = home team (left side), Team2 = away team (right side)
+    const homePlayers = mapStatsToPlayers(Team1, team1Id, true);   // true = home team
+    const awayPlayers = mapStatsToPlayers(Team2, team2Id, false);  // false = away team
+    const allPlayers = [...homePlayers, ...awayPlayers];
+
+    console.log('Home team players:', homePlayers);
+    console.log('Away team players:', awayPlayers);
 
     return (
-        <>
-            <div className="min-h-[100vh] rounded-2xl">
-                <div className='bg-[#343434] h-15 rounded-t-2xl'></div>
-                <div className='bg-[#2c2c2c] h-1'></div>
-                <div className='bg-[#343434] h-15'></div>
+        <div className="min-h-[100vh] rounded-2xl">
+            <div className='bg-[#343434] h-15 rounded-t-2xl'></div>
+            <div className='bg-[#2c2c2c] h-1'></div>
+            <div className='bg-[#343434] h-15'></div>
 
+            {/* Court Container */}
+            <div className="relative w-full mx-auto aspect-[3/2] bg-[#2c2c2c] overflow-hidden shadow-2xl">
                 {/* Court Container */}
                 <div className="relative w-full mx-auto aspect-[3/2] bg-[#2c2c2c] overflow-hidden shadow-2xl">
                     {/* Court Base */}
@@ -255,19 +146,15 @@ export default function LineupTab({ Team1, Team2, onPlayerClick }: LineupTabProp
                     </div>
 
                     {/* Player Indicators */}
-                    {samplePlayers.map((player) => (
+                    {allPlayers.map((player) => (
                         <PlayerIndicator
-                            key={player.id}
+                            key={player.player_id}
                             player={player}
-                            rating={player.stats?.player_rating}
                             onPlayerClick={onPlayerClick}
                         />
                     ))}
                 </div>
             </div>
-
-            {/* Player Card Modal */}
-            <PlayerCard player={selectedPlayer} onClose={handleCloseCard} />
-        </>
+        </div>
     );
 }

@@ -41,13 +41,13 @@ export interface UnderlineStyle {
 export type TabType = 'facts' | 'lineup' | 'table' | 'stats';
 
 export interface Player {
-    id: number;
-    name: string;
+    player_id: number;
+    player_name: string;
     number: string;
     position: string;
     x: number;
     y: number;
-    team: 'home' | 'away';
+    team_id: number,
     photoUrl?: string;
     stats?: Partial<Stats>;
 }

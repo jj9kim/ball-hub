@@ -116,8 +116,10 @@ export default function GamePage() {
                 return <LineupTab
                     Team1={Team1}
                     Team2={Team2}
+                    team1Id={teamsThisGame[0].team_id}
+                    team2Id={teamsThisGame[1].team_id}
                     onPlayerClick={handlePlayerClick}
-                />;
+            />;
             case 'table':
                 return <TableTab />;
             case 'stats':
