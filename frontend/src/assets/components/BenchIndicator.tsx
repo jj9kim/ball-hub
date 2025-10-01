@@ -12,36 +12,51 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
     const isTeam2 = player.team_id === team2Id;
 
     return (
-        <div className={`grid grid-cols-2 gap-4 w-full ${isTeam1 ? 'justify-self-start' : 'justify-self-end'}`}>
+        <div className={`flex w-full ${isTeam1 ? 'justify-start' : 'justify-end'}`}>
             <div
                 onClick={() => onPlayerClick(player)}
-                className={`flex ${isTeam1 ? 'justify-start' : 'justify-end'}`}
+                className="group" // Added group here for tooltip
             >
-                {/* Player Circle with Number */}
-                <div className="relative hover:opacity-50 w-50 h-50 flex flex-col items-center">
-                    <div className={`absolute -top-3 right-15 rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-sm z-10 ${(player.stats?.player_rating || 0) < 5 ? 'bg-red-500' :
-                        (player.stats?.player_rating || 0) < 7 ? 'bg-orange-500' :
+                {/* Player Container - fixed width and centered */}
+                <div className="hover:opacity-50 w-110 h-10 flex flex-row items-center rounded-lg px-6 mt-3">
+                    {/* Player Image/Number */}
+                    {player.photoUrl ? (
+                        <div className="w-12 h-12 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a] flex-shrink-0">
+                            <img
+                                src={player.photoUrl}
+                                alt={player.player_name}
+                                className="w-11 h-11 rounded-full object-cover"
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-12 h-12 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a] flex-shrink-0">
+                            <span className="text-white text-lg font-bold">#{player.number}</span>
+                        </div>
+                    )}
+
+                    {/* Rating Circle */}
+                    <div className={`rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-xs flex-shrink-0 ml-7 ${Math.round((player.stats?.player_rating || 0) * 10) / 10 < 5 ? 'bg-red-500' :
+                        Math.round((player.stats?.player_rating || 0) * 10) / 10 < 7 ? 'bg-orange-500' :
                             'bg-[#32c771]'
                         }`}>
                         {player.stats?.player_rating?.toFixed(1)}
                     </div>
-                    {player.photoUrl ? (
-                        <div className="w-16 h-16 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a]">
-                            <img
-                                src={player.photoUrl}
-                                alt={player.player_name}
-                                className="absolute top-2 w-14 h-14 rounded-full object-cover"
-                            />
+
+                    {/* Player Info - centered and takes available space */}
+                    <div className='flex flex-row items-center justify-center '>
+                        <div className='text-[#ababab] text-xs ml-7'>#{player.number}</div>
+                        <div className='flex flex-col align-start'>
+                            <div className='text-white text-xs font-medium w-full ml-7'>
+                                {player.player_name}
+                            </div>
+                            <div className="text-[#9f9f9f] text-xs font-medium w-full ml-7">
+                                {player.position === 'F' ? 'Forward' :
+                                    player.position === 'G' ? 'Guard' :
+                                        player.position === 'C' ? 'Center' : player.position}
+                            </div>
                         </div>
-                    ) : (
-                        <div className="w-16 h-16 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a]">
-                            <span className="text-white text-2xl font-bold">#{player.number}</span>
-                        </div>
-                    )}
-                    <div className='flex flex-row justify-center'>
-                        <div className='text-[#ababab] text-xs pr-1'>#{player.number}</div>
-                        <div className='text-white text-xs'>{player.player_name}</div>
                     </div>
+
                 </div>
 
                 {/* Player Name Tooltip */}
