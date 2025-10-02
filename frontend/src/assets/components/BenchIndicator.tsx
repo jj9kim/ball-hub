@@ -39,8 +39,8 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
                         {/* Rating Circle */}
                         {(player.stats?.minutes || 0) >= 5 && (
                             <div className={`rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-xs flex-shrink-0 ml-7 ${Math.round((player.stats?.player_rating || 0) * 10) / 10 < 5 ? 'bg-red-500' :
-                                Math.round((player.stats?.player_rating || 0) * 10) / 10 < 7 ? 'bg-orange-500' :
-                                    'bg-[#32c771]'
+                                    Math.round((player.stats?.player_rating || 0) * 10) / 10 < 7 ? 'bg-orange-500' :
+                                        'bg-[#32c771]'
                                 }`}>
                                 {player.stats?.player_rating?.toFixed(1)}
                             </div>
@@ -62,19 +62,9 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
                         </div>
 
                         {/* Green minutes - always at the end */}
-                        <div
-                            className="text-[#32c771] text-xs flex flex-row items-center ml-auto pointer-events-none"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <span className="pointer-events-none">{player.stats?.minutes} min</span>
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                fill="currentColor"
-                                className="bi bi-clock-fill ml-2 pointer-events-none"
-                                viewBox="0 0 16 16"
-                            >
+                        <div className="text-[#32c771] text-xs flex flex-row items-center ml-auto">
+                            {player.stats?.minutes} min
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-clock-fill ml-2" viewBox="0 0 16 16">
                                 <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71z" />
                             </svg>
                         </div>
@@ -82,7 +72,7 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
                 </div>
 
                 {/* Player Name Tooltip */}
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-30">
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30">
                     <div className="bg-black bg-opacity-90 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
                         {player.player_name}
                     </div>

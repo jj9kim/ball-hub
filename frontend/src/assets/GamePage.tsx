@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import type { Stats, TabType, Player } from './components/types/index.ts';
 import GameHeader from './components/GameHeader';
 import FactsTab from './components/tabs/FactsTab';
@@ -12,6 +12,7 @@ export default function GamePage() {
     const [gameStats, setGameStats] = useState<Stats[]>([]);
     const [activeTab, setActiveTab] = useState<TabType>('facts');
     const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+    const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(-1);
     const playerCardRef = useRef<HTMLDivElement>(null);
 
     const { date, id } = useParams<{ date?: string; id: string }>();
@@ -20,7 +21,127 @@ export default function GamePage() {
     const teamsThisGame = location.state.teamsThisGame;
     const teamStats = location.state.t;
 
-    // Handle click outside to close PlayerCard (like Popup)
+    // Move getStatsForTeams inside the component
+    const getStatsForTeams = () => {
+        const statsPerTeam = gameStats.filter(g => g.game_id === Number(id));
+        const Team1 = statsPerTeam.filter(s => s.team_id === teamsThisGame[0].team_id)
+        const Team2 = statsPerTeam.filter(s => s.team_id === teamsThisGame[1].team_id)
+
+        const allStats = teamStats.filter((s: Stats) => s.game_id === Number(id));
+        const Team1All = allStats.find((g: Stats) => g.team_id === teamsThisGame[0].team_id);
+        const Team2All = allStats.find((g: Stats) => g.team_id === teamsThisGame[1].team_id);
+
+        function sumField(arr: any[], field: string): number {
+            return arr.reduce((sum, obj) => sum + (obj[field] || 0), 0);
+        }
+
+        if (Team1All) {
+            Team1All.fg_attempted = sumField(Team1, "fg_attempted");
+            Team1All.fg_made = sumField(Team1, "fg_made");
+            Team1All.ft_attempted = sumField(Team1, "ft_attempted");
+            Team1All.ft_made = sumField(Team1, "ft_made");
+            Team1All.three_pt_attempted = sumField(Team1, "three_pt_attempted");
+            Team1All.three_pt_made = sumField(Team1, "three_pt_made");
+        }
+
+        if (Team2All) {
+            Team2All.fg_attempted = sumField(Team2, "fg_attempted");
+            Team2All.fg_made = sumField(Team2, "fg_made");
+            Team2All.ft_attempted = sumField(Team2, "ft_attempted");
+            Team2All.ft_made = sumField(Team2, "ft_made");
+            Team2All.three_pt_attempted = sumField(Team2, "three_pt_attempted");
+            Team2All.three_pt_made = sumField(Team2, "three_pt_made");
+        }
+
+        return { Team1, Team2, Team1All, Team2All }
+    }
+
+    // Combine all players from both teams
+    const allPlayers = useMemo(() => {
+        if (!gameStats.length || !teamsThisGame) return [];
+
+        const { Team1, Team2 } = getStatsForTeams();
+        const players: Player[] = [];
+
+        // Convert Team1 stats to Player objects
+        Team1.forEach(stat => {
+            players.push({
+                player_id: stat.player_id,
+                player_name: stat.player_name,
+                number: String(stat.player_id), // You might want to adjust this
+                position: stat.position,
+                x: 0,
+                y: 0,
+                team_id: stat.team_id,
+                stats: {
+                    points: stat.points || 0,
+                    total_rebounds: stat.total_rebounds || 0,
+                    assists: stat.assists || 0,
+                    steals: stat.steals || 0,
+                    blocks: stat.blocks || 0,
+                    minutes: stat.minutes,
+                    player_rating: stat.player_rating || 0
+                }
+            });
+        });
+
+        // Convert Team2 stats to Player objects
+        Team2.forEach(stat => {
+            players.push({
+                player_id: stat.player_id,
+                player_name: stat.player_name,
+                number: String(stat.player_id), // You might want to adjust this
+                position: stat.position,
+                x: 0,
+                y: 0,
+                team_id: stat.team_id,
+                stats: {
+                    points: stat.points || 0,
+                    total_rebounds: stat.total_rebounds || 0,
+                    assists: stat.assists || 0,
+                    steals: stat.steals || 0,
+                    blocks: stat.blocks || 0,
+                    minutes: stat.minutes,
+                    player_rating: stat.player_rating || 0
+                }
+            });
+        });
+
+        return players;
+    }, [gameStats, teamsThisGame, teamStats, id]);
+
+    const handleNext = () => {
+        if (allPlayers.length === 0) return;
+
+        const nextIndex = (currentPlayerIndex + 1) % allPlayers.length;
+        setCurrentPlayerIndex(nextIndex);
+        setSelectedPlayer(allPlayers[nextIndex]);
+    };
+
+    const handlePrevious = () => {
+        if (allPlayers.length === 0) return;
+
+        const prevIndex = (currentPlayerIndex - 1 + allPlayers.length) % allPlayers.length;
+        setCurrentPlayerIndex(prevIndex);
+        setSelectedPlayer(allPlayers[prevIndex]);
+    };
+
+    const handlePlayerClick = (player: Player) => {
+        const index = allPlayers.findIndex(p => p.player_id === player.player_id);
+        setCurrentPlayerIndex(index);
+        setSelectedPlayer(player);
+    };
+
+    const handleClosePlayerCard = () => {
+        setSelectedPlayer(null);
+        setCurrentPlayerIndex(-1);
+    };
+
+    // Navigation states
+    const hasNext = allPlayers.length > 0;
+    const hasPrevious = allPlayers.length > 0;
+
+    // Handle click outside to close PlayerCard
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (playerCardRef.current && !playerCardRef.current.contains(event.target as Node)) {
@@ -30,7 +151,6 @@ export default function GamePage() {
 
         if (selectedPlayer) {
             document.addEventListener('mousedown', handleClickOutside);
-            // Prevent scrolling when player card is open
             document.body.style.overflow = 'hidden';
         }
 
@@ -46,38 +166,6 @@ export default function GamePage() {
             .then((gameStats: Stats[]) => setGameStats(gameStats))
             .catch(err => console.log(err));
     }, []);
-
-    const getStatsForTeams = () => {
-        const statsPerTeam = gameStats.filter(g => g.game_id === Number(id));
-        const Team1 = statsPerTeam.filter(s => s.team_id === teamsThisGame[0].team_id)
-        const Team2 = statsPerTeam.filter(s => s.team_id === teamsThisGame[1].team_id)
-
-        const allStats = teamStats.filter((s: Stats) => s.game_id === Number(id));
-        const Team1All = allStats.find((g: Stats) => g.team_id === teamsThisGame[0].team_id);
-        const Team2All = allStats.find((g: Stats) => g.team_id === teamsThisGame[1].team_id);
-
-        function sumField(arr: any[], field: string): number {
-            return arr.reduce((sum, obj) => sum + (obj[field] || 0), 0);
-        }
-
-        Team1All.fg_attempted = sumField(Team1, "fg_attempted");
-        Team1All.fg_made = sumField(Team1, "fg_made");
-        Team1All.ft_attempted = sumField(Team1, "ft_attempted");
-        Team1All.ft_made = sumField(Team1, "ft_made");
-        Team1All.three_pt_attempted = sumField(Team1, "three_pt_attempted");
-        Team1All.three_pt_made = sumField(Team1, "three_pt_made");
-
-        Team2All.fg_attempted = sumField(Team2, "fg_attempted");
-        Team2All.fg_made = sumField(Team2, "fg_made");
-        Team2All.ft_attempted = sumField(Team2, "ft_attempted");
-        Team2All.ft_made = sumField(Team2, "ft_made");
-        Team2All.three_pt_attempted = sumField(Team2, "three_pt_attempted");
-        Team2All.three_pt_made = sumField(Team2, "three_pt_made");
-
-        return { Team1, Team2, Team1All, Team2All }
-    }
-
-    const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
 
     const formatDateForURL = (date: Date): string => {
         const year = date.getFullYear();
@@ -100,15 +188,9 @@ export default function GamePage() {
         setActiveTab(tabKey);
     };
 
-    const handlePlayerClick = (player: Player) => {
-        setSelectedPlayer(player);
-    };
-
-    const handleClosePlayerCard = () => {
-        setSelectedPlayer(null);
-    };
-
     const renderTabContent = () => {
+        const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
+
         switch (activeTab) {
             case 'facts':
                 return <FactsTab Team1All={Team1All} Team2All={Team2All} />;
@@ -119,7 +201,7 @@ export default function GamePage() {
                     team1Id={teamsThisGame[0].team_id}
                     team2Id={teamsThisGame[1].team_id}
                     onPlayerClick={handlePlayerClick}
-            />;
+                />;
             case 'table':
                 return <TableTab />;
             case 'stats':
@@ -149,10 +231,16 @@ export default function GamePage() {
                 <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
             </div>
 
-            {/* PlayerCard - works exactly like Popup */}
+            {/* PlayerCard with navigation */}
             <PlayerCard
                 player={selectedPlayer}
                 onClose={handleClosePlayerCard}
+                onNext={handleNext}
+                onPrevious={handlePrevious}
+                hasNext={hasNext}
+                hasPrevious={hasPrevious}
+                currentIndex={currentPlayerIndex}
+                totalPlayers={allPlayers.length}
             />
         </>
     );

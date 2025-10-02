@@ -5,9 +5,24 @@ import { teamIdToName } from '../../utils/teamMappings.ts';
 interface PlayerCardProps {
     player: Player | null;
     onClose: () => void;
+    onNext: () => void;
+    onPrevious: () => void;
+    hasNext: boolean;
+    hasPrevious: boolean;
+    currentIndex?: number;
+    totalPlayers?: number;
 }
 
-export default function PlayerCard({ player, onClose }: PlayerCardProps) {
+export default function PlayerCard({
+    player,
+    onClose,
+    onNext,
+    onPrevious,
+    hasNext,
+    hasPrevious,
+    currentIndex,
+    totalPlayers
+}: PlayerCardProps) {
     const playerCardRef = useRef<HTMLDivElement>(null);
     const [isVisible, setIsVisible] = useState(false);
 
@@ -55,6 +70,24 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
         };
     }, [player]);
 
+    // Handle keyboard navigation
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (!player) return;
+
+            if (event.key === 'ArrowLeft' && hasPrevious) {
+                onPrevious();
+            } else if (event.key === 'ArrowRight' && hasNext) {
+                onNext();
+            } else if (event.key === 'Escape') {
+                handleClose();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [player, hasNext, hasPrevious, onNext, onPrevious]);
+
     const handleClose = () => {
         setIsVisible(false);
         // Wait for animation to complete before closing
@@ -67,19 +100,55 @@ export default function PlayerCard({ player, onClose }: PlayerCardProps) {
 
     return (
         <div
-            className={`fixed inset-0 bg-black/70 z-1000 flex items-center justify-center transition-all duration-500 ${isVisible
-                    ? 'opacity-100'
-                    : 'opacity-0'
+            className={`fixed inset-0 bg-black/70 z-1000 flex items-center justify-center transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'
                 }`}
             onClick={handleClose}
         >
             <div
                 ref={playerCardRef}
-                className="bg-[#1d1d1d] border-2 border-white rounded-2xl max-w-md w-full mx-auto shadow-2xl"
+                className="bg-[#1d1d1d] border-2 border-white rounded-2xl max-w-md w-full mx-auto shadow-2xl relative"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Card Header */}
-                {/* Player Info */}
+                {/* Navigation Arrows */}
+                {hasPrevious && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onPrevious();
+                        }}
+                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 rounded-full p-3 transition-all duration-200 z-10"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="white" viewBox="0 0 16 16">
+                            <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
+                        </svg>
+                </button>
+                )}
+
+                {hasNext && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNext();
+                        }}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 rounded-full p-3 transition-all duration-200 z-10"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="white" viewBox="0 0 16 16">
+                            <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z" />
+                        </svg>
+                </button>
+                )}
+
+                {/* Close button */}
+                <button
+                    onClick={handleClose}
+                    className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-all duration-200 z-10"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="white" viewBox="0 0 16 16">
+                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
+                    </svg>
+                </button>
+
+                {/* Card Content */}
                 <div className="p-6 min-h-[80vh]">
                     <div className="flex items-center space-x-4 mb-6">
                         {/* Player Photo or Jersey Circle */}
