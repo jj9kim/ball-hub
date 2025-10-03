@@ -116,12 +116,12 @@ export default function PlayerCard({
                             e.stopPropagation();
                             onPrevious();
                         }}
-                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 rounded-full p-3 transition-all duration-200 z-10"
+                        className="absolute top-14 left-8 transform -translate-y-1/2 bg-white/20 hover:bg-white rounded-full p-3 transition-all duration-200 z-10 fill-white hover:fill-black"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="white" viewBox="0 0 16 16">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16">
                             <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
                         </svg>
-                </button>
+                    </button>
                 )}
 
                 {hasNext && (
@@ -130,60 +130,72 @@ export default function PlayerCard({
                             e.stopPropagation();
                             onNext();
                         }}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 rounded-full p-3 transition-all duration-200 z-10"
+                        className="absolute top-14 right-8 transform -translate-y-1/2 bg-white/20 hover:bg-white rounded-full p-3 transition-all duration-200 z-10 fill-white hover:fill-black"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="white" viewBox="0 0 16 16">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16">
                             <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z" />
                         </svg>
-                </button>
+                    </button>
                 )}
 
-                {/* Close button */}
-                <button
-                    onClick={handleClose}
-                    className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-all duration-200 z-10"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="white" viewBox="0 0 16 16">
-                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
-                    </svg>
-                </button>
 
                 {/* Card Content */}
                 <div className="p-6 min-h-[80vh]">
-                    <div className="flex items-center space-x-4 mb-6">
+                    <div className="flex items-center space-x-4">
                         {/* Player Photo or Jersey Circle */}
-                        <div className="relative">
-                            {player.photoUrl ? (
-                                <img
-                                    src={player.photoUrl}
-                                    alt={player.player_name}
-                                    className="w-20 h-20 rounded-full border-2 border-white object-cover"
-                                />
-                            ) : (
-                                <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center border-2 border-white">
-                                    <span className="text-white text-2xl font-bold">#{player.number}</span>
-                                </div>
-                            )}
-                            <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                {player.position}
-                            </div>
-                        </div>
+                        <div className='flex flex-col items-center'>
+                            <div className='flex justify-center'>
+                                <div className="relative mb-3">
+                                    {player.photoUrl ? (
+                                        <img
+                                            src={player.photoUrl}
+                                            alt={player.player_name}
+                                            className="w-20 h-20 rounded-full border-2 border-white object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center border-2 border-white">
+                                            <span className="text-black text-2xl font-bold">#{player.number}</span>
+                                        </div>
+                                    )}
 
-                        <div className="flex-1">
-                            <h4 className="text-white text-2xl font-bold mb-1">{player.player_name}</h4>
-                            <p className="text-white text-opacity-80 mb-2">#{player.number} • {teamIdToName[player.team_id]}</p>
-                            <div className="flex items-center space-x-2">
-                                <span className="text-white text-opacity-90 text-sm">Rating:</span>
-                                <div className="flex items-center">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <span
-                                            key={star}
-                                            className={`text-lg ${star <= (player.stats?.player_rating || 0) ? 'text-yellow-400' : 'text-gray-400'}`}
-                                        >
-                                            ★
-                                        </span>
-                                    ))}
-                                    <span className="text-white text-sm ml-2">{player.stats?.player_rating?.toFixed(1) || 'N/A'}</span>
+                                    <div className={`absolute -top-1 left-12 rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-sm z-10 ${Math.round((player.stats?.player_rating || 0) * 10) / 10 < 5 ? 'bg-red-500' :
+                                        Math.round((player.stats?.player_rating || 0) * 10) / 10 < 7 ? 'bg-orange-500' :
+                                            'bg-[#32c771]'
+                                        }`}>
+                                        {player.stats?.player_rating?.toFixed(1)}
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                        {player.position}
+                                    </div>
+                                </div>
+                            </div>
+                            
+
+                            <div className='flex justify-center text-white font-bold mb-3'>{player.player_name}</div>
+
+
+                            <div className="flex flex-row justify-between">
+                                <div className='flex flex-col items-center ml-5'>
+                                    <div className="text-white text-xs font-medium w-full">
+                                        {player.position}
+                                    </div>
+                                    <div className="text-[#9f9f9f] text-xs font-medium w-full">Position</div>
+                                </div>
+                                
+                                <p className="text-white text-opacity-80 mb-2">#{player.number} • {teamIdToName[player.team_id]}</p>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-white text-opacity-90 text-sm">Rating:</span>
+                                    <div className="flex items-center">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <span
+                                                key={star}
+                                                className={`text-lg ${star <= (player.stats?.player_rating || 0) ? 'text-yellow-400' : 'text-gray-400'}`}
+                                            >
+                                                ★
+                                            </span>
+                                        ))}
+                                        <span className="text-white text-sm ml-2">{player.stats?.player_rating?.toFixed(1) || 'N/A'}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
