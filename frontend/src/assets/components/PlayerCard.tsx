@@ -141,65 +141,59 @@ export default function PlayerCard({
 
                 {/* Card Content */}
                 <div className="p-6 min-h-[80vh]">
-                    <div className="flex items-center space-x-4">
+                    {/* Remove the flex row and center everything */}
+                    <div className="flex flex-col items-center"> {/* Changed to flex-col and items-center */}
                         {/* Player Photo or Jersey Circle */}
-                        <div className='flex flex-col items-center'>
-                            <div className='flex justify-center'>
-                                <div className="relative mb-3">
-                                    {player.photoUrl ? (
-                                        <img
-                                            src={player.photoUrl}
-                                            alt={player.player_name}
-                                            className="w-20 h-20 rounded-full border-2 border-white object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center border-2 border-white">
-                                            <span className="text-black text-2xl font-bold">#{player.number}</span>
-                                        </div>
-                                    )}
+                        <div className="flex flex-col items-center w-full"> {/* Added w-full */}
+                            <div className="relative mb-3">
+                                {player.photoUrl ? (
+                                    <img
+                                        src={player.photoUrl}
+                                        alt={player.player_name}
+                                        className="w-20 h-20 rounded-full border-2 border-white object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center border-2 border-white">
+                                        <span className="text-black text-2xl font-bold">#{player.number}</span>
+                                    </div>
+                                )}
 
-                                    <div className={`absolute -top-1 left-12 rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-sm z-10 ${Math.round((player.stats?.player_rating || 0) * 10) / 10 < 5 ? 'bg-red-500' :
+                                <div className={`absolute -top-1 left-12 rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-sm z-10 ${Math.round((player.stats?.player_rating || 0) * 10) / 10 < 5 ? 'bg-red-500' :
                                         Math.round((player.stats?.player_rating || 0) * 10) / 10 < 7 ? 'bg-orange-500' :
                                             'bg-[#32c771]'
-                                        }`}>
-                                        {player.stats?.player_rating?.toFixed(1)}
-                                    </div>
-                                    <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                        {player.position}
-                                    </div>
+                                    }`}>
+                                    {player.stats?.player_rating?.toFixed(1)}
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                    {player.position}
                                 </div>
                             </div>
-                            
 
-                            <div className='flex justify-center text-white font-bold mb-3'>{player.player_name}</div>
+                            <div className='text-white font-bold mb-3 text-center'>{player.player_name}</div> {/* Removed flex justify-center, added text-center */}
 
-
-                            <div className="flex flex-row justify-between">
-                                <div className='flex flex-col items-center ml-5'>
-                                    <div className="text-white text-xs font-medium w-full">
+                            {/* Stats container */}
+                            <div className="flex flex-row justify-between w-full max-w-xs">
+                                <div className='flex flex-col items-center'>
+                                    <div className="text-white font-medium">
                                         {player.position}
                                     </div>
-                                    <div className="text-[#9f9f9f] text-xs font-medium w-full">Position</div>
+                                    <div className="text-[#9f9f9f] text-xs font-medium">Position</div>
                                 </div>
-                                
-                                <p className="text-white text-opacity-80 mb-2">#{player.number} • {teamIdToName[player.team_id]}</p>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-white text-opacity-90 text-sm">Rating:</span>
-                                    <div className="flex items-center">
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                            <span
-                                                key={star}
-                                                className={`text-lg ${star <= (player.stats?.player_rating || 0) ? 'text-yellow-400' : 'text-gray-400'}`}
-                                            >
-                                                ★
-                                            </span>
-                                        ))}
-                                        <span className="text-white text-sm ml-2">{player.stats?.player_rating?.toFixed(1) || 'N/A'}</span>
-                                    </div>
+
+                                <div className='flex flex-col items-center'>
+                                    <p className="text-white  text-opacity-80">{teamIdToName[player.team_id]}</p>
+                                    <div className="text-[#9f9f9f] text-xs font-medium">Team</div>
+                                </div>
+
+                                <div className='flex flex-col items-center'>
+                                    <div className="text-white text-opacity-80">{player.stats?.player_rating}</div>
+                                    <div className="text-[#9f9f9f] text-xs font-medium">Rating</div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <div className='bg-[#2c2c2c] h-0.5'></div>
 
                     {/* Stats Grid */}
                     {player.stats && (
