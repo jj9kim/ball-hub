@@ -140,9 +140,9 @@ export default function PlayerCard({
 
 
                 {/* Card Content */}
-                <div className="p-6 min-h-[80vh]">
+                <div className="min-h-[80vh]">
                     {/* Remove the flex row and center everything */}
-                    <div className="flex flex-col items-center"> {/* Changed to flex-col and items-center */}
+                    <div className="flex flex-col items-center p-6"> {/* Changed to flex-col and items-center */}
                         {/* Player Photo or Jersey Circle */}
                         <div className="flex flex-col items-center w-full"> {/* Added w-full */}
                             <div className="relative mb-3">
@@ -197,30 +197,88 @@ export default function PlayerCard({
 
                     {/* Stats Grid */}
                     {player.stats && (
-                        <div className="grid grid-cols-2 gap-4 mt-6">
-                            <div className="text-center p-3 bg-white bg-opacity-10 rounded-lg">
-                                <div className="text-black text-2xl font-bold">{player.stats.points || 0}</div>
-                                <div className="text-black text-opacity-80 text-sm">Points</div>
+                        <div className='max-h-96 overflow-y-auto 
+                        [scrollbar-width:thin] 
+                        [scrollbar-color:#404040_#1d1d1d]
+                        [&::-webkit-scrollbar]:w-2
+                        [&::-webkit-scrollbar-track]:bg-[#1d1d1d]
+                        [&::-webkit-scrollbar-thumb]:bg-[#404040]
+                        [&::-webkit-scrollbar-thumb]:rounded-full'>
+                            <div className='bg-[#141414] h-20'></div>
+                            <div className='bg-[#1d1d1d] text-white'>
+                                <p className='pl-5 pt-5'>Top Stats</p>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Minutes Played</div>
+                                    <div>{player.stats.minutes}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Points</div>
+                                    <div>{player.stats.points}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Rebounds</div>
+                                    <div>{player.stats.total_rebounds}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Assists</div>
+                                    <div>{player.stats.assists}</div>
+                                </div>
                             </div>
-                            <div className="text-center p-3 bg-white bg-opacity-10 rounded-lg">
-                                <div className="text-black text-2xl font-bold">{player.stats.total_rebounds || 0}</div>
-                                <div className="text-black text-opacity-80 text-sm">Rebounds</div>
+                            <div className='bg-[#2c2c2c] h-0.5 mt-5'></div>
+                            <div className='bg-[#1d1d1d] text-white'>
+                                <p className='pl-5 pt-5'>Offense</p>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Field Goals</div>
+                                    <div>{player.stats.fg_made}/{player.stats.fg_attempted} ({player.stats.fg_percentage}%)</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Three Points</div>
+                                    <div>{player.stats.three_pt_made}/{player.stats.three_pt_attempted} ({player.stats.three_pt_percentage}%)</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Free Throws</div>
+                                    <div>{player.stats.ft_made}/{player.stats.ft_attempted} ({player.stats.ft_percentage}%)</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Offensive Rebounds</div>
+                                    <div>{player.stats.offensive_rebounds}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Turnovers</div>
+                                    <div>{player.stats.turnovers}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Offensive Rating</div>
+                                    <div>{player.stats.ortg}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Usage</div>
+                                    <div>{player.stats.usg}</div>
+                                </div>
                             </div>
-                            <div className="text-center p-3 bg-white bg-opacity-10 rounded-lg">
-                                <div className="text-black text-2xl font-bold">{player.stats.assists || 0}</div>
-                                <div className="text-black text-opacity-80 text-sm">Assists</div>
-                            </div>
-                            <div className="text-center p-3 bg-white bg-opacity-10 rounded-lg">
-                                <div className="text-black text-2xl font-bold">{player.stats.steals || 0}</div>
-                                <div className="text-black text-opacity-80 text-sm">Steals</div>
-                            </div>
-                            <div className="text-center p-3 bg-white bg-opacity-10 rounded-lg">
-                                <div className="text-black text-2xl font-bold">{player.stats.blocks || 0}</div>
-                                <div className="text-black text-opacity-80 text-sm">Blocks</div>
-                            </div>
-                            <div className="text-center p-3 bg-white bg-opacity-10 rounded-lg">
-                                <div className="text-black text-lg font-bold">{player.stats.minutes || '0:00'}</div>
-                                <div className="text-black text-opacity-80 text-sm">Minutes</div>
+                            <div className='bg-[#2c2c2c] h-0.5 mt-5'></div>
+                            <div className='bg-[#1d1d1d] text-white'>
+                                <p className='pl-5 pt-5'>Defence</p>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Steals</div>
+                                    <div>{player.stats.steals}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Blocks</div>
+                                    <div>{player.stats.blocks}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Defensive Rebounds</div>
+                                    <div>{player.stats.defensive_rebounds}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Personal Fouls</div>
+                                    <div>{player.stats.personal_fouls}</div>
+                                </div>
+                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
+                                    <div>Technical Fouls</div>
+                                    <div>{player.stats.technical_fouls}</div>
+                                </div>
                             </div>
                         </div>
                     )}
