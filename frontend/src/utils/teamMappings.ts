@@ -63,12 +63,14 @@ export const teamIdToAbbreviation: { [key: number]: string } = {
     29: "Grizzlies",
     5312: "Hornets"
   };
-
-
   
   export const getTeamLogoUrl = (teamId: number): string => {
     const abbreviation = teamIdToAbbreviation[teamId];
     return `https://content.rotowire.com/images/teamlogo/basketball/100${abbreviation}.png?v=7`;
+  };
+
+  export const getTeamLogoUrlFromName = (teamShort: string): string => {
+    return `https://content.rotowire.com/images/teamlogo/basketball/100${teamShort}.png?v=7`;
   };
 
   export const getTeamName = (teamId: number): string => {

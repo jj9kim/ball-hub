@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getTeamLogoUrlFromName } from "../../../utils/teamMappings";
 
 interface Standings {
     id: number,
@@ -44,7 +45,6 @@ export default function TableTab() {
             });
     }, []);
 
-    // Add loading and error states
     if (loading) {
         return (
             <div className="p-6">
@@ -67,11 +67,59 @@ export default function TableTab() {
 
     console.log(standings[0].team_name); // Now this is safe
 
+    let nba_standings = standings.sort((a, b) => {
+        const diff = b.win_percentage - a.win_percentage;
+        if (diff !== 0) return diff;
+
+        const aConfWins = Number(a.conference_record.split("-")[0]);
+        const bConfWins = Number(b.conference_record.split("-")[0]);
+        return bConfWins - aConfWins;
+    });
+
     return (
-        <div className="p-6">
-            <h3 className="text-xl font-bold text-white mb-4">NBA Standings</h3>
-            <div className="text-white">
-                First team: {standings[0].team_name}
+        <div className="w-full text-white mt-10 mb-5">
+            <h3 className="text-lg font-bold mb-3 text-center">NBA Standings</h3>
+
+            <div className="overflow-x-auto max-w-4xl mx-auto">
+                {/* Header */}
+                <div className="grid grid-cols-[25px_1fr_repeat(7,0.4fr)] bg-[#2b2b2b] text-gray-300 font-semibold text-xs px-2 py-1 border-b border-gray-700">
+                    <p>#</p>
+                    <p className="text-left">Team</p>
+                    <p>W</p>
+                    <p>L</p>
+                    <p>Win%</p>
+                    <p>PF/G</p>
+                    <p>PA/G</p>
+                    <p>Diff</p>
+                    <p>Streak</p>
+                </div>
+
+                {/* Rows */}
+                {nba_standings.map((team, index) => (
+                    <div
+                        key={team.team_name}
+                        className={`grid grid-cols-[25px_1fr_repeat(7,0.4fr)] text-xs px-2 py-1 ${index % 2 === 0 ? "bg-[#1c1c1c]" : "bg-[#222]"
+                            } hover:bg-[#333] transition`}
+                    >
+                        <p>{index + 1}</p>
+                        <div className="flex flex-row items-center">
+                            <img
+                                src={getTeamLogoUrlFromName(team.team_short)}
+                                alt={team.id.toString()}
+                                className="w-5 h-5 mr-2"
+                                onError={(e) => (e.currentTarget.style.display = "none")}
+                            />
+                            <p className="text-left">{team.team_name}</p>
+                        </div>
+                        <p>{team.wins}</p>
+                        <p>{team.losses}</p>
+                        <p>{team.win_percentage.toFixed(3)}</p>
+                        <p>{team.points_for_per_game}</p>
+                        <p>{team.points_against_per_game}</p>
+                        <p>{team.point_differential}</p>
+                        <p>{team.streak}</p>
+                    </div>
+                ))}
             </div>
         </div>
     );
