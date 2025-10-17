@@ -239,7 +239,9 @@ export default function GamePage() {
                     onPlayerClick={handlePlayerClick}
                 />;
             case 'table':
-                return <TableTab />;
+                return <TableTab
+                    team1Id={teamsThisGame[0].team_id}
+                    team2Id={teamsThisGame[1].team_id} />;
             case 'stats':
                 return <StatsTab />;
             default:

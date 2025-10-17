@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { getTeamLogoUrlFromName } from "../../../utils/teamMappings";
+import { getTeamId } from "../../../utils/teamMappings";
+
+interface TableTabProps {
+    team1Id: number;
+    team2Id: number;
+}
 
 interface Standings {
     id: number,
@@ -21,7 +27,7 @@ interface Standings {
     streak: string
 }
 
-export default function TableTab() {
+export default function TableTab({team1Id, team2Id}: TableTabProps) {
     const [standings, setStandings] = useState<Standings[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -65,7 +71,7 @@ export default function TableTab() {
         );
     }
 
-    console.log(standings[0].team_name); // Now this is safe
+    console.log(standings[3].team_name.split(" ")[1]); // Now this is safe
 
     let nba_standings = standings.sort((a, b) => {
         const diff = b.win_percentage - a.win_percentage;
@@ -98,15 +104,15 @@ export default function TableTab() {
                 {nba_standings.map((team, index) => (
                     <div
                         key={team.team_name}
-                        className={`grid grid-cols-[25px_1fr_repeat(7,0.4fr)] text-xs px-2 py-1 ${index % 2 === 0 ? "bg-[#1c1c1c]" : "bg-[#222]"
-                            } hover:bg-[#333] transition`}
+                        className={`grid grid-cols-[25px_1fr_repeat(7,0.4fr)] text-sm px-2 py-1 ${(getTeamId(team.team_name.split(" ").pop()!) == team1Id || getTeamId(team.team_name.split(" ").pop()!) == team2Id) ? "bg-black" : "bg-[#1c1c1c]"} hover:bg-[#333] transition`}
+                             
                     >
                         <p>{index + 1}</p>
                         <div className="flex flex-row items-center">
                             <img
                                 src={getTeamLogoUrlFromName(team.team_short)}
                                 alt={team.id.toString()}
-                                className="w-5 h-5 mr-2"
+                                className="w-5 h-5 mr-3"
                                 onError={(e) => (e.currentTarget.style.display = "none")}
                             />
                             <p className="text-left">{team.team_name}</p>

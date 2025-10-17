@@ -77,3 +77,12 @@ export const teamIdToAbbreviation: { [key: number]: string } = {
     const name = teamIdToName[teamId];
     return name;
   }
+
+  export const teamNameToId: { [key: string]: number } = Object.entries(teamIdToName).reduce((acc, [id, name]) => {
+    acc[name] = parseInt(id);
+    return acc;
+}, {} as { [key: string]: number });
+
+export const getTeamId = (teamName: string): number => {
+  return teamNameToId[teamName] || -1;
+}
