@@ -40,6 +40,8 @@ export interface UnderlineStyle {
 
 export type TabType = 'facts' | 'lineup' | 'table' | 'stats';
 
+export type TeamTabType = 'overview' | 'standings' | 'matches' | 'stats';
+
 export interface Player {
     player_id: number;
     player_name: string;
