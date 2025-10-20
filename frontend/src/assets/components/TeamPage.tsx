@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TeamTabNavigation from './TeamTabNavigation';
 import OverviewTab from './team tabs/OverviewTab';
+import StandingsTab from './team tabs/StandingsTab';
 
 type TeamTabType = 'overview' | 'standings' | 'matches' | 'stats';
 
@@ -20,10 +21,7 @@ export default function TeamsPage() {
                 );
             case 'standings':
                 return (
-                    <div className="p-6">
-                        <h3 className="text-xl font-bold text-white mb-4">Standings</h3>
-                        <p className="text-gray-400">Standings content will go here</p>
-                    </div>
+                    <StandingsTab />
                 );
             case 'matches':
                 return (
@@ -53,7 +51,7 @@ export default function TeamsPage() {
         <div className="bg-black pt-20 flex justify-center">
             <div className='border-white border-2 w-7/8'>
                 <div className="flex flex-col mb-6">
-                    <div className='w-full bg-[#2c2c2c] rounded-2xl px-8 pt-8 border-2 border-pink-500'> 
+                    <div className='w-full bg-[#1d1d1d] rounded-2xl px-8 pt-8 border-2 border-pink-500'> 
                         <div className="flex items-center pb-10">
                             <img
                                 src="https://content.rotowire.com/images/teamlogo/basketball/100fa.png?v=7"
