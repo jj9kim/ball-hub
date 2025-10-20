@@ -1,31 +1,13 @@
 import { useEffect, useState } from "react";
 import { getTeamLogoUrlFromName } from "../../../utils/teamMappings";
 import { getTeamId } from "../../../utils/teamMappings";
+import type { Standings } from "../types";
 
 interface TableTabProps {
     team1Id: number;
     team2Id: number;
 }
 
-interface Standings {
-    id: number,
-    team_name: string,
-    team_short: string,
-    conference: string,
-    division: string,
-    wins: number,
-    losses: number,
-    win_percentage: number,
-    points_for_per_game: number,
-    points_against_per_game: number,
-    point_differential: number,
-    home_record: string,
-    away_record: string,
-    conference_record: string,
-    division_record: string,
-    last_ten_record: string,
-    streak: string
-}
 
 export default function TableTab({team1Id, team2Id}: TableTabProps) {
     const [standings, setStandings] = useState<Standings[]>([]);

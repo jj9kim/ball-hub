@@ -66,3 +66,23 @@ export interface PlayerCardProps {
     player: Player | null;
     onClose: () => void;
 }
+
+export interface Standings {
+    id: number,
+    team_name: string,
+    team_short: string,
+    conference: string,
+    division: string,
+    wins: number,
+    losses: number,
+    win_percentage: number,
+    points_for_per_game: number,
+    points_against_per_game: number,
+    point_differential: number,
+    home_record: string,
+    away_record: string,
+    conference_record: string,
+    division_record: string,
+    last_ten_record: string,
+    streak: string
+}

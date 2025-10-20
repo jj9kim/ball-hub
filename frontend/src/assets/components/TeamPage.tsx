@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import TeamTabNavigation from './TeamTabNavigation';
+import OverviewTab from './team tabs/OverviewTab';
 
 type TeamTabType = 'overview' | 'standings' | 'matches' | 'stats';
 
@@ -15,10 +16,7 @@ export default function TeamsPage() {
         switch (activeTab) {
             case 'overview':
                 return (
-                    <div className="p-6">
-                        <h3 className="text-xl font-bold text-white mb-4">Overview</h3>
-                        <p className="text-gray-400">Team overview content will go here</p>
-                    </div>
+                    <OverviewTab/>
                 );
             case 'standings':
                 return (
@@ -78,7 +76,7 @@ export default function TeamsPage() {
                 </div>
 
                 {/* Tab Content */}
-                <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] min-h-[50vh]">
+                <div className="border-2 border-blue-400 rounded-2xl min-h-[50vh]">
                     {renderTabContent()}
                 </div>
             </div>
