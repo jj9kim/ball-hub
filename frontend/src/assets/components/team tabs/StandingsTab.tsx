@@ -2,60 +2,128 @@ import type { Standings } from "../types";
 import { useState, useEffect } from "react";
 import { getTeamLogoUrlFromName } from "../../../utils/teamMappings";
 
+interface AdvancedStandings {
+    id: number,
+    team_name: string,
+    team_short: string,
+    wins: number,
+    losses: number,
+    win_percentage: number,
+    home_record: string,
+    away_record: string,
+    conference_record: string,
+    conference_win_percentage: number,
+    division_record: string,
+    division_win_percentage: number,
+    close_record: string,
+    blowout_record: string,
+    low_scoring_record: string,
+    overtime_record: string
+}
+
 export default function StandingsTab() {
     const [standings, setStandings] = useState<Standings[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        fetch('http://localhost:8081/basic_standings')
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error('Network response was not ok');
+        const [advancedStandings, setAdvancedStandings] = useState<AdvancedStandings[]>([]);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState<string | null>(null);
+    
+        useEffect(() => {
+            let isMounted = true;
+    
+            const fetchData = async () => {
+                try {
+                    setLoading(true);
+                    setError(null);
+    
+                    // Fetch basic standings
+                    const standingsResponse = await fetch('http://localhost:8081/basic_standings');
+                    if (!standingsResponse.ok) {
+                        throw new Error('Failed to fetch basic standings');
+                    }
+                    const standingsData: Standings[] = await standingsResponse.json();
+    
+                    // Fetch advanced splits
+                    const advancedResponse = await fetch('http://localhost:8081/advanced_splits');
+                    if (!advancedResponse.ok) {
+                        throw new Error('Failed to fetch advanced splits');
+                    }
+                    const advancedData: AdvancedStandings[] = await advancedResponse.json();
+    
+                    if (isMounted) {
+                        setStandings(standingsData);
+                        setAdvancedStandings(advancedData);
+                    }
+                } catch (err) {
+                    if (isMounted) {
+                        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+                        console.error('Fetch error:', err);
+                    }
+                } finally {
+                    if (isMounted) {
+                        setLoading(false);
+                    }
                 }
-                return res.json();
-            })
-            .then((data: Standings[]) => {
-                setStandings(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.log(err);
-                setError(err.message);
-                setLoading(false);
+            };
+    
+            fetchData();
+    
+            return () => {
+                isMounted = false;
+            };
+        }, []);
+    
+        // Safe logging - only if standings has data
+        if (standings.length > 3) {
+            const teamName = standings[3].team_name;
+            const lastNamePart = teamName?.split(" ")[1]; // Optional chaining
+            console.log(lastNamePart);
+        }
+    
+        // Safe sorting with error handling
+        const nba_standings = standings
+            .filter(team => team && typeof team.win_percentage === 'number')
+            .sort((a, b) => {
+                try {
+                    const diff = b.win_percentage - a.win_percentage;
+                    if (diff !== 0) return diff;
+    
+                    // Safe conference record parsing
+                    const aConferenceRecord = a.conference_record || "0-0";
+                    const bConferenceRecord = b.conference_record || "0-0";
+    
+                    const aConfWins = Number(aConferenceRecord.split("-")[0]) || 0;
+                    const bConfWins = Number(bConferenceRecord.split("-")[0]) || 0;
+    
+                    return bConfWins - aConfWins;
+                } catch (error) {
+                    console.error('Error sorting standings:', error);
+                    return 0; // Fallback: maintain original order
+                }
             });
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="p-6">
-                <div className="text-white">Loading standings...</div>
-            </div>
-        );
-    } else if (error) {
-        return (
-            <div className="p-6">
-                <div className="text-red-500">Error: {error}</div>
-            </div>
-        );
-    } else if (standings.length === 0) {
-        return (
-            <div className="p-6">
-                <div className="text-white">No standings data available.</div>
-            </div>
-        );
-    }
-
-    console.log(standings[3].team_name.split(" ")[1]); // Now this is safe
-
-    let nba_standings = standings.sort((a, b) => {
-        const diff = b.win_percentage - a.win_percentage;
-        if (diff !== 0) return diff;
-
-        const aConfWins = Number(a.conference_record.split("-")[0]);
-        const bConfWins = Number(b.conference_record.split("-")[0]);
-        return bConfWins - aConfWins;
-    });
+    
+        if (loading) {
+            return (
+                <div className="p-6">
+                    <div className="text-white">Loading standings...</div>
+                </div>
+            );
+        }
+    
+        if (error) {
+            return (
+                <div className="p-6">
+                    <div className="text-red-500">Error: {error}</div>
+                </div>
+            );
+        }
+    
+        if (standings.length === 0) {
+            return (
+                <div className="p-6">
+                    <div className="text-white">No standings data available.</div>
+                </div>
+            );
+        }
 
     return (
             <div className="w-full text-white border-2 border-green-400 bg-[#1d1d1d] mr-3 rounded-2xl pb-5">
@@ -104,4 +172,5 @@ export default function StandingsTab() {
             </div>
     );
 }
+
 
