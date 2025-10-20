@@ -50,7 +50,7 @@ export default function TeamsPage() {
     return (
         <div className="bg-black pt-20 flex justify-center">
             <div className='border-white border-2 w-7/8'>
-                <div className="flex flex-col mb-6">
+                <div className="flex flex-col mb-3">
                     <div className='w-full bg-[#1d1d1d] rounded-2xl px-8 pt-8 border-2 border-pink-500'> 
                         <div className="flex items-center pb-10">
                             <img
