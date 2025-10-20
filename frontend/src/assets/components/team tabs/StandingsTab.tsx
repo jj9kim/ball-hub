@@ -21,11 +21,14 @@ interface AdvancedStandings {
     overtime_record: string
 }
 
+type TabType = 'league' | 'conference' | 'division' | 'situational';
+
 export default function StandingsTab() {
     const [standings, setStandings] = useState<Standings[]>([]);
     const [advancedStandings, setAdvancedStandings] = useState<AdvancedStandings[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<TabType>('league');
 
     useEffect(() => {
         let isMounted = true;
@@ -72,22 +75,14 @@ export default function StandingsTab() {
         };
     }, []);
 
-    // Safe logging - only if standings has data
-    if (standings.length > 3) {
-        const teamName = standings[3].team_name;
-        const lastNamePart = teamName?.split(" ")[1]; // Optional chaining
-        console.log(lastNamePart);
-    }
-
-    // Safe sorting with error handling
-    const nba_standings = standings
+    // Safe sorting with error handling - LEAGUE VIEW (default)
+    const leagueStandings = standings
         .filter(team => team && typeof team.win_percentage === 'number')
         .sort((a, b) => {
             try {
                 const diff = b.win_percentage - a.win_percentage;
                 if (diff !== 0) return diff;
 
-                // Safe conference record parsing
                 const aConferenceRecord = a.conference_record || "0-0";
                 const bConferenceRecord = b.conference_record || "0-0";
 
@@ -97,9 +92,106 @@ export default function StandingsTab() {
                 return bConfWins - aConfWins;
             } catch (error) {
                 console.error('Error sorting standings:', error);
-                return 0; // Fallback: maintain original order
+                return 0;
             }
         });
+
+    // CONFERENCE VIEW - group by conference and sort within each conference
+    const conferenceStandings = () => {
+        const eastern = standings.filter(team => team.conference === 'Eastern Conference')
+            .sort((a, b) => b.win_percentage - a.win_percentage);
+        const western = standings.filter(team => team.conference === 'Western Conference')
+            .sort((a, b) => b.win_percentage - a.win_percentage);
+        return { eastern, western };
+    };
+
+    // DIVISION VIEW - group by division and sort within each division
+    const divisionStandings = () => {
+        const divisions: { [key: string]: Standings[] } = {};
+
+        standings.forEach(team => {
+            if (team.division) {
+                if (!divisions[team.division]) {
+                    divisions[team.division] = [];
+                }
+                divisions[team.division].push(team);
+            }
+        });
+
+        // Sort each division by win percentage
+        Object.keys(divisions).forEach(division => {
+            divisions[division].sort((a, b) => b.win_percentage - a.win_percentage);
+        });
+
+        return divisions;
+    };
+
+    // SITUATIONAL VIEW - use advanced standings data
+    const situationalStandings = advancedStandings
+        .filter(team => team && typeof team.win_percentage === 'number')
+        .sort((a, b) => b.win_percentage - a.win_percentage);
+
+    // Get the current standings based on active tab
+    const getCurrentStandings = () => {
+        switch (activeTab) {
+            case 'conference':
+                const conferences = conferenceStandings();
+                return [...conferences.eastern, ...conferences.western];
+            case 'division':
+                const divisions = divisionStandings();
+                return Object.values(divisions).flat();
+            case 'situational':
+                return situationalStandings;
+            case 'league':
+            default:
+                return leagueStandings;
+        }
+    };
+
+    // Get headers based on active tab
+    const getHeaders = () => {
+        const baseHeaders = ['#', 'Team', 'W', 'L', 'Win%', 'PF/G', 'PA/G', 'Diff', 'Streak'];
+
+        switch (activeTab) {
+            case 'situational':
+                return ['#', 'Team', 'W', 'L', 'Win%', 'Home', 'Away', 'Close', 'Overtime'];
+            default:
+                return baseHeaders;
+        }
+    };
+
+    // Get row data based on active tab
+    const getRowData = (team: any, index: number) => {
+        switch (activeTab) {
+            case 'situational':
+                return [
+                    index + 1,
+                    team.team_name,
+                    team.wins,
+                    team.losses,
+                    team.win_percentage.toFixed(3),
+                    team.home_record || '0-0',
+                    team.away_record || '0-0',
+                    team.close_record || '0-0',
+                    team.overtime_record || '0-0'
+                ];
+            default:
+                return [
+                    index + 1,
+                    team.team_name,
+                    team.wins,
+                    team.losses,
+                    team.win_percentage.toFixed(3),
+                    team.points_for_per_game,
+                    team.points_against_per_game,
+                    team.point_differential,
+                    team.streak
+                ];
+        }
+    };
+
+    const currentStandings = getCurrentStandings();
+    const headers = getHeaders();
 
     if (loading) {
         return (
@@ -127,55 +219,81 @@ export default function StandingsTab() {
 
     return (
         <div className="w-full text-white border-2 border-green-400 bg-[#1d1d1d] mr-3 rounded-2xl pb-5">
+            {/* Tab Navigation */}
             <div className="w-full border-b-1 border-[#9f9f9f] min-h-10 flex justify-between">
-                <button className="hover:bg-[#333] w-1/4 border-1 rounded-tl-2xl">League</button>
-                <button className="hover:bg-[#333] w-1/4 border-1">Conference</button>
-                <button className="hover:bg-[#333] w-1/4 border-1">Division</button>
-                <button className="hover:bg-[#333] w-1/4 border-1 rounded-tr-2xl">Situational</button>
+                <button
+                    className={`w-1/4 border-1 rounded-tl-2xl transition ${activeTab === 'league' ? 'bg-[#333]' : 'hover:bg-[#333]'
+                        }`}
+                    onClick={() => setActiveTab('league')}
+                >
+                    League
+                </button>
+                <button
+                    className={`w-1/4 border-1 transition ${activeTab === 'conference' ? 'bg-[#333]' : 'hover:bg-[#333]'
+                        }`}
+                    onClick={() => setActiveTab('conference')}
+                >
+                    Conference
+                </button>
+                <button
+                    className={`w-1/4 border-1 transition ${activeTab === 'division' ? 'bg-[#333]' : 'hover:bg-[#333]'
+                        }`}
+                    onClick={() => setActiveTab('division')}
+                >
+                    Division
+                </button>
+                <button
+                    className={`w-1/4 border-1 rounded-tr-2xl transition ${activeTab === 'situational' ? 'bg-[#333]' : 'hover:bg-[#333]'
+                        }`}
+                    onClick={() => setActiveTab('situational')}
+                >
+                    Situational
+                </button>
             </div>
+
             <div className="overflow-x-auto mx-auto">
                 {/* Header */}
-                <div className="grid grid-cols-[25px_1fr_repeat(7,0.4fr)] text-[#9f9f9f] font-semibold text-xs px-2 py-1 mb-3 pt-5">
-                    <p>#</p>
-                    <p className="text-left">Team</p>
-                    <p>W</p>
-                    <p>L</p>
-                    <p>Win%</p>
-                    <p>PF/G</p>
-                    <p>PA/G</p>
-                    <p>Diff</p>
-                    <p>Streak</p>
+                <div className={`grid text-[#9f9f9f] font-semibold text-xs px-2 py-1 mb-3 pt-5 ${activeTab === 'situational'
+                        ? 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                        : 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                    }`}>
+                    {headers.map((header, index) => (
+                        <p key={index} className={index === 1 ? 'text-left' : ''}>
+                            {header}
+                        </p>
+                    ))}
                 </div>
 
                 {/* Rows */}
-                {nba_standings.map((team, index) => (
-                    <div
-                        key={team.team_name}
-                        className={`grid grid-cols-[25px_1fr_repeat(7,0.4fr)] text-sm px-2 py-1 hover:bg-[#333] transition`}
-
-                    >
-                        <p>{index + 1}</p>
-                        <div className="flex flex-row items-center">
-                            <img
-                                src={getTeamLogoUrlFromName(team.team_short)}
-                                alt={team.id.toString()}
-                                className="w-5 h-5 mr-3"
-                                onError={(e) => (e.currentTarget.style.display = "none")}
-                            />
-                            <p className="text-left">{team.team_name}</p>
+                {currentStandings.map((team, index) => {
+                    const rowData = getRowData(team, index);
+                    return (
+                        <div
+                            key={team.team_name}
+                            className={`grid text-sm px-2 py-1 hover:bg-[#333] transition ${activeTab === 'situational'
+                                    ? 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                                    : 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                                }`}
+                        >
+                            {rowData.map((data, dataIndex) => (
+                                dataIndex === 1 ? (
+                                    <div key={dataIndex} className="flex flex-row items-center">
+                                        <img
+                                            src={getTeamLogoUrlFromName(team.team_short)}
+                                            alt={team.id.toString()}
+                                            className="w-5 h-5 mr-3"
+                                            onError={(e) => (e.currentTarget.style.display = "none")}
+                                        />
+                                        <p className="text-left">{data}</p>
+                                    </div>
+                                ) : (
+                                    <p key={dataIndex}>{data}</p>
+                                )
+                            ))}
                         </div>
-                        <p>{team.wins}</p>
-                        <p>{team.losses}</p>
-                        <p>{team.win_percentage.toFixed(3)}</p>
-                        <p>{team.points_for_per_game}</p>
-                        <p>{team.points_against_per_game}</p>
-                        <p>{team.point_differential}</p>
-                        <p>{team.streak}</p>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
 }
-
-
