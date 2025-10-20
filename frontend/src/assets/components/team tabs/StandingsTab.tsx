@@ -22,6 +22,8 @@ interface AdvancedStandings {
 }
 
 type TabType = 'league' | 'conference' | 'division' | 'situational';
+type SortField = 'wins' | 'losses' | 'win_percentage' | 'points_for_per_game' | 'points_against_per_game' | 'point_differential' | 'streak' | 'home_record' | 'away_record' | 'close_record' | 'overtime_record';
+type SortDirection = 'asc' | 'desc';
 
 export default function StandingsTab() {
     const [standings, setStandings] = useState<Standings[]>([]);
@@ -29,6 +31,8 @@ export default function StandingsTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('league');
+    const [sortField, setSortField] = useState<SortField>('win_percentage');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
     useEffect(() => {
         let isMounted = true;
@@ -75,39 +79,145 @@ export default function StandingsTab() {
         };
     }, []);
 
-    // Safe sorting with error handling - LEAGUE VIEW (default)
-    const leagueStandings = standings
-        .filter(team => team && typeof team.win_percentage === 'number')
-        .sort((a, b) => {
-            try {
-                const diff = b.win_percentage - a.win_percentage;
-                if (diff !== 0) return diff;
+    // Handle sort click
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            // Toggle direction if same field
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            // New field, default to desc for most fields, asc for losses and points_against
+            setSortField(field);
+            setSortDirection(field === 'losses' || field === 'points_against_per_game' ? 'asc' : 'desc');
+        }
+    };
 
-                const aConferenceRecord = a.conference_record || "0-0";
-                const bConferenceRecord = b.conference_record || "0-0";
+    // Parse record string to wins (e.g., "10-5" -> 10)
+    const parseRecordWins = (record: string): number => {
+        if (!record) return 0;
+        const parts = record.split('-');
+        return parts.length > 0 ? parseInt(parts[0]) || 0 : 0;
+    };
 
-                const aConfWins = Number(aConferenceRecord.split("-")[0]) || 0;
-                const bConfWins = Number(bConferenceRecord.split("-")[0]) || 0;
+    // Sort function for basic standings
+    const sortBasicStandings = (teams: any[]) => {
+        return [...teams].sort((a, b) => {
+            let aValue: any = 0;
+            let bValue: any = 0;
 
-                return bConfWins - aConfWins;
-            } catch (error) {
-                console.error('Error sorting standings:', error);
-                return 0;
+            switch (sortField) {
+                case 'wins':
+                    aValue = a.wins || 0;
+                    bValue = b.wins || 0;
+                    break;
+                case 'losses':
+                    aValue = a.losses || 0;
+                    bValue = b.losses || 0;
+                    break;
+                case 'win_percentage':
+                    aValue = a.win_percentage || 0;
+                    bValue = b.win_percentage || 0;
+                    break;
+                case 'points_for_per_game':
+                    aValue = a.points_for_per_game || 0;
+                    bValue = b.points_for_per_game || 0;
+                    break;
+                case 'points_against_per_game':
+                    aValue = a.points_against_per_game || 0;
+                    bValue = b.points_against_per_game || 0;
+                    break;
+                case 'point_differential':
+                    aValue = a.point_differential || 0;
+                    bValue = b.point_differential || 0;
+                    break;
+                case 'streak':
+                    // Handle streak (could be string like "W3" or "L2")
+                    const aStreak = a.streak || '';
+                    const bStreak = b.streak || '';
+                    aValue = aStreak.startsWith('W') ? parseInt(aStreak.substring(1)) || 0 :
+                        aStreak.startsWith('L') ? -(parseInt(aStreak.substring(1)) || 0) : 0;
+                    bValue = bStreak.startsWith('W') ? parseInt(bStreak.substring(1)) || 0 :
+                        bStreak.startsWith('L') ? -(parseInt(bStreak.substring(1)) || 0) : 0;
+                    break;
+                default:
+                    aValue = a.win_percentage || 0;
+                    bValue = b.win_percentage || 0;
             }
+
+            // For numeric comparisons
+            if (typeof aValue === 'number' && typeof bValue === 'number') {
+                return sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
+            }
+
+            // For string comparisons
+            return sortDirection === 'desc'
+                ? String(bValue).localeCompare(String(aValue))
+                : String(aValue).localeCompare(String(bValue));
         });
+    };
+
+    // Sort function for situational standings
+    const sortSituationalStandings = (teams: any[]) => {
+        return [...teams].sort((a, b) => {
+            let aValue: any = 0;
+            let bValue: any = 0;
+
+            switch (sortField) {
+                case 'wins':
+                    aValue = a.wins || 0;
+                    bValue = b.wins || 0;
+                    break;
+                case 'losses':
+                    aValue = a.losses || 0;
+                    bValue = b.losses || 0;
+                    break;
+                case 'win_percentage':
+                    aValue = a.win_percentage || 0;
+                    bValue = b.win_percentage || 0;
+                    break;
+                case 'home_record':
+                    aValue = parseRecordWins(a.home_record);
+                    bValue = parseRecordWins(b.home_record);
+                    break;
+                case 'away_record':
+                    aValue = parseRecordWins(a.away_record);
+                    bValue = parseRecordWins(b.away_record);
+                    break;
+                case 'close_record':
+                    aValue = parseRecordWins(a.close_record);
+                    bValue = parseRecordWins(b.close_record);
+                    break;
+                case 'overtime_record':
+                    aValue = parseRecordWins(a.overtime_record);
+                    bValue = parseRecordWins(b.overtime_record);
+                    break;
+                default:
+                    aValue = a.win_percentage || 0;
+                    bValue = b.win_percentage || 0;
+            }
+
+            return sortDirection === 'desc' ? bValue - aValue : aValue - aValue;
+        });
+    };
+
+    // LEAGUE VIEW - sorted by selected field
+    const leagueStandings = sortBasicStandings(
+        standings.filter(team => team && typeof team.win_percentage === 'number')
+    );
 
     // CONFERENCE VIEW - group by conference and sort within each conference
     const conferenceStandings = () => {
-        const eastern = standings.filter(team => team.conference === 'Eastern Conference')
-            .sort((a, b) => b.win_percentage - a.win_percentage);
-        const western = standings.filter(team => team.conference === 'Western Conference')
-            .sort((a, b) => b.win_percentage - a.win_percentage);
+        const eastern = sortBasicStandings(
+            standings.filter(team => team.conference === 'Eastern Conference')
+        );
+        const western = sortBasicStandings(
+            standings.filter(team => team.conference === 'Western Conference')
+        );
         return { eastern, western };
     };
 
     // DIVISION VIEW - group by division and sort within each division
     const divisionStandings = () => {
-        const divisions: { [key: string]: Standings[] } = {};
+        const divisions: { [key: string]: any[] } = {};
 
         standings.forEach(team => {
             if (team.division) {
@@ -118,18 +228,18 @@ export default function StandingsTab() {
             }
         });
 
-        // Sort each division by win percentage
+        // Sort each division by selected field
         Object.keys(divisions).forEach(division => {
-            divisions[division].sort((a, b) => b.win_percentage - a.win_percentage);
+            divisions[division] = sortBasicStandings(divisions[division]);
         });
 
         return divisions;
     };
 
     // SITUATIONAL VIEW - use advanced standings data
-    const situationalStandings = advancedStandings
-        .filter(team => team && typeof team.win_percentage === 'number')
-        .sort((a, b) => b.win_percentage - a.win_percentage);
+    const situationalStandings = sortSituationalStandings(
+        advancedStandings.filter(team => team && typeof team.win_percentage === 'number')
+    );
 
     // Get the current standings based on active tab
     const getCurrentStandings = () => {
@@ -150,11 +260,31 @@ export default function StandingsTab() {
 
     // Get headers based on active tab
     const getHeaders = () => {
-        const baseHeaders = ['#', 'Team', 'W', 'L', 'Win%', 'PF/G', 'PA/G', 'Diff', 'Streak'];
+        const baseHeaders = [
+            { key: 'rank', label: '#' },
+            { key: 'team', label: 'Team' },
+            { key: 'wins', label: 'W' },
+            { key: 'losses', label: 'L' },
+            { key: 'win_percentage', label: 'Win%' },
+            { key: 'points_for_per_game', label: 'PF/G' },
+            { key: 'points_against_per_game', label: 'PA/G' },
+            { key: 'point_differential', label: 'Diff' },
+            { key: 'streak', label: 'Streak' }
+        ];
 
         switch (activeTab) {
             case 'situational':
-                return ['#', 'Team', 'W', 'L', 'Win%', 'Home', 'Away', 'Close', 'Overtime'];
+                return [
+                    { key: 'rank', label: '#' },
+                    { key: 'team', label: 'Team' },
+                    { key: 'wins', label: 'W' },
+                    { key: 'losses', label: 'L' },
+                    { key: 'win_percentage', label: 'Win%' },
+                    { key: 'home_record', label: 'Home' },
+                    { key: 'away_record', label: 'Away' },
+                    { key: 'close_record', label: 'Close' },
+                    { key: 'overtime_record', label: 'Overtime' }
+                ];
             default:
                 return baseHeaders;
         }
@@ -192,6 +322,12 @@ export default function StandingsTab() {
 
     const currentStandings = getCurrentStandings();
     const headers = getHeaders();
+
+    // Reset sort when tab changes
+    useEffect(() => {
+        setSortField('win_percentage');
+        setSortDirection('desc');
+    }, [activeTab]);
 
     if (loading) {
         return (
@@ -254,13 +390,22 @@ export default function StandingsTab() {
             <div className="overflow-x-auto mx-auto">
                 {/* Header */}
                 <div className={`grid text-[#9f9f9f] font-semibold text-xs px-2 py-1 mb-3 pt-5 ${activeTab === 'situational'
-                        ? 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
-                        : 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                    ? 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                    : 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
                     }`}>
                     {headers.map((header, index) => (
-                        <p key={index} className={index === 1 ? 'text-left' : ''}>
-                            {header}
-                        </p>
+                        <button
+                            key={header.key}
+                            className={`flex items-center justify-center gap-1 transition ${index === 1 ? 'text-left justify-start' : ''} 
+                                ${sortField === header.key ? 'text-white' : ''}`}
+                            onClick={() => header.key !== 'rank' && header.key !== 'team' && handleSort(header.key as SortField)}
+                            disabled={header.key === 'rank' || header.key === 'team'}
+                        >
+                            <span>{header.label}</span>
+                            {header.key !== 'rank' && header.key !== 'team' && sortField === header.key && (
+                                <span>{sortDirection === 'desc' ? '↓' : '↑'}</span>
+                            )}
+                        </button>
                     ))}
                 </div>
 
@@ -271,8 +416,8 @@ export default function StandingsTab() {
                         <div
                             key={team.team_name}
                             className={`grid text-sm px-2 py-1 hover:bg-[#333] transition ${activeTab === 'situational'
-                                    ? 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
-                                    : 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                                ? 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                                : 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
                                 }`}
                         >
                             {rowData.map((data, dataIndex) => (
