@@ -31,7 +31,7 @@ export default function StandingsTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('league');
-    const [sortField, setSortField] = useState<SortField>('win_percentage');
+    const [sortField, setSortField] = useState<SortField>('wins'); // Changed default to 'wins'
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
     useEffect(() => {
@@ -99,6 +99,7 @@ export default function StandingsTab() {
     };
 
     // Sort function for basic standings
+    // Sort function for basic standings
     const sortBasicStandings = (teams: any[]) => {
         return [...teams].sort((a, b) => {
             let aValue: any = 0;
@@ -139,13 +140,28 @@ export default function StandingsTab() {
                         bStreak.startsWith('L') ? -(parseInt(bStreak.substring(1)) || 0) : 0;
                     break;
                 default:
-                    aValue = a.win_percentage || 0;
-                    bValue = b.win_percentage || 0;
+                    aValue = a.wins || 0;
+                    bValue = b.wins || 0;
             }
 
             // For numeric comparisons
             if (typeof aValue === 'number' && typeof bValue === 'number') {
-                return sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
+                const primaryComparison = sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
+
+                // If primary comparison results in a tie, use division record as tiebreaker
+                if (primaryComparison === 0) {
+                    // Parse division records (format: "W-L")
+                    const aDivisionRecord = a.division_record || "0-0";
+                    const bDivisionRecord = b.division_record || "0-0";
+
+                    const aDivisionWins = parseInt(aDivisionRecord.split('-')[0]) || 0;
+                    const bDivisionWins = parseInt(bDivisionRecord.split('-')[0]) || 0;
+
+                    // Higher division wins = better (descending order)
+                    return bDivisionWins - aDivisionWins;
+                }
+
+                return primaryComparison;
             }
 
             // For string comparisons
@@ -191,8 +207,8 @@ export default function StandingsTab() {
                     bValue = parseRecordWins(b.overtime_record);
                     break;
                 default:
-                    aValue = a.win_percentage || 0;
-                    bValue = b.win_percentage || 0;
+                    aValue = a.wins || 0;
+                    bValue = b.wins || 0;
             }
 
             return sortDirection === 'desc' ? bValue - aValue : aValue - aValue;
@@ -261,29 +277,29 @@ export default function StandingsTab() {
     // Get headers based on active tab
     const getHeaders = () => {
         const baseHeaders = [
-            { key: 'rank', label: '#' },
-            { key: 'team', label: 'Team' },
-            { key: 'wins', label: 'W' },
-            { key: 'losses', label: 'L' },
-            { key: 'win_percentage', label: 'Win%' },
-            { key: 'points_for_per_game', label: 'PF/G' },
-            { key: 'points_against_per_game', label: 'PA/G' },
-            { key: 'point_differential', label: 'Diff' },
-            { key: 'streak', label: 'Streak' }
+            { key: 'rank', label: '#', sortable: false },
+            { key: 'team', label: 'Team', sortable: false },
+            { key: 'wins', label: 'W', sortable: true },
+            { key: 'losses', label: 'L', sortable: true },
+            { key: 'win_percentage', label: 'Win%', sortable: true },
+            { key: 'points_for_per_game', label: 'PF/G', sortable: true },
+            { key: 'points_against_per_game', label: 'PA/G', sortable: true },
+            { key: 'point_differential', label: 'Diff', sortable: true },
+            { key: 'streak', label: 'Streak', sortable: true }
         ];
 
         switch (activeTab) {
             case 'situational':
                 return [
-                    { key: 'rank', label: '#' },
-                    { key: 'team', label: 'Team' },
-                    { key: 'wins', label: 'W' },
-                    { key: 'losses', label: 'L' },
-                    { key: 'win_percentage', label: 'Win%' },
-                    { key: 'home_record', label: 'Home' },
-                    { key: 'away_record', label: 'Away' },
-                    { key: 'close_record', label: 'Close' },
-                    { key: 'overtime_record', label: 'Overtime' }
+                    { key: 'rank', label: '#', sortable: false },
+                    { key: 'team', label: 'Team', sortable: false },
+                    { key: 'wins', label: 'W', sortable: true },
+                    { key: 'losses', label: 'L', sortable: true },
+                    { key: 'win_percentage', label: 'Win%', sortable: true },
+                    { key: 'home_record', label: 'Home', sortable: true },
+                    { key: 'away_record', label: 'Away', sortable: true },
+                    { key: 'close_record', label: 'Close', sortable: true },
+                    { key: 'overtime_record', label: 'Overtime', sortable: true }
                 ];
             default:
                 return baseHeaders;
@@ -323,9 +339,9 @@ export default function StandingsTab() {
     const currentStandings = getCurrentStandings();
     const headers = getHeaders();
 
-    // Reset sort when tab changes
+    // Reset sort when tab changes - changed default to 'wins'
     useEffect(() => {
-        setSortField('win_percentage');
+        setSortField('wins');
         setSortDirection('desc');
     }, [activeTab]);
 
@@ -390,22 +406,30 @@ export default function StandingsTab() {
             <div className="overflow-x-auto mx-auto">
                 {/* Header */}
                 <div className={`grid text-[#9f9f9f] font-semibold text-xs px-2 py-1 mb-3 pt-5 ${activeTab === 'situational'
-                    ? 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
-                    : 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                    ? 'grid-cols-[25px_1fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr]'
+                    : 'grid-cols-[25px_1fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr]'
                     }`}>
                     {headers.map((header, index) => (
-                        <button
-                            key={header.key}
-                            className={`flex items-center justify-center gap-1 transition ${index === 1 ? 'text-left justify-start' : ''} 
-                                ${sortField === header.key ? 'text-white' : ''}`}
-                            onClick={() => header.key !== 'rank' && header.key !== 'team' && handleSort(header.key as SortField)}
-                            disabled={header.key === 'rank' || header.key === 'team'}
-                        >
-                            <span>{header.label}</span>
-                            {header.key !== 'rank' && header.key !== 'team' && sortField === header.key && (
-                                <span>{sortDirection === 'desc' ? '↓' : '↑'}</span>
-                            )}
-                        </button>
+                        header.sortable ? (
+                            <button
+                                key={header.key}
+                                className={`flex items-center justify-center gap-1 transition hover:text-white ${sortField === header.key ? 'text-white' : ''
+                                    } ${index === 1 ? 'justify-start' : ''}`}
+                                onClick={() => handleSort(header.key as SortField)}
+                            >
+                                <span>{header.label}</span>
+                                {sortField === header.key && (
+                                    <span className="text-xs">{sortDirection === 'desc' ? '↓' : '↑'}</span>
+                                )}
+                            </button>
+                        ) : (
+                            <div
+                                key={header.key}
+                                className={`${index === 1 ? 'text-left' : 'text-center'}`}
+                            >
+                                {header.label}
+                            </div>
+                        )
                     ))}
                 </div>
 
@@ -416,8 +440,8 @@ export default function StandingsTab() {
                         <div
                             key={team.team_name}
                             className={`grid text-sm px-2 py-1 hover:bg-[#333] transition ${activeTab === 'situational'
-                                ? 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
-                                : 'grid-cols-[25px_1fr_repeat(7,0.4fr)]'
+                                ? 'grid-cols-[25px_1fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr]'
+                                : 'grid-cols-[25px_1fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr]'
                                 }`}
                         >
                             {rowData.map((data, dataIndex) => (
@@ -432,7 +456,7 @@ export default function StandingsTab() {
                                         <p className="text-left">{data}</p>
                                     </div>
                                 ) : (
-                                    <p key={dataIndex}>{data}</p>
+                                    <p key={dataIndex} className="text-center">{data}</p>
                                 )
                             ))}
                         </div>
