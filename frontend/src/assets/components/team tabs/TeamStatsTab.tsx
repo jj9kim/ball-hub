@@ -37,7 +37,7 @@ export default function TeamStatsTab() {
         ) : (
           <div className="grid grid-cols-3 gap-4">
             {/* Team stats grid - 3x3 */}
-            {Array.from({ length: 9 }).map((_, index) => (
+            {Array.from({ length: 18 }).map((_, index) => (
               <div key={index} className="bg-gray-700 rounded-lg p-4 min-h-20 flex items-center justify-center">
                 Team Stat {index + 1}
               </div>
