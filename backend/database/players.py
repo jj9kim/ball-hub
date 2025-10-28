@@ -748,8 +748,8 @@ def main():
     scraper = PlayerStatsScraper(db_name="player_stats.db")
     
     # Scrape a range of player IDs
-    start_id = 1500
-    end_id = 2000
+    start_id = 2000
+    end_id = 2100
     
     scraper.scrape_player_range(start_id, end_id, delay=1.0)
     
