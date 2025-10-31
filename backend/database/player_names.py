@@ -314,8 +314,8 @@ if __name__ == "__main__":
     scraper = PlayerNameScraper()
     
     # Test with known players first
-    start_id = 2100
-    end_id = 2500
+    start_id = 2500
+    end_id = 3000
     
     scraper.scrape_names_for_range(start_id, end_id, delay=1.0)
     
