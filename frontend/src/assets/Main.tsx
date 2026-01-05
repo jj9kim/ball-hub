@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getTeamLogoUrl, getTeamName } from '../utils/teamMappings';
 import { useParams, useNavigate } from 'react-router-dom';
+import { NBAService, type NBAAPIResponse, type NBAGame, type NBATeamStats } from '../api/nbaService';
 
 const formatDateForURL = (date: Date): string => {
     const year = date.getFullYear();
@@ -9,7 +10,6 @@ const formatDateForURL = (date: Date): string => {
     return `${year}-${month}-${day}`;
 };
 
-
 interface MainProps {
     isCalendarOpen: boolean;
     onOpenCalendar: () => void;
@@ -17,45 +17,30 @@ interface MainProps {
     onDateSelect: (date: Date) => void;
 }
 
-interface Game {
-    game_id: number,
-    game_date: string,
-    scraped_timestamp: string,
-    teams_found: number
-}
-
-interface Team {
-    game_id: number,
-    team_id: number,
-    minutes: string,
-    points: number,
-    offensive_rebounds: number,
-    defensive_rebounds: number,
-    total_rebounds: number,
-    assists: number,
-    steals: number,
-    blocks: number,
-    turnovers: number,
-    personal_fouls: number
-}
-
 function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: MainProps) {
-    const [data, setData] = useState<Game[]>([]);
-    const [team, setTeam] = useState<Team[]>([]);
+    const [games, setGames] = useState<NBAGame[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
     const { date: urlDate } = useParams<{ date?: string }>();
     const navigate = useNavigate();
 
-    // Revert to original useEffect (remove urlDate dependency)
+    // Fetch games from API
     useEffect(() => {
-        fetch('http://localhost:8081/game_info')
-            .then(res => res.json())
-            .then((data: Game[]) => setData(data))
-            .catch(err => console.log(err));
-        fetch('http://localhost:8081/team_stats')
-            .then(res => res.json())
-            .then((team: Team[]) => setTeam(team))
-            .catch(err => console.log(err));
-    }, []); // Empty dependency array - fetch only once on mount
+        const loadGames = async () => {
+            try {
+                setLoading(true);
+                const data = await NBAService.fetchGames();
+                setGames(data.games);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to load games');
+                console.error('Error loading games:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadGames();
+    }, []);
 
     // Sync selectedDate with URL parameter
     useEffect(() => {
@@ -117,11 +102,10 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
     };
 
     const getGamesForSelectedDate = () => {
-        if (!data.length || !team.length) return [];
+        if (!games.length) return [];
 
-        const selectedGames = data.filter(game => {
-            const dateString = game.game_date;
-            const [year, month, day] = dateString.split('-').map(Number);
+        const selectedGames = games.filter(game => {
+            const [year, month, day] = game.game_date.split('-').map(Number);
             const gameDate = new Date(year, month - 1, day);
 
             // Compare dates without time components
@@ -132,11 +116,41 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
             return gameDate.getTime() === compareSelectedDate.getTime();
         });
 
+        // Sort by game_id in ascending order
+        selectedGames.sort((a, b) => {
+            // Convert string IDs to numbers for proper numeric sorting
+            const idA = parseInt(a.game_id);
+            const idB = parseInt(b.game_id);
+            return idA - idB; // Ascending order
+        });
+
         console.log('Games for date:', selectedDate, 'found:', selectedGames.length);
         return selectedGames;
     };
 
     const gamesForSelectedDate = getGamesForSelectedDate();
+
+    if (loading) {
+        return (
+            <div className="text-white text-center py-8">
+                Loading NBA games...
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="text-white text-center py-8">
+                Error: {error}
+                <button
+                    onClick={() => window.location.reload()}
+                    className="ml-4 px-4 py-2 bg-red-600 rounded"
+                >
+                    Retry
+                </button>
+            </div>
+        );
+    }
 
     return (
         <React.Fragment>
@@ -180,12 +194,13 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                         </div>
                     ) : (
                         gamesForSelectedDate.map((game) => {
-                            const teamsForThisGame = team.filter(t => t.game_id === game.game_id);
-
-                            if (teamsForThisGame.length !== 2) {
+                            // Each game should have exactly 2 teams
+                            if (game.teams.length !== 2) {
                                 console.log('Incomplete game data for game:', game.game_id);
                                 return null;
                             }
+
+                            const [team1, team2] = game.teams;
 
                             return (
                                 <button
@@ -193,15 +208,20 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                     className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
                                     onClick={() => {
                                         const dateString = formatDateForURL(selectedDate);
-                                        navigate(`/${dateString}/game/${game.game_id}`, {state: {game:game, t:team, teamsThisGame:teamsForThisGame}});
+                                        navigate(`/${dateString}/game/${game.game_id}`, {
+                                            state: {
+                                                game: game,
+                                                teams: [team1, team2]
+                                            }
+                                        });
                                     }}
                                 >
                                     {/* Team 1 */}
                                     <div className="flex items-center justify-end flex-1">
-                                        <p className="mr-2 text-white">{getTeamName(teamsForThisGame[0].team_id)}</p>
+                                        <p className="mr-2 text-white">{getTeamName(team1.team_id)}</p>
                                         <img
-                                            src={getTeamLogoUrl(teamsForThisGame[0].team_id)}
-                                            alt={teamsForThisGame[0].team_id.toString()}
+                                            src={getTeamLogoUrl(team1.team_id)}
+                                            alt={team1.team_name}
                                             className="w-8 h-8"
                                             onError={(e) => {
                                                 e.currentTarget.style.display = 'none';
@@ -211,22 +231,22 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
 
                                     {/* Scores - Centered */}
                                     <div className="flex items-center gap-2 mx-4">
-                                        <p className="text-white">{teamsForThisGame[0].points}</p>
+                                        <p className="text-white">{team1.pts}</p>
                                         <span className="text-gray-400">-</span>
-                                        <p className="text-white">{teamsForThisGame[1].points}</p>
+                                        <p className="text-white">{team2.pts}</p>
                                     </div>
 
                                     {/* Team 2 */}
                                     <div className="flex items-center justify-start flex-1">
                                         <img
-                                            src={getTeamLogoUrl(teamsForThisGame[1].team_id)}
-                                            alt={teamsForThisGame[1].team_id.toString()}
+                                            src={getTeamLogoUrl(team2.team_id)}
+                                            alt={team2.team_name}
                                             className="w-8 h-8 mr-2"
                                             onError={(e) => {
                                                 e.currentTarget.style.display = 'none';
                                             }}
                                         />
-                                        <p className="text-white">{getTeamName(teamsForThisGame[1].team_id)}</p>
+                                        <p className="text-white">{getTeamName(team2.team_id)}</p>
                                     </div>
                                 </button>
                             );

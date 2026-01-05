@@ -1,59 +1,84 @@
-export interface NBAGame {
-  SEASON_ID: string;
-  TEAM_ID: number;
-  TEAM_ABBREVIATION: string;
-  TEAM_NAME: string;
-  GAME_ID: string;
-  GAME_DATE: string;
-  MATCHUP: string;
-  WL: string;
-  MIN: number;
-  PTS: number;
-  FGM: number;
-  FGA: number;
-  FG_PCT: number;
-  FG3M: number;
-  FG3A: number;
-  FG3_PCT: number;
-  FTM: number;
-  FTA: number;
-  FT_PCT: number;
-  OREB: number;
-  DREB: number;
-  REB: number;
-  AST: number;
-  STL: number;
-  BLK: number;
-  TOV: number;
-  PF: number;
-  PLUS_MINUS: number;
-  // Add other fields as needed based on your data
+export interface NBATeamStats {
+  team_id: number;
+  team_abbreviation: string;
+  team_name: string;
+  wl: string;
+  pts: number;
+  fgm: number;
+  fga: number;
+  fg_pct: number;
+  fg3m: number;
+  fg3a: number;
+  fg3_pct: number;
+  ftm: number;
+  fta: number;
+  ft_pct: number;
+  oreb: number;
+  dreb: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  pf: number;
+  plus_minus: number;
 }
 
-export interface GamesResponse {
+export interface NBAGame {
+  game_date: string;
+  game_id: string;
+  matchup: string;
+  season_id: string;
+  teams: NBATeamStats[];
+}
+
+export interface NBAAPIResponse {
   success: boolean;
   games: NBAGame[];
   count: number;
   error?: string;
 }
 
-export const fetchNBAGames = async (): Promise<GamesResponse> => {
-  try {
-    const response = await fetch('http://localhost:5000/api/nba-games');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+const API_BASE_URL = 'http://127.0.0.1:5000';
+
+export class NBAService {
+  static async fetchGames(): Promise<NBAAPIResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/nba-games`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: NBAAPIResponse = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch NBA games');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching NBA games:', error);
+      throw error;
     }
-    
-    const data: GamesResponse = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error fetching NBA games:', error);
-    return {
-      success: false,
-      games: [],
-      count: 0,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
   }
-};
+
+  static formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
+  static getWinner(game: NBAGame): NBATeamStats | null {
+    if (game.teams.length !== 2) return null;
+
+    const team1 = game.teams[0];
+    const team2 = game.teams[1];
+
+    return team1.pts > team2.pts ? team1 : team2;
+  }
+}

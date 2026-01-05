@@ -2,29 +2,228 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import pandas as pd
 from nba_api.stats.endpoints import leaguegamefinder
+from nba_boxscore_safe import get_boxscore_client  # Import the client
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend requests
 
+# Create the boxscore client instance
+boxscore_client = get_boxscore_client()
+
 @app.route('/api/nba-games', methods=['GET'])
-def get_nba_games():
+def get_nba_games_fixed():
     try:
-        # Set option to display all columns
         pd.set_option('display.max_columns', None)
         
         gamefinder = leaguegamefinder.LeagueGameFinder(league_id_nullable='00')
         games = gamefinder.get_data_frames()[0]
         
+        # Get all games for 2025-26 season
         games_2526 = games[games.SEASON_ID == '22025']
-        games_oct21 = games_2526[games.GAME_DATE == '2025-10-22']
         
-        # Convert to dictionary for JSON response
-        result = games_oct21.to_dict(orient='records')
+        # Use more flexible pattern matching
+        def is_home_game(matchup):
+            """Check if matchup indicates a home game"""
+            if not isinstance(matchup, str):
+                return False
+            
+            # Check for various home game indicators
+            home_indicators = [
+                ' vs. ',  # Standard
+                ' vs ',   # Without period
+                ' v. ',   # Abbreviated
+                ' v ',    # More abbreviated
+                '(Home)', # Explicit
+            ]
+            
+            matchup_lower = matchup.lower()
+            for indicator in home_indicators:
+                if indicator in matchup_lower:
+                    return True
+            
+            # Also check for " vs" at the end (without space after)
+            if matchup_lower.endswith(' vs') or matchup_lower.endswith(' vs.'):
+                return True
+            
+            return False
+        
+        def is_away_game(matchup):
+            """Check if matchup indicates an away game"""
+            if not isinstance(matchup, str):
+                return False
+            
+            # Check for various away game indicators
+            away_indicators = [
+                ' @ ',     # Standard
+                ' at ',    # Full word
+                '(Away)',  # Explicit
+            ]
+            
+            matchup_lower = matchup.lower()
+            for indicator in away_indicators:
+                if indicator in matchup_lower:
+                    return True
+            
+            return False
+        
+        # Apply the flexible matching
+        games_2526['IS_HOME'] = games_2526['MATCHUP'].apply(is_home_game)
+        games_2526['IS_AWAY'] = games_2526['MATCHUP'].apply(is_away_game)
+        
+        # Count for debugging
+        home_count = games_2526['IS_HOME'].sum()
+        away_count = games_2526['IS_AWAY'].sum()
+        neither_count = len(games_2526) - home_count - away_count
+        
+        print(f"Home games: {home_count}")
+        print(f"Away games: {away_count}")
+        print(f"Neither: {neither_count}")
+        
+        # Group games
+        games_by_id = {}
+        home_games = games_2526[games_2526['IS_HOME']]
+        
+        for _, game in home_games.iterrows():
+            game_id = game['GAME_ID']
+            if game_id not in games_by_id:
+                # Find the away team data for this game
+                away_game_data = games_2526[
+                    (games_2526['GAME_ID'] == game_id) & 
+                    (games_2526['IS_AWAY'])
+                ]
+                
+                # Get away team if it exists
+                away_team = None
+                if not away_game_data.empty:
+                    away_game = away_game_data.iloc[0]
+                    away_team = {
+                        'team_id': int(away_game['TEAM_ID']),
+                        'team_abbreviation': away_game['TEAM_ABBREVIATION'],
+                        'team_name': away_game['TEAM_NAME'],
+                        'wl': away_game['WL'],
+                        'pts': int(away_game['PTS']),
+                        'fgm': int(away_game['FGM']),
+                        'fga': int(away_game['FGA']),
+                        'fg_pct': float(away_game['FG_PCT']),
+                        'fg3m': int(away_game['FG3M']),
+                        'fg3a': int(away_game['FG3A']),
+                        'fg3_pct': float(away_game['FG3_PCT']),
+                        'ftm': int(away_game['FTM']),
+                        'fta': int(away_game['FTA']),
+                        'ft_pct': float(away_game['FT_PCT']),
+                        'oreb': int(away_game['OREB']),
+                        'dreb': int(away_game['DREB']),
+                        'reb': int(away_game['REB']),
+                        'ast': int(away_game['AST']),
+                        'stl': int(away_game['STL']),
+                        'blk': int(away_game['BLK']),
+                        'tov': int(away_game['TOV']),
+                        'pf': int(away_game['PF']),
+                        'plus_minus': float(away_game['PLUS_MINUS'])
+                    }
+                
+                # Get home team data
+                home_team = {
+                    'team_id': int(game['TEAM_ID']),
+                    'team_abbreviation': game['TEAM_ABBREVIATION'],
+                    'team_name': game['TEAM_NAME'],
+                    'wl': game['WL'],
+                    'pts': int(game['PTS']),
+                    'fgm': int(game['FGM']),
+                    'fga': int(game['FGA']),
+                    'fg_pct': float(game['FG_PCT']),
+                    'fg3m': int(game['FG3M']),
+                    'fg3a': int(game['FG3A']),
+                    'fg3_pct': float(game['FG3_PCT']),
+                    'ftm': int(game['FTM']),
+                    'fta': int(game['FTA']),
+                    'ft_pct': float(game['FT_PCT']),
+                    'oreb': int(game['OREB']),
+                    'dreb': int(game['DREB']),
+                    'reb': int(game['REB']),
+                    'ast': int(game['AST']),
+                    'stl': int(game['STL']),
+                    'blk': int(game['BLK']),
+                    'tov': int(game['TOV']),
+                    'pf': int(game['PF']),
+                    'plus_minus': float(game['PLUS_MINUS'])
+                }
+                
+                # Create game structure
+                games_by_id[game_id] = {
+                    'game_id': game_id,
+                    'game_date': game['GAME_DATE'],
+                    'matchup': game['MATCHUP'],
+                    'season_id': game['SEASON_ID'],
+                    'teams': [home_team]
+                }
+                
+                if away_team:
+                    games_by_id[game_id]['teams'].append(away_team)
+        
+        # Handle games without clear home/away pattern
+        all_game_ids = set(games_2526['GAME_ID'].unique())
+        processed_game_ids = set(games_by_id.keys())
+        unprocessed_game_ids = all_game_ids - processed_game_ids
+        
+        print(f"\nUnprocessed games (no clear home/away): {len(unprocessed_game_ids)}")
+        
+        # For games without clear pattern, just take first entry per game
+        for game_id in unprocessed_game_ids:
+            game_rows = games_2526[games_2526['GAME_ID'] == game_id]
+            if len(game_rows) > 0:
+                first_game = game_rows.iloc[0]
+                games_by_id[game_id] = {
+                    'game_id': game_id,
+                    'game_date': first_game['GAME_DATE'],
+                    'matchup': first_game['MATCHUP'],
+                    'season_id': first_game['SEASON_ID'],
+                    'teams': []
+                }
+                
+                # Add all teams for this game
+                for _, team_row in game_rows.iterrows():
+                    team_data = {
+                        'team_id': int(team_row['TEAM_ID']),
+                        'team_abbreviation': team_row['TEAM_ABBREVIATION'],
+                        'team_name': team_row['TEAM_NAME'],
+                        'wl': team_row['WL'],
+                        'pts': int(team_row['PTS']),
+                        'fgm': int(team_row['FGM']),
+                        'fga': int(team_row['FGA']),
+                        'fg_pct': float(team_row['FG_PCT']),
+                        'fg3m': int(team_row['FG3M']),
+                        'fg3a': int(team_row['FG3A']),
+                        'fg3_pct': float(team_row['FG3_PCT']),
+                        'ftm': int(team_row['FTM']),
+                        'fta': int(team_row['FTA']),
+                        'ft_pct': float(team_row['FT_PCT']),
+                        'oreb': int(team_row['OREB']),
+                        'dreb': int(team_row['DREB']),
+                        'reb': int(team_row['REB']),
+                        'ast': int(team_row['AST']),
+                        'stl': int(team_row['STL']),
+                        'blk': int(team_row['BLK']),
+                        'tov': int(team_row['TOV']),
+                        'pf': int(team_row['PF']),
+                        'plus_minus': float(team_row['PLUS_MINUS'])
+                    }
+                    games_by_id[game_id]['teams'].append(team_data)
+        
+        # Convert to list and sort
+        structured_games = list(games_by_id.values())
+        structured_games.sort(key=lambda x: x['game_date'], reverse=True)
         
         return jsonify({
             'success': True,
-            'games': result,
-            'count': len(result)
+            'games': structured_games,
+            'count': len(structured_games),
+            'stats': {
+                'unique_game_ids': len(all_game_ids),
+                'games_with_home_away': len(processed_game_ids),
+                'games_without_pattern': len(unprocessed_game_ids),
+                'total_processed': len(structured_games)
+            }
         })
     except Exception as e:
         return jsonify({
@@ -32,5 +231,105 @@ def get_nba_games():
             'error': str(e)
         }), 500
 
+@app.route('/api/game/<game_id>/boxscore', methods=['GET'])
+def get_game_boxscore(game_id):
+    """Get detailed box score for a specific game"""
+    try:
+        # Use the safe boxscore client
+        data = boxscore_client.get_player_stats(game_id)
+        
+        if data['success']:
+            return jsonify(data)
+        else:
+            return jsonify({
+                'success': False,
+                'error': data.get('error', 'Box score not available'),
+                'game_id': game_id
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'game_id': game_id
+        }), 500
+
+@app.route('/api/game/<game_id>/simple-boxscore', methods=['GET'])
+def get_simple_boxscore(game_id):
+    """Get simplified box score for frontend display"""
+    try:
+        data = boxscore_client.get_player_stats(game_id)
+        
+        if data['success']:
+            # Create simplified response
+            simplified = {
+                'success': True,
+                'game_id': game_id,
+                'home_team': {
+                    'name': data['game']['home_team']['name'],
+                    'city': data['game']['home_team']['city'],
+                    'score': data['game']['home_team']['score']
+                },
+                'away_team': {
+                    'name': data['game']['away_team']['name'],
+                    'city': data['game']['away_team']['city'],
+                    'score': data['game']['away_team']['score']
+                },
+                'players': [
+                    {
+                        'name': p['name'],
+                        'team': p['team_city'],
+                        'position': p['position'],
+                        'jersey': p['jersey'],
+                        'starter': p['starter'],
+                        'minutes': p['minutes'],
+                        'points': p['points'],
+                        'rebounds': p['rebounds'],
+                        'assists': p['assists'],
+                        'steals': p['steals'],
+                        'blocks': p['blocks'],
+                        'turnovers': p['turnovers'],
+                        'fg': f"{p['fg_made']}/{p['fg_attempted']}",
+                        'fg_pct': round(p['fg_percentage'] * 100, 1) if p['fg_percentage'] > 0 else 0,
+                        'three': f"{p['three_made']}/{p['three_attempted']}",
+                        'three_pct': round(p['three_percentage'] * 100, 1) if p['three_percentage'] > 0 else 0,
+                        'ft': f"{p['ft_made']}/{p['ft_attempted']}",
+                        'ft_pct': round(p['ft_percentage'] * 100, 1) if p['ft_percentage'] > 0 else 0,
+                        'plus_minus': p['plus_minus']
+                    }
+                    for p in data['players']
+                ],
+                'team_totals': data['team_totals'],
+                'attribution': data['attribution']
+            }
+            return jsonify(simplified)
+        else:
+            return jsonify({
+                'success': False,
+                'error': data.get('error', 'Box score not available'),
+                'game_id': game_id
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'game_id': game_id
+        }), 500
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'nba_games_api',
+        'endpoints': {
+            'games': '/api/nba-games',
+            'boxscore': '/api/game/<id>/boxscore',
+            'simple_boxscore': '/api/game/<id>/simple-boxscore'
+        },
+        'timestamp': pd.Timestamp.now().isoformat()
+    })
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
