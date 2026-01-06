@@ -33,11 +33,11 @@ export default function PlayerIndicator({ player, onPlayerClick }: PlayerIndicat
                     </div>
                 ) : (
                     <div className="w-16 h-16 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a]">
-                        <span className="text-white text-2xl font-bold">#{player.number}</span>
+                            <span className="text-white text-2xl font-bold">#{player.stats?.jersey}</span>
                     </div>
                 )}
                 <div className='flex flex-row justify-center'>
-                    <div className='text-[#ababab] text-xs pr-1'>#{player.number}</div>
+                    <div className='text-[#ababab] text-xs pr-1'>#{player.stats?.jersey}</div>
                     <div className='text-white text-xs'>{player.player_name}</div>
                 </div>
             </div>

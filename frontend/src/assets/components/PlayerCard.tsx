@@ -186,7 +186,7 @@ export default function PlayerCard({
                                 </div>
 
                                 <div className='flex flex-col items-center'>
-                                    <div className="text-white text-opacity-80">{player.stats?.player_rating}</div>
+                                    <div className="text-white text-opacity-80">{(player.stats?.player_rating)?.toFixed(2)}</div>
                                     <div className="text-[#9f9f9f] text-xs font-medium">Rating</div>
                                 </div>
                             </div>
@@ -209,7 +209,7 @@ export default function PlayerCard({
                                 <p className='pl-5 pt-5'>Top Stats</p>
                                 <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
                                     <div>Minutes Played</div>
-                                    <div>{player.stats.minutes}</div>
+                                    <div>{Number(player.stats.minutes).toFixed(0)}</div>
                                 </div>
                                 <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
                                     <div>Points</div>
@@ -229,31 +229,19 @@ export default function PlayerCard({
                                 <p className='pl-5 pt-5'>Offense</p>
                                 <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
                                     <div>Field Goals</div>
-                                    <div>{player.stats.fg_made}/{player.stats.fg_attempted} ({player.stats.fg_percentage}%)</div>
+                                    <div>{player.stats.fg_made}/{player.stats.fg_attempted} {((player.stats?.fg_percentage ?? 0) * 100).toFixed(2)}%</div>
                                 </div>
                                 <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
                                     <div>Three Points</div>
-                                    <div>{player.stats.three_pt_made}/{player.stats.three_pt_attempted} ({player.stats.three_pt_percentage}%)</div>
+                                    <div>{player.stats.three_pt_made}/{player.stats.three_pt_attempted} {((player.stats?.three_pt_percentage ?? 0) * 100).toFixed(2)}%</div>
                                 </div>
                                 <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
                                     <div>Free Throws</div>
-                                    <div>{player.stats.ft_made}/{player.stats.ft_attempted} ({player.stats.ft_percentage}%)</div>
-                                </div>
-                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
-                                    <div>Offensive Rebounds</div>
-                                    <div>{player.stats.offensive_rebounds}</div>
+                                    <div>{player.stats.ft_made}/{player.stats.ft_attempted} {((player.stats?.ft_percentage ?? 0) * 100).toFixed(2)}%</div>
                                 </div>
                                 <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
                                     <div>Turnovers</div>
                                     <div>{player.stats.turnovers}</div>
-                                </div>
-                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
-                                    <div>Offensive Rating</div>
-                                    <div>{player.stats.ortg}</div>
-                                </div>
-                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
-                                    <div>Usage</div>
-                                    <div>{player.stats.usg}</div>
                                 </div>
                             </div>
                             <div className='bg-[#2c2c2c] h-0.5 mt-5'></div>
@@ -268,16 +256,12 @@ export default function PlayerCard({
                                     <div>{player.stats.blocks}</div>
                                 </div>
                                 <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
-                                    <div>Defensive Rebounds</div>
-                                    <div>{player.stats.defensive_rebounds}</div>
-                                </div>
-                                <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
                                     <div>Personal Fouls</div>
                                     <div>{player.stats.personal_fouls}</div>
                                 </div>
                                 <div className='flex flex-row justify-between pl-5 pr-5 text-xs pt-5'>
-                                    <div>Technical Fouls</div>
-                                    <div>{player.stats.technical_fouls}</div>
+                                    <div>Plus Minus</div>
+                                    <div>{player.stats.plus_minus}</div>
                                 </div>
                             </div>
                         </div>

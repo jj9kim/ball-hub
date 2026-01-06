@@ -33,10 +33,12 @@ export default function GamePage() {
             try {
                 setLoading(true);
                 const data = await NBAService.fetchGames();
+                console.log('NBA games loaded:', data.games?.length || 0);
                 setNbaGames(data.games);
 
                 // Find the specific game by ID
                 const currentGame = data.games.find(game => game.game_id === id);
+                console.log('Current game found:', currentGame);
 
                 if (currentGame) {
                     // Set teams for this game
@@ -45,81 +47,135 @@ export default function GamePage() {
                         team_name: team.team_name,
                         points: team.pts
                     }));
+                    console.log('Setting teamsThisGame:', gameTeams);
                     setTeamsThisGame(gameTeams);
                     setTeamStats(currentGame.teams);
 
                     // Convert NBA game data to your Stats format
                     const convertedStats = await convertNBAGameToStats(currentGame);
+                    console.log('Setting gameStats with:', convertedStats.length, 'players');
+
+                    if (convertedStats.length === 0) {
+                        console.log('No player stats available for this game');
+                        // You could set a user-friendly error message here
+                        setError('Player statistics not available for this game');
+                    }
+
                     setGameStats(convertedStats);
                 } else {
+                    console.log('Game not found for id:', id);
                     setError('Game not found');
                 }
 
                 setError(null);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load NBA games');
                 console.error('Error loading NBA games:', err);
+                setError(err instanceof Error ? err.message : 'Failed to load NBA games');
             } finally {
                 setLoading(false);
             }
         };
 
         if (id) {
+            console.log('Loading NBA games for id:', id);
             loadNBAGames();
         }
     }, [id]);
 
     // Convert NBA game data to your Stats format
     const convertNBAGameToStats = async (game: NBAGame): Promise<Stats[]> => {
-        // Since NBA API only provides team stats, we need to get player stats separately
-        // Let's fetch box score data for player stats
-        try {
-            const response = await fetch(`http://127.0.0.1:5000/api/game/${game.game_id}/simple-boxscore`);
-            const boxScoreData = await response.json();
+        console.log('Converting NBA game to stats for game:', game.game_id);
 
-            if (boxScoreData.success) {
-                // Convert box score players to Stats format
-                return boxScoreData.players.map((player: any) => ({
-                    player_id: player.player_id,
-                    player_name: player.name,
-                    player_name_short: player.name.split(' ').map((n: string) => n[0]).join(''),
-                    position: player.position,
-                    position_sort: getPositionSort(player.position),
-                    game_id: parseInt(game.game_id),
-                    team_id: player.team_id,
-                    minutes: convertMinutesToDecimal(player.minutes),
-                    points: player.points,
-                    fg_made: player.fg_made,
-                    fg_attempted: player.fg_attempted,
-                    fg_percentage: player.fg_percentage,
-                    three_pt_made: player.three_made,
-                    three_pt_attempted: player.three_attempted,
-                    three_pt_percentage: player.three_percentage,
-                    ft_made: player.ft_made,
-                    ft_attempted: player.ft_attempted,
-                    ft_percentage: player.ft_percentage,
-                    offensive_rebounds: 0, // Not available in simple box score
-                    defensive_rebounds: 0, // Not available in simple box score
-                    total_rebounds: player.rebounds,
-                    assists: player.assists,
-                    steals: player.steals,
-                    blocks: player.blocks,
-                    turnovers: player.turnovers,
-                    personal_fouls: player.fouls,
-                    technical_fouls: 0,
-                    ejected: 0,
-                    ortg: 0,
-                    usg: 0,
-                    url: '',
-                    player_rating: calculatePlayerRating(player)
-                }));
+        try {
+            const apiUrl = `http://127.0.0.1:5000/api/game/${game.game_id}/simple-boxscore`;
+            console.log('Fetching from API:', apiUrl);
+
+            const response = await fetch(apiUrl);
+            console.log('API Response status:', response.status, response.statusText);
+
+            if (response.ok) {
+                const boxScoreData = await response.json();
+                console.log('Box score data received:', boxScoreData);
+
+                if (boxScoreData.success && boxScoreData.players?.length > 0) {
+                    console.log('Box score success! Player count:', boxScoreData.players.length);
+
+                    // Convert box score players to Stats format
+                    const stats = boxScoreData.players.map((player: any) => {
+                        // Calculate missed shots for rating calculation
+                        const fg_missed = Math.max(0, (player.fg_attempted || 0) - (player.fg_made || 0));
+                        const ft_missed = Math.max(0, (player.ft_attempted || 0) - (player.ft_made || 0));
+
+                        return {
+                            player_id: player.player_id,
+                            player_name: player.name,
+                            player_name_short: player.name.split(' ').map((n: string) => n[0]).join(''),
+                            position: player.position || '',
+                            position_sort: getPositionSort(player.position || ''),
+                            game_id: parseInt(game.game_id),
+                            team_id: player.team_id,
+                            minutes: convertMinutesToDecimal(player.minutes),
+                            points: player.points || 0,
+                            fg_made: player.fg_made || 0,
+                            fg_attempted: player.fg_attempted || 0,
+                            fg_percentage: player.fg_percentage || 0,
+                            three_pt_made: player.three_made || 0,
+                            three_pt_attempted: player.three_attempted || 0,
+                            three_pt_percentage: player.three_percentage || 0,
+                            ft_made: player.ft_made || 0,
+                            ft_attempted: player.ft_attempted || 0,
+                            ft_percentage: player.ft_percentage || 0,
+                            offensive_rebounds: 0, // Not in simple API
+                            defensive_rebounds: 0, // Not in simple API
+                            total_rebounds: player.rebounds || 0,
+                            assists: player.assists || 0,
+                            steals: player.steals || 0,
+                            blocks: player.blocks || 0,
+                            turnovers: player.turnovers || 0,
+                            personal_fouls: player.fouls || 0,
+                            technical_fouls: 0,
+                            ejected: 0,
+                            ortg: 0,
+                            usg: 0,
+                            url: '',
+                            jersey: player.jersey || '',
+                            plus_minus: player.plus_minus || 0,
+                            player_rating: calculatePlayerRating({
+                                points: player.points || 0,
+                                assists: player.assists || 0,
+                                rebounds: player.rebounds || 0,
+                                steals: player.steals || 0,
+                                blocks: player.blocks || 0,
+                                turnovers: player.turnovers || 0,
+                                fouls: player.fouls || 0,
+                                fg_made: player.fg_made || 0,
+                                fg_missed: player.fg_missed || 0,
+                                three_made: player.three_made || 0,
+                                ft_made: player.ft_made || 0,
+                                ft_attempted: player.ft_attempted || 0,
+                                ft_missed: player.ft_missed || 0,
+                                ejections: 0
+                            })
+                        };
+                    });
+
+                    console.log('Converted stats count:', stats.length);
+                    return stats;
+                } else {
+                    console.log('Box score API returned no players or success: false');
+                    // Return empty array instead of mock data
+                    return [];
+                }
+            } else {
+                console.log('API response not OK:', response.status);
+                // Return empty array instead of mock data
+                return [];
             }
         } catch (error) {
             console.error('Error fetching box score:', error);
+            // Return empty array instead of mock data
+            return [];
         }
-
-        // Fallback: If no box score, return empty array
-        return [];
     };
 
     // Helper function to convert minutes from "MM:SS" to decimal
@@ -135,40 +191,82 @@ export default function GamePage() {
     // Helper function to get position sort order
     const getPositionSort = (position: string): number => {
         const positionOrder: Record<string, number> = {
-            'PG': 1, 'SG': 2, 'SF': 3, 'PF': 4, 'C': 5, 'G': 6, 'F': 7
+            'PG': 1, 'SG': 2, 'SF': 3, 'PF': 4, 'C': 5
         };
-        return positionOrder[position] || 8;
+        return positionOrder[position] || 6;
     };
 
     // Helper function to calculate player rating
     const calculatePlayerRating = (player: any): number => {
-        let rating = player.points * 1.0;
-        rating += player.rebounds * 1.2;
-        rating += player.assists * 1.5;
-        rating += player.steals * 3.0;
-        rating += player.blocks * 3.0;
-        rating -= player.turnovers * 2.0;
-        rating += player.plus_minus * 0.5;
-
-        if (player.fg_attempted > 0) {
-            rating += (player.fg_percentage - 0.45) * 100;
-        }
-        if (player.three_attempted > 0) {
-            rating += (player.three_percentage - 0.35) * 100;
+        let tdd = 0, rdd = 0, add = 0, foulrating = 0;        
+        
+        if (player.points > 10 && player.assists > 10 && player.rebounds > 10) {
+            tdd = 1.24;
+        } else if (player.points > 10 && player.rebounds > 10) {
+            rdd = 0.38;
+        } else if (player.points > 10 && player.assists > 10) {
+            add = 0.44;
         }
 
-        return Math.round(rating * 10) / 10;
+        if (player.fouls > 5) {
+            foulrating = 2;
+        } else {
+            foulrating = ((0.3 * Math.log(player.fouls + 1)) + 0.05 * player.fouls);
+        }
+
+
+        let rating = ((0.17 * Math.log(player.points + 1)) + (0.02 * player.points)) +
+            ((0.33 * Math.log(player.assists + 1)) + (0.06 * player.assists)) +
+            ((0.14 * Math.log(player.rebounds + 1)) + (0.02 * player.rebounds)) +
+            ((0.37 * Math.log(player.steals + 1)) + (0.06 * player.steals)) +
+            ((0.34 * Math.log(player.blocks + 1)) + (0.05 * player.blocks)) -
+            ((0.45 * Math.log(player.turnovers + 1)) + (0.03 * player.turnovers)) -
+            foulrating +
+            ((0.11 * Math.log(player.fg_made + 1)) + (0.02 * player.fg_made)) -
+            ((0.12 * Math.log(player.fg_missed + 1)) + (0.03 * player.fg_missed)) +
+            ((0.11 * Math.log(player.three_made + 1)) + (0.03 * player.three_made)) +
+            ((0.01 * Math.log(player.ft_attempted + 1))) +
+            ((0.04 * Math.log(player.ft_made + 1)) + (0.005 * player.ft_made)) -
+            ((0.07 * Math.log(player.ft_missed + 1)) + (0.02 * player.ft_missed)) -
+            ((2.5 * Math.log(player.ejections + 1))) +
+            tdd +
+            rdd +
+            add
+
+        rating = Math.max(0, Math.min(10, (6 + rating)));
+
+        return Number(rating.toFixed(2));
     };
 
     // Move getStatsForTeams inside the component
     const getStatsForTeams = () => {
+        console.log('getStatsForTeams called with:', {
+            id,
+            teamsThisGame,
+            gameStatsLength: gameStats.length
+        });
+
         if (!id || !teamsThisGame.length) {
+            console.log('Missing id or teamsThisGame');
             return { Team1: [], Team2: [], Team1All: null, Team2All: null };
         }
 
         const statsPerTeam = gameStats.filter(g => g.game_id === Number(id));
+        console.log('statsPerTeam filtered:', statsPerTeam.length);
+
+        // Log the team_ids we're looking for
+        console.log('Looking for team IDs:', {
+            team1Id: teamsThisGame[0]?.team_id,
+            team2Id: teamsThisGame[1]?.team_id
+        });
+
         const Team1 = statsPerTeam.filter(s => s.team_id === teamsThisGame[0].team_id);
         const Team2 = statsPerTeam.filter(s => s.team_id === teamsThisGame[1].team_id);
+
+        console.log('Filtered results:', {
+            Team1Count: Team1.length,
+            Team2Count: Team2.length
+        });
 
         // Create team totals from teamStats
         const Team1All = teamStats.find((t: NBATeamStats) => t.team_id === teamsThisGame[0].team_id);
@@ -387,7 +485,8 @@ export default function GamePage() {
         if (loading) {
             return (
                 <div className="text-white text-center py-8">
-                    Loading game data...
+                    <div className="spinner"></div>
+                    <p>Loading game data...</p>
                 </div>
             );
         }
@@ -395,7 +494,13 @@ export default function GamePage() {
         if (error) {
             return (
                 <div className="text-white text-center py-8">
-                    Error: {error}
+                    <div className="text-red-400">Error: {error}</div>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="mt-4 px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"
+                    >
+                        Retry
+                    </button>
                 </div>
             );
         }
@@ -403,12 +508,24 @@ export default function GamePage() {
         if (!teamsThisGame.length) {
             return (
                 <div className="text-white text-center py-8">
-                    No game data available
+                    <div className="text-yellow-400">No game data available</div>
+                    <p className="mt-2">The game you're looking for might not exist or data is unavailable.</p>
                 </div>
             );
         }
 
         const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
+
+        // Check if we have player data for the lineup tab
+        if (activeTab === 'lineup' && Team1.length === 0 && Team2.length === 0) {
+            return (
+                <div className="text-white text-center py-8">
+                    <div className="text-yellow-400">Player statistics not available</div>
+                    <p className="mt-2">Box score data is not available for this game.</p>
+                    <p className="mt-1">Try another game or check back later.</p>
+                </div>
+            );
+        }
 
         switch (activeTab) {
             case 'facts':

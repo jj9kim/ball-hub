@@ -32,12 +32,12 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
                             </div>
                         ) : (
                             <div className="w-12 h-12 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a] flex-shrink-0">
-                                <span className="text-white text-lg font-bold">#{player.number}</span>
+                                <span className="text-white text-lg font-bold">#{player.stats?.jersey}</span>
                             </div>
                         )}
 
                         {/* Rating Circle */}
-                        {(player.stats?.minutes || 0) >= 5 && (
+                        {Number((player.stats?.minutes || 0) >= 5).toFixed(0) && (
                             <div className={`rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-xs flex-shrink-0 ml-7 ${Math.round((player.stats?.player_rating || 0) * 10) / 10 < 5 ? 'bg-red-500' :
                                     Math.round((player.stats?.player_rating || 0) * 10) / 10 < 7 ? 'bg-orange-500' :
                                         'bg-[#32c771]'
@@ -48,7 +48,7 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
 
                         {/* Player Info */}
                         <div className='flex flex-row items-center justify-center'>
-                            <div className='text-[#ababab] text-xs ml-7'>#{player.number}</div>
+                            <div className='text-[#ababab] text-xs ml-7'>#{player.stats?.jersey}</div>
                             <div className='flex flex-col align-start'>
                                 <div className='text-white text-xs font-medium w-full ml-7'>
                                     {player.player_name}
@@ -63,7 +63,7 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
 
                         {/* Green minutes - always at the end */}
                         <div className="text-[#32c771] text-xs flex flex-row items-center ml-auto">
-                            {player.stats?.minutes} min
+                            {Number(player.stats?.minutes).toFixed(0)} min
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-clock-fill ml-2" viewBox="0 0 16 16">
                                 <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71z" />
                             </svg>

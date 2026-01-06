@@ -30,6 +30,8 @@ export interface Stats {
     ortg: number;
     usg: number;
     url: string;
+    jersey: string;
+    plus_minus: number;
     player_rating: number;
 }
 

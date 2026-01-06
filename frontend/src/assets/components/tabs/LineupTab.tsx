@@ -1,6 +1,7 @@
 import type { Player, Stats } from '../types/index.ts';
 import PlayerIndicator from '../PlayerIndicator';
 import BenchIndicator from '../BenchIndicator.tsx';
+import ReserveIndicator from '../ReserveIndicator.tsx';
 
 interface LineupTabProps {
     Team1: Stats[];
@@ -12,46 +13,31 @@ interface LineupTabProps {
 
 // Function to convert Stats to Player with smart position mapping
 const mapStatsToPlayers = (teamStats: Stats[], teamId: number, isHomeTeam: boolean): Player[] => {
-    // Filter out bench players for now (position_sort = 3)
-    const courtPlayers = teamStats.filter(player => player.position_sort !== 3);
+    // Filter IN court players (position_sort 1-5), NOT bench players
+    const courtPlayers = teamStats.filter(player => player.position_sort >= 1 && player.position_sort <= 5);
 
     return courtPlayers.map((stat, index) => {
         let position = '';
         let courtPosition = { x: 50, y: 50 }; // default
 
         // Map position_sort to actual positions based on stats
-        if (stat.position_sort === 1) {
+        if (stat.position_sort === 5) {
             // Center
             position = 'C';
             courtPosition = isHomeTeam ? { x: 10, y: 50 } : { x: 90, y: 72 };
-        }
-        else if (stat.position_sort === 0) {
-            // Forwards - higher rebounds becomes PF, lower becomes SF
-            const forwards = teamStats.filter(p => p.position_sort === 0);
-            const sortedForwards = [...forwards].sort((a, b) => (b.total_rebounds || 0) - (a.total_rebounds || 0));
-
-            if (stat === sortedForwards[0]) {
-                position = 'PF'; // Higher rebounds = Power Forward
-                courtPosition = isHomeTeam ? { x: 10, y: 85 } : { x: 90, y: 37 };
-            } else {
-                position = 'SF'; // Lower rebounds = Small Forward
-                courtPosition = isHomeTeam ? { x: 27, y: 27 } : { x: 73, y: 95 };
-            }
-        }
-        else if (stat.position_sort === 2) {
-            // Guards - higher assists becomes PG, lower becomes SG
-            const guards = teamStats.filter(p => p.position_sort === 2);
-            const sortedGuards = [...guards].sort((a, b) => (b.assists || 0) - (a.assists || 0));
-
-            if (stat === sortedGuards[0]) {
-                position = 'PG'; // Higher assists = Point Guard
-                courtPosition = isHomeTeam ? { x: 42, y: 60 } : { x: 58, y: 60 };
-            } else {
-                position = 'SG'; // Lower assists = Shooting Guard
-                courtPosition = isHomeTeam ? { x: 32, y: 95 } : { x: 68, y: 25 };
-            }
-        }
-        else {
+        } else if (stat.position_sort === 4) {
+            position = 'PF'
+            courtPosition = isHomeTeam ? { x: 10, y: 85 } : { x: 90, y: 37 };
+        } else if (stat.position_sort === 3) {
+            position = 'SF';
+            courtPosition = isHomeTeam ? { x: 27, y: 27 } : { x: 73, y: 95 };
+        }  else if (stat.position_sort === 2) {
+            position = 'SG'; // Lower assists = Shooting Guard
+            courtPosition = isHomeTeam ? { x: 32, y: 95 } : { x: 68, y: 25 };
+        } else if (stat.position_sort === 1) {
+            position = 'PG'; // Higher assists = Point Guard
+            courtPosition = isHomeTeam ? { x: 42, y: 60 } : { x: 58, y: 60 };
+        } else {
             // Fallback for any other position_sort values
             position = stat.position || 'Player';
             const fallbackPositions = isHomeTeam
@@ -65,6 +51,16 @@ const mapStatsToPlayers = (teamStats: Stats[], teamId: number, isHomeTeam: boole
                 ];
             courtPosition = fallbackPositions[index % fallbackPositions.length];
         }
+
+        console.log("Jersey debug for", stat.player_name, ":", {
+            jerseyValue: stat.jersey,
+            jerseyType: typeof stat.jersey,
+            isString: typeof stat.jersey === 'string',
+            isEmptyString: stat.jersey === '',
+            isNull: stat.jersey === null,
+            isUndefined: stat.jersey === undefined,
+            statObject: stat  // Show the entire stat object
+        });
 
         return {
             player_id: stat.player_id,
@@ -99,6 +95,8 @@ const mapStatsToPlayers = (teamStats: Stats[], teamId: number, isHomeTeam: boole
                 ortg: stat.ortg,
                 usg: stat.usg,
                 url: stat.url,
+                jersey: stat.jersey,
+                plus_minus: stat.plus_minus || 0,
                 player_rating: stat.player_rating,
             }
         };
@@ -106,8 +104,9 @@ const mapStatsToPlayers = (teamStats: Stats[], teamId: number, isHomeTeam: boole
 };
 
 const mapPlayersToBench = (teamStats: Stats[], teamId: number): Player[] => {
-    const courtPlayers = teamStats.filter(player => player.position_sort == 3)
-    return courtPlayers.map((stat) => {
+    // Filter for bench players (position_sort == 6)
+    const benchPlayers = teamStats.filter(player => player.position_sort == 6);
+    return benchPlayers.map((stat) => {
         return {
             player_id: stat.player_id,
             player_name: stat.player_name,
@@ -141,6 +140,8 @@ const mapPlayersToBench = (teamStats: Stats[], teamId: number): Player[] => {
                 ortg: stat.ortg,
                 usg: stat.usg,
                 url: stat.url,
+                jersey: stat.jersey,
+                plus_minus: stat.plus_minus || 0,
                 player_rating: stat.player_rating,
             }
         }
@@ -148,6 +149,27 @@ const mapPlayersToBench = (teamStats: Stats[], teamId: number): Player[] => {
 }
 
 export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClick }: LineupTabProps) {
+    console.log('LineupTab received:');
+    console.log('- Team1 count:', Team1.length);
+    console.log('- Team2 count:', Team2.length);
+
+    if (Team1.length > 0) {
+        console.log('- Team1 first player:', {
+            name: Team1[0].player_name,
+            position: Team1[0].position,
+            position_sort: Team1[0].position_sort,
+            minutes: Team1[0].minutes
+        });
+    }
+
+    if (Team2.length > 0) {
+        console.log('- Team2 first player:', {
+            name: Team2[0].player_name,
+            position: Team2[0].position,
+            position_sort: Team2[0].position_sort,
+            minutes: Team2[0].minutes
+        });
+    }
     // Team1 = home team (left side), Team2 = away team (right side)
     const homePlayers = mapStatsToPlayers(Team1, team1Id, true);   // true = home team
     const awayPlayers = mapStatsToPlayers(Team2, team2Id, false);  // false = away team
@@ -217,37 +239,83 @@ export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClic
                 ))}
             </div>
             <div className="grid grid-cols-2 gap-8 w-full">
+                {/* Bench Section */}
                 <h2 className='col-span-2 text-center text-white font-bold mt-8'>Bench</h2>
 
-                {/* Left column for team 1 */}
+                {/* Team 1 Bench */}
                 <div className="space-y-4">
-                    {benchPlayers.filter(player => player.team_id === team1Id).map((player) => (
-                        <div key={player.player_id}>
-                            <div className='bg-[#2c2c2c] h-0.5 ml-5 mr-5'></div> {/* Keep margins */}
-                            <BenchIndicator
-                                player={player}
-                                team1Id={team1Id}
-                                team2Id={team2Id}
-                                onPlayerClick={onPlayerClick}
-                            />
-                        </div>
-                    ))}
+                    {benchPlayers
+                        .filter(player => player.team_id === team1Id && (player.stats?.minutes || 0) > 0)
+                        .map((player) => (
+                            <div key={player.player_id}>
+                                <div className='bg-[#2c2c2c] h-0.5 ml-5 mr-5'></div>
+                                <BenchIndicator
+                                    player={player}
+                                    team1Id={team1Id}
+                                    team2Id={team2Id}
+                                    onPlayerClick={onPlayerClick}
+                                />
+                            </div>
+                        ))}
                 </div>
 
-                {/* Right column for team 2 */}
+                {/* Team 2 Bench */}
                 <div className="space-y-4">
-                    {benchPlayers.filter(player => player.team_id === team2Id).map((player) => (
-                        <div key={player.player_id}>
-                            <div className='bg-[#2c2c2c] h-0.5 ml-5 mr-5'></div> {/* Keep margins */}
-                            <BenchIndicator
-                                player={player}
-                                team1Id={team1Id}
-                                team2Id={team2Id}
-                                onPlayerClick={onPlayerClick}
-                            />
-                        </div>
-                    ))}
+                    {benchPlayers
+                        .filter(player => player.team_id === team2Id && (player.stats?.minutes || 0) > 0)
+                        .map((player) => (
+                            <div key={player.player_id}>
+                                <div className='bg-[#2c2c2c] h-0.5 ml-5 mr-5'></div>
+                                <BenchIndicator
+                                    player={player}
+                                    team1Id={team1Id}
+                                    team2Id={team2Id}
+                                    onPlayerClick={onPlayerClick}
+                                />
+                            </div>
+                        ))}
                 </div>
+
+                {/* Reserves Section - Different Format */}
+                {(benchPlayers.some(player => (player.stats?.minutes || 0) === 0)) && (
+                    <>
+                        <h2 className='col-span-2 text-center text-white font-bold'>Reserves</h2>
+
+                        {/* Team 1 Reserves */}
+                        <div className="space-y-4">
+                            {benchPlayers
+                                .filter(player => player.team_id === team1Id && (player.stats?.minutes || 0) === 0)
+                                .map((player) => (
+                                    <div key={player.player_id}>
+                                        <div className='bg-[#2c2c2c] h-0.5 ml-5 mr-5'></div>
+                                        <ReserveIndicator
+                                            player={player}
+                                            team1Id={team1Id}
+                                            team2Id={team2Id}
+                                            onPlayerClick={onPlayerClick}
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+
+                        {/* Team 2 Reserves */}
+                        <div className="space-y-4">
+                            {benchPlayers
+                                .filter(player => player.team_id === team2Id && (player.stats?.minutes || 0) === 0)
+                                .map((player) => (
+                                    <div key={player.player_id}>
+                                        <div className='bg-[#2c2c2c] h-0.5 ml-5 mr-5'></div>
+                                        <ReserveIndicator
+                                            player={player}
+                                            team1Id={team1Id}
+                                            team2Id={team2Id}
+                                            onPlayerClick={onPlayerClick}
+                                        />
+                                    </div>
+                                ))}
+                        </div>
+                    </>
+                )}
             </div>
             <div className='h-5'></div>
         </div>

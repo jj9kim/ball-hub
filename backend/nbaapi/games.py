@@ -258,10 +258,20 @@ def get_game_boxscore(game_id):
 def get_simple_boxscore(game_id):
     """Get simplified box score for frontend display"""
     try:
-        data = boxscore_client.get_player_stats(game_id)
+        print(f"[SIMPLE BOXSCORE] Getting data for game: {game_id}")
         
-        if data['success']:
-            # Create simplified response
+        data = boxscore_client.get_player_stats(game_id)
+        print(f"[SIMPLE BOXSCORE] Client response keys: {data.keys() if isinstance(data, dict) else 'Not a dict'}")
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data returned from boxscore client',
+                'game_id': game_id
+            }), 404
+        
+        if isinstance(data, dict) and data.get('success', False):
+            # Create simplified response WITHOUT team_totals
             simplified = {
                 'success': True,
                 'game_id': game_id,
@@ -278,7 +288,9 @@ def get_simple_boxscore(game_id):
                 'players': [
                     {
                         'name': p['name'],
-                        'team': p['team_city'],
+                        'player_id': p['player_id'],
+                        'team_id': p['team_id'],
+                        'team_city': p['team_city'],
                         'position': p['position'],
                         'jersey': p['jersey'],
                         'starter': p['starter'],
@@ -289,31 +301,49 @@ def get_simple_boxscore(game_id):
                         'steals': p['steals'],
                         'blocks': p['blocks'],
                         'turnovers': p['turnovers'],
-                        'fg': f"{p['fg_made']}/{p['fg_attempted']}",
-                        'fg_pct': round(p['fg_percentage'] * 100, 1) if p['fg_percentage'] > 0 else 0,
-                        'three': f"{p['three_made']}/{p['three_attempted']}",
-                        'three_pct': round(p['three_percentage'] * 100, 1) if p['three_percentage'] > 0 else 0,
-                        'ft': f"{p['ft_made']}/{p['ft_attempted']}",
-                        'ft_pct': round(p['ft_percentage'] * 100, 1) if p['ft_percentage'] > 0 else 0,
+                        'fouls': p['fouls'],
+                        'fg_made': p['fg_made'],
+                        'fg_attempted': p['fg_attempted'],
+                        'fg_percentage': p['fg_percentage'],
+                        'three_made': p['three_made'],
+                        'three_attempted': p['three_attempted'],
+                        'three_percentage': p['three_percentage'],
+                        'ft_made': p['ft_made'],
+                        'ft_attempted': p['ft_attempted'],
+                        'ft_percentage': p['ft_percentage'],
                         'plus_minus': p['plus_minus']
                     }
                     for p in data['players']
-                ],
-                'team_totals': data['team_totals'],
-                'attribution': data['attribution']
+                ]
+                # Removed 'team_totals' key since it doesn't exist
             }
+            
+            print(f"[SIMPLE BOXSCORE] Success! Returning {len(simplified['players'])} players")
             return jsonify(simplified)
         else:
+            error_msg = data.get('error', 'Unknown error') if isinstance(data, dict) else 'Invalid response format'
             return jsonify({
                 'success': False,
-                'error': data.get('error', 'Box score not available'),
+                'error': error_msg,
                 'game_id': game_id
             }), 404
             
-    except Exception as e:
+    except KeyError as e:
+        print(f"[SIMPLE BOXSCORE] KeyError: Missing key {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e),
+            'error': f'Missing data key: {str(e)}',
+            'game_id': game_id
+        }), 500
+    except Exception as e:
+        print(f"[SIMPLE BOXSCORE] Exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Server error: {str(e)}',
             'game_id': game_id
         }), 500
 
