@@ -86,3 +86,45 @@ export interface Standings {
     last_ten_record: string,
     streak: string
 }
+
+// In your types/index.ts, add:
+export interface NBATeamStats {
+  team_id: number;
+  team_abbreviation: string;
+  team_name: string;
+  wl: string;
+  pts: number;
+  fgm: number;
+  fga: number;
+  fg_pct: number;
+  fg3m: number;
+  fg3a: number;
+  fg3_pct: number;
+  ftm: number;
+  fta: number;
+  ft_pct: number;
+  oreb: number;
+  dreb: number;
+  reb: number;
+  ast: number;
+  stl: number;
+  blk: number;
+  tov: number;
+  pf: number;
+  plus_minus: number;
+}
+
+export interface NBAGame {
+  game_id: string;
+  game_date: string;
+  matchup: string;
+  season_id: string;
+  teams: NBATeamStats[];
+}
+
+export interface NBAAPIResponse {
+  success: boolean;
+  games: NBAGame[];
+  count: number;
+  error?: string;
+}

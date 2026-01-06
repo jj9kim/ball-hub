@@ -1,6 +1,7 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, useRef, useMemo } from "react";
 import type { Stats, TabType, Player } from './components/types/index.ts';
+import { NBAService, type NBAGame, type NBATeamStats } from '../api/nbaService';
 import GameHeader from './components/GameHeader';
 import FactsTab from './components/tabs/FactsTab';
 import LineupTab from './components/tabs/LineupTab';
@@ -10,6 +11,9 @@ import PlayerCard from './components/PlayerCard';
 
 export default function GamePage() {
     const [gameStats, setGameStats] = useState<Stats[]>([]);
+    const [nbaGames, setNbaGames] = useState<NBAGame[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('facts');
     const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
     const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(-1);
@@ -18,47 +22,209 @@ export default function GamePage() {
     const { date, id } = useParams<{ date?: string; id: string }>();
     const navigate = useNavigate();
     const location = useLocation();
-    const teamsThisGame = location.state.teamsThisGame;
-    const teamStats = location.state.t;
+
+    // Get game data from NBA API instead of location.state
+    const [teamsThisGame, setTeamsThisGame] = useState<Array<{ team_id: number, team_name: string, points: number }>>([]);
+    const [teamStats, setTeamStats] = useState<NBATeamStats[]>([]);
+
+    // Fetch NBA games data
+    useEffect(() => {
+        const loadNBAGames = async () => {
+            try {
+                setLoading(true);
+                const data = await NBAService.fetchGames();
+                setNbaGames(data.games);
+
+                // Find the specific game by ID
+                const currentGame = data.games.find(game => game.game_id === id);
+
+                if (currentGame) {
+                    // Set teams for this game
+                    const gameTeams = currentGame.teams.map(team => ({
+                        team_id: team.team_id,
+                        team_name: team.team_name,
+                        points: team.pts
+                    }));
+                    setTeamsThisGame(gameTeams);
+                    setTeamStats(currentGame.teams);
+
+                    // Convert NBA game data to your Stats format
+                    const convertedStats = await convertNBAGameToStats(currentGame);
+                    setGameStats(convertedStats);
+                } else {
+                    setError('Game not found');
+                }
+
+                setError(null);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to load NBA games');
+                console.error('Error loading NBA games:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (id) {
+            loadNBAGames();
+        }
+    }, [id]);
+
+    // Convert NBA game data to your Stats format
+    const convertNBAGameToStats = async (game: NBAGame): Promise<Stats[]> => {
+        // Since NBA API only provides team stats, we need to get player stats separately
+        // Let's fetch box score data for player stats
+        try {
+            const response = await fetch(`http://127.0.0.1:5000/api/game/${game.game_id}/simple-boxscore`);
+            const boxScoreData = await response.json();
+
+            if (boxScoreData.success) {
+                // Convert box score players to Stats format
+                return boxScoreData.players.map((player: any) => ({
+                    player_id: player.player_id,
+                    player_name: player.name,
+                    player_name_short: player.name.split(' ').map((n: string) => n[0]).join(''),
+                    position: player.position,
+                    position_sort: getPositionSort(player.position),
+                    game_id: parseInt(game.game_id),
+                    team_id: player.team_id,
+                    minutes: convertMinutesToDecimal(player.minutes),
+                    points: player.points,
+                    fg_made: player.fg_made,
+                    fg_attempted: player.fg_attempted,
+                    fg_percentage: player.fg_percentage,
+                    three_pt_made: player.three_made,
+                    three_pt_attempted: player.three_attempted,
+                    three_pt_percentage: player.three_percentage,
+                    ft_made: player.ft_made,
+                    ft_attempted: player.ft_attempted,
+                    ft_percentage: player.ft_percentage,
+                    offensive_rebounds: 0, // Not available in simple box score
+                    defensive_rebounds: 0, // Not available in simple box score
+                    total_rebounds: player.rebounds,
+                    assists: player.assists,
+                    steals: player.steals,
+                    blocks: player.blocks,
+                    turnovers: player.turnovers,
+                    personal_fouls: player.fouls,
+                    technical_fouls: 0,
+                    ejected: 0,
+                    ortg: 0,
+                    usg: 0,
+                    url: '',
+                    player_rating: calculatePlayerRating(player)
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching box score:', error);
+        }
+
+        // Fallback: If no box score, return empty array
+        return [];
+    };
+
+    // Helper function to convert minutes from "MM:SS" to decimal
+    const convertMinutesToDecimal = (minutes: string): number => {
+        if (!minutes) return 0;
+        const parts = minutes.split(':');
+        if (parts.length === 2) {
+            return parseInt(parts[0]) + (parseInt(parts[1]) / 60);
+        }
+        return 0;
+    };
+
+    // Helper function to get position sort order
+    const getPositionSort = (position: string): number => {
+        const positionOrder: Record<string, number> = {
+            'PG': 1, 'SG': 2, 'SF': 3, 'PF': 4, 'C': 5, 'G': 6, 'F': 7
+        };
+        return positionOrder[position] || 8;
+    };
+
+    // Helper function to calculate player rating
+    const calculatePlayerRating = (player: any): number => {
+        let rating = player.points * 1.0;
+        rating += player.rebounds * 1.2;
+        rating += player.assists * 1.5;
+        rating += player.steals * 3.0;
+        rating += player.blocks * 3.0;
+        rating -= player.turnovers * 2.0;
+        rating += player.plus_minus * 0.5;
+
+        if (player.fg_attempted > 0) {
+            rating += (player.fg_percentage - 0.45) * 100;
+        }
+        if (player.three_attempted > 0) {
+            rating += (player.three_percentage - 0.35) * 100;
+        }
+
+        return Math.round(rating * 10) / 10;
+    };
 
     // Move getStatsForTeams inside the component
     const getStatsForTeams = () => {
+        if (!id || !teamsThisGame.length) {
+            return { Team1: [], Team2: [], Team1All: null, Team2All: null };
+        }
+
         const statsPerTeam = gameStats.filter(g => g.game_id === Number(id));
-        const Team1 = statsPerTeam.filter(s => s.team_id === teamsThisGame[0].team_id)
-        const Team2 = statsPerTeam.filter(s => s.team_id === teamsThisGame[1].team_id)
+        const Team1 = statsPerTeam.filter(s => s.team_id === teamsThisGame[0].team_id);
+        const Team2 = statsPerTeam.filter(s => s.team_id === teamsThisGame[1].team_id);
 
-        const allStats = teamStats.filter((s: Stats) => s.game_id === Number(id));
-        const Team1All = allStats.find((g: Stats) => g.team_id === teamsThisGame[0].team_id);
-        const Team2All = allStats.find((g: Stats) => g.team_id === teamsThisGame[1].team_id);
+        // Create team totals from teamStats
+        const Team1All = teamStats.find((t: NBATeamStats) => t.team_id === teamsThisGame[0].team_id);
+        const Team2All = teamStats.find((t: NBATeamStats) => t.team_id === teamsThisGame[1].team_id);
 
-        function sumField(arr: any[], field: string): number {
-            return arr.reduce((sum, obj) => sum + (obj[field] || 0), 0);
-        }
+        // Convert NBATeamStats to your Stats format for compatibility
+        const convertTeamStats = (team: NBATeamStats | undefined) => {
+            if (!team) return null;
 
-        if (Team1All) {
-            Team1All.fg_attempted = sumField(Team1, "fg_attempted");
-            Team1All.fg_made = sumField(Team1, "fg_made");
-            Team1All.ft_attempted = sumField(Team1, "ft_attempted");
-            Team1All.ft_made = sumField(Team1, "ft_made");
-            Team1All.three_pt_attempted = sumField(Team1, "three_pt_attempted");
-            Team1All.three_pt_made = sumField(Team1, "three_pt_made");
-        }
+            return {
+                player_id: 0,
+                player_name: team.team_name,
+                player_name_short: team.team_abbreviation,
+                position: 'TM',
+                position_sort: 0,
+                game_id: Number(id),
+                minutes: 240, // Full game
+                points: team.pts,
+                fg_made: team.fgm,
+                fg_attempted: team.fga,
+                fg_percentage: team.fg_pct,
+                three_pt_made: team.fg3m,
+                three_pt_attempted: team.fg3a,
+                three_pt_percentage: team.fg3_pct,
+                ft_made: team.ftm,
+                ft_attempted: team.fta,
+                ft_percentage: team.ft_pct,
+                offensive_rebounds: team.oreb,
+                defensive_rebounds: team.dreb,
+                total_rebounds: team.reb,
+                assists: team.ast,
+                steals: team.stl,
+                blocks: team.blk,
+                turnovers: team.tov,
+                personal_fouls: team.pf,
+                technical_fouls: 0,
+                ejected: 0,
+                ortg: 0,
+                usg: 0,
+                url: '',
+                player_rating: 0,
+                ...team
+            } as Stats & NBATeamStats;
+        };
 
-        if (Team2All) {
-            Team2All.fg_attempted = sumField(Team2, "fg_attempted");
-            Team2All.fg_made = sumField(Team2, "fg_made");
-            Team2All.ft_attempted = sumField(Team2, "ft_attempted");
-            Team2All.ft_made = sumField(Team2, "ft_made");
-            Team2All.three_pt_attempted = sumField(Team2, "three_pt_attempted");
-            Team2All.three_pt_made = sumField(Team2, "three_pt_made");
-        }
-
-        return { Team1, Team2, Team1All, Team2All }
-    }
+        return {
+            Team1,
+            Team2,
+            Team1All: convertTeamStats(Team1All),
+            Team2All: convertTeamStats(Team2All)
+        };
+    };
 
     // Combine all players from both teams
     const allPlayers = useMemo(() => {
-        if (!gameStats.length || !teamsThisGame) return [];
+        if (!gameStats.length || !teamsThisGame.length) return [];
 
         const { Team1, Team2 } = getStatsForTeams();
         const players: Player[] = [];
@@ -68,7 +234,7 @@ export default function GamePage() {
             players.push({
                 player_id: stat.player_id,
                 player_name: stat.player_name,
-                number: String(stat.player_id), // You might want to adjust this
+                number: stat.player_name_short || String(stat.player_id),
                 position: stat.position,
                 x: 0,
                 y: 0,
@@ -108,7 +274,7 @@ export default function GamePage() {
             players.push({
                 player_id: stat.player_id,
                 player_name: stat.player_name,
-                number: String(stat.player_id), // You might want to adjust this
+                number: stat.player_name_short || String(stat.player_id),
                 position: stat.position,
                 x: 0,
                 y: 0,
@@ -144,7 +310,7 @@ export default function GamePage() {
         });
 
         return players;
-    }, [gameStats, teamsThisGame, teamStats, id]);
+    }, [gameStats, teamsThisGame, id]);
 
     const handleNext = () => {
         if (allPlayers.length === 0) return;
@@ -196,13 +362,6 @@ export default function GamePage() {
         };
     }, [selectedPlayer]);
 
-    useEffect(() => {
-        fetch('http://localhost:8081/games')
-            .then(res => res.json())
-            .then((gameStats: Stats[]) => setGameStats(gameStats))
-            .catch(err => console.log(err));
-    }, []);
-
     const formatDateForURL = (date: Date): string => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -225,6 +384,30 @@ export default function GamePage() {
     };
 
     const renderTabContent = () => {
+        if (loading) {
+            return (
+                <div className="text-white text-center py-8">
+                    Loading game data...
+                </div>
+            );
+        }
+
+        if (error) {
+            return (
+                <div className="text-white text-center py-8">
+                    Error: {error}
+                </div>
+            );
+        }
+
+        if (!teamsThisGame.length) {
+            return (
+                <div className="text-white text-center py-8">
+                    No game data available
+                </div>
+            );
+        }
+
         const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
 
         switch (activeTab) {
@@ -248,6 +431,15 @@ export default function GamePage() {
                 return <FactsTab Team1All={Team1All} Team2All={Team2All} />;
         }
     };
+
+    if (loading && !gameStats.length) {
+        return (
+            <div className="text-white text-center py-8">
+                <div className="spinner"></div>
+                <p>Loading NBA game data...</p>
+            </div>
+        );
+    }
 
     return (
         <>
