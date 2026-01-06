@@ -137,7 +137,7 @@ export default function GamePage() {
                             ejected: 0,
                             ortg: 0,
                             usg: 0,
-                            url: '',
+                            url: player.headshot_url || '',
                             jersey: player.jersey || '',
                             plus_minus: player.plus_minus || 0,
                             player_rating: calculatePlayerRating({

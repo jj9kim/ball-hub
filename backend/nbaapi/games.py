@@ -1,4 +1,5 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, Response, send_file
+import io
 from flask_cors import CORS
 import pandas as pd
 from nba_api.stats.endpoints import leaguegamefinder
@@ -360,6 +361,80 @@ def health_check():
         },
         'timestamp': pd.Timestamp.now().isoformat()
     })
+
+@app.route('/api/nba-image/<player_id>', methods=['GET'])
+def nba_image_proxy(player_id):
+    """Proxy NBA images to avoid CORS issues"""
+    import requests
+    from flask import Response
+    
+    try:
+        # NBA CDN URL
+        nba_url = f"https://cdn.nba.com/headshots/nba/latest/260x190/{player_id}.png"
+        
+        # Fetch the image with proper headers
+        headers = {
+            'X-Data-Source': 'NBA.com',
+            'X-Attribution': 'Data and images © NBA Media Ventures, LLC.',
+            'X-Usage': 'For educational/demonstration purposes only'
+        }
+        
+        response = requests.get(nba_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            # Return the image with CORS headers
+            return Response(
+                response.content,
+                mimetype='image/png',
+                headers={
+                    'Cache-Control': 'public, max-age=86400',  # Cache for 1 day
+                    'Access-Control-Allow-Origin': '*',  # Allow all origins
+                    'Content-Type': 'image/png'
+                }
+            )
+        else:
+            # Return a 404
+            return Response(b'Image not found', status=404)
+            
+    except Exception as e:
+        print(f"Image proxy error for player {player_id}: {e}")
+        return Response(b'Server error', status=500)
+
+
+@app.route('/api/player/<player_id>/image', methods=['GET'])
+def player_image(player_id):
+    """Get player image with multiple fallback sources"""
+    import requests
+    from flask import Response
+    
+    # Try multiple image sources
+    image_sources = [
+        f"https://cdn.nba.com/headshots/nba/latest/260x190/{player_id}.png",
+        f"https://ak-static.cms.nba.com/wp-content/uploads/headshots/nba/latest/260x190/{player_id}.png",
+    ]
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://www.nba.com/'
+    }
+    
+    for url in image_sources:
+        try:
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                return Response(
+                    response.content,
+                    mimetype='image/png',
+                    headers={
+                        'Cache-Control': 'public, max-age=86400',
+                        'Access-Control-Allow-Origin': '*'
+                    }
+                )
+        except:
+            continue
+    
+    # If all fail, return a placeholder or 404
+    return Response(b'Image not available', status=404)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

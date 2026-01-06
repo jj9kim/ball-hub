@@ -146,21 +146,17 @@ export default function PlayerCard({
                         {/* Player Photo or Jersey Circle */}
                         <div className="flex flex-col items-center w-full"> {/* Added w-full */}
                             <div className="relative mb-3">
-                                {player.photoUrl ? (
+                                <div className="w-16 h-16 rounded-full flex items-center justify-center relative overflow-hidden bg-white">
+                                    {/* Use Flask proxy instead of direct NBA URL */}
                                     <img
-                                        src={player.photoUrl}
+                                        src={`http://127.0.0.1:5000/api/nba-image/${player.player_id}`}
                                         alt={player.player_name}
-                                        className="w-20 h-20 rounded-full border-2 border-white object-cover"
+                                        className="absolute top-0 left-0 w-full h-full rounded-full object-cover"
                                     />
-                                ) : (
-                                    <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center border-2 border-white">
-                                        <span className="text-black text-2xl font-bold">#{player.number}</span>
-                                    </div>
-                                )}
-
+                                </div>
                                 <div className={`absolute -top-1 left-12 rounded-full w-8 h-6 flex items-center justify-center text-black font-bold text-sm z-10 ${Math.round((player.stats?.player_rating || 0) * 10) / 10 < 5 ? 'bg-red-500' :
-                                        Math.round((player.stats?.player_rating || 0) * 10) / 10 < 7 ? 'bg-orange-500' :
-                                            'bg-[#32c771]'
+                                    Math.round((player.stats?.player_rating || 0) * 10) / 10 < 7 ? 'bg-orange-500' :
+                                        'bg-[#32c771]'
                                     }`}>
                                     {player.stats?.player_rating?.toFixed(1)}
                                 </div>

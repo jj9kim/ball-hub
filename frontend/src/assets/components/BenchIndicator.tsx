@@ -21,20 +21,14 @@ export default function BenchIndicator({ player, team1Id, team2Id, onPlayerClick
                     {/* Player Container - use consistent width */}
                     <div className={`hover:opacity-50 flex flex-row items-center rounded-lg px-6 mt-3 w-full ${isTeam1 ? 'justify-start' : 'justify-end'
                         }`}>
-                        {/* Player Image/Number */}
-                        {player.photoUrl ? (
-                            <div className="w-12 h-12 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a] flex-shrink-0">
-                                <img
-                                    src={player.photoUrl}
-                                    alt={player.player_name}
-                                    className="w-11 h-11 rounded-full object-cover"
-                                />
-                            </div>
-                        ) : (
-                            <div className="w-12 h-12 bg-opacity-20 rounded-full flex items-center justify-center bg-[#4a4a4a] flex-shrink-0">
-                                <span className="text-white text-lg font-bold">#{player.stats?.jersey}</span>
-                            </div>
-                        )}
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center relative overflow-hidden bg-white">
+                            {/* Use Flask proxy instead of direct NBA URL */}
+                            <img
+                                src={`http://127.0.0.1:5000/api/nba-image/${player.player_id}`}
+                                alt={player.player_name}
+                                className="absolute top-0 left-0 w-full h-full rounded-full object-cover"
+                            />
+                        </div>
 
                         {/* Rating Circle */}
                         {Number((player.stats?.minutes || 0) >= 5).toFixed(0) && (
