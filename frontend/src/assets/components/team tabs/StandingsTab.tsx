@@ -1,354 +1,272 @@
-import type { Standings } from "../types";
-import { useState, useEffect } from "react";
-import { getTeamLogoUrlFromName } from "../../../utils/teamMappings";
+import { useEffect, useState } from "react";
 
-interface AdvancedStandings {
-    id: number,
-    team_name: string,
-    team_short: string,
-    wins: number,
-    losses: number,
-    win_percentage: number,
-    home_record: string,
-    away_record: string,
-    conference_record: string,
-    conference_win_percentage: number,
-    division_record: string,
-    division_win_percentage: number,
-    close_record: string,
-    blowout_record: string,
-    low_scoring_record: string,
-    overtime_record: string
+interface TeamStanding {
+    team_id: number;
+    team_name: string;
+    team_city: string;
+    team_conference: string;
+    team_division: string;
+    wins: number;
+    losses: number;
+    win_pct: number;
+    conference_rank: number;
+    division_rank: number;
+    games_back: number; // Conference games back
+    streak: string;
+    record: string;
+    home_record: string;
+    away_record: string;
+    last_10_record: string;
+    points_per_game: number;
+    opp_points_per_game: number;
+    point_differential: number;
 }
 
-type TabType = 'league' | 'conference' | 'division' | 'situational';
-type SortField = 'wins' | 'losses' | 'win_percentage' | 'points_for_per_game' | 'points_against_per_game' | 'point_differential' | 'streak' | 'home_record' | 'away_record' | 'close_record' | 'overtime_record';
-type SortDirection = 'asc' | 'desc';
+interface StandingsData {
+    success: boolean;
+    season: string;
+    standings: TeamStanding[];
+}
 
-export default function StandingsTab() {
-    const [standings, setStandings] = useState<Standings[]>([]);
-    const [advancedStandings, setAdvancedStandings] = useState<AdvancedStandings[]>([]);
+interface TeamStandingWithGB extends TeamStanding {
+    overall_games_back: number;
+    division_games_back: number;
+}
+
+interface TableTabProps {
+    team1Id: number;
+    team2Id: number;
+}
+
+type ViewMode = 'all' | 'conference' | 'division';
+
+export default function TableTab({ team1Id, team2Id }: TableTabProps) {
+    const [standings, setStandings] = useState<TeamStandingWithGB[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('league');
-    const [sortField, setSortField] = useState<SortField>('wins'); // Changed default to 'wins'
-    const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+    const [viewMode, setViewMode] = useState<ViewMode>('all');
 
     useEffect(() => {
-        let isMounted = true;
-
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-
-                // Fetch basic standings
-                const standingsResponse = await fetch('http://localhost:8081/basic_standings');
-                if (!standingsResponse.ok) {
-                    throw new Error('Failed to fetch basic standings');
-                }
-                const standingsData: Standings[] = await standingsResponse.json();
-
-                // Fetch advanced splits
-                const advancedResponse = await fetch('http://localhost:8081/advanced_splits');
-                if (!advancedResponse.ok) {
-                    throw new Error('Failed to fetch advanced splits');
-                }
-                const advancedData: AdvancedStandings[] = await advancedResponse.json();
-
-                if (isMounted) {
-                    setStandings(standingsData);
-                    setAdvancedStandings(advancedData);
-                }
-            } catch (err) {
-                if (isMounted) {
-                    setError(err instanceof Error ? err.message : 'An unknown error occurred');
-                    console.error('Fetch error:', err);
-                }
-            } finally {
-                if (isMounted) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        fetchData();
-
-        return () => {
-            isMounted = false;
-        };
+        fetchStandings();
     }, []);
 
-    // Handle sort click
-    const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            // Toggle direction if same field
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            // New field, default to desc for most fields, asc for losses and points_against
-            setSortField(field);
-            setSortDirection(field === 'losses' || field === 'points_against_per_game' ? 'asc' : 'desc');
+    const fetchStandings = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch('http://127.0.0.1:5000/api/standings/simple');
+            const data: StandingsData = await response.json();
+
+            if (data.success && data.standings) {
+                const standingsWithGB = calculateAllGamesBack(data.standings);
+                setStandings(standingsWithGB);
+            } else {
+                setError(data.success === false ? 'Failed to load standings' : 'No standings data');
+            }
+        } catch (err) {
+            console.error('Error fetching standings:', err);
+            setError(err instanceof Error ? err.message : 'Failed to fetch standings');
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Parse record string to wins (e.g., "10-5" -> 10)
-    const parseRecordWins = (record: string): number => {
-        if (!record) return 0;
-        const parts = record.split('-');
-        return parts.length > 0 ? parseInt(parts[0]) || 0 : 0;
-    };
+    const calculateAllGamesBack = (standings: TeamStanding[]): TeamStandingWithGB[] => {
+        const sorted = [...standings].sort((a, b) => b.win_pct - a.win_pct);
 
-    // Sort function for basic standings
-    // Sort function for basic standings
-    const sortBasicStandings = (teams: any[]) => {
-        return [...teams].sort((a, b) => {
-            let aValue: any = 0;
-            let bValue: any = 0;
+        // Find overall leader
+        const overallLeader = sorted[0];
 
-            switch (sortField) {
-                case 'wins':
-                    aValue = a.wins || 0;
-                    bValue = b.wins || 0;
-                    break;
-                case 'losses':
-                    aValue = a.losses || 0;
-                    bValue = b.losses || 0;
-                    break;
-                case 'win_percentage':
-                    aValue = a.win_percentage || 0;
-                    bValue = b.win_percentage || 0;
-                    break;
-                case 'points_for_per_game':
-                    aValue = a.points_for_per_game || 0;
-                    bValue = b.points_for_per_game || 0;
-                    break;
-                case 'points_against_per_game':
-                    aValue = a.points_against_per_game || 0;
-                    bValue = b.points_against_per_game || 0;
-                    break;
-                case 'point_differential':
-                    aValue = a.point_differential || 0;
-                    bValue = b.point_differential || 0;
-                    break;
-                case 'streak':
-                    // Handle streak (could be string like "W3" or "L2")
-                    const aStreak = a.streak || '';
-                    const bStreak = b.streak || '';
-                    aValue = aStreak.startsWith('W') ? parseInt(aStreak.substring(1)) || 0 :
-                        aStreak.startsWith('L') ? -(parseInt(aStreak.substring(1)) || 0) : 0;
-                    bValue = bStreak.startsWith('W') ? parseInt(bStreak.substring(1)) || 0 :
-                        bStreak.startsWith('L') ? -(parseInt(bStreak.substring(1)) || 0) : 0;
-                    break;
-                default:
-                    aValue = a.wins || 0;
-                    bValue = b.wins || 0;
-            }
-
-            // For numeric comparisons
-            if (typeof aValue === 'number' && typeof bValue === 'number') {
-                const primaryComparison = sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
-
-                // If primary comparison results in a tie, use division record as tiebreaker
-                if (primaryComparison === 0) {
-                    // Parse division records (format: "W-L")
-                    const aDivisionRecord = a.division_record || "0-0";
-                    const bDivisionRecord = b.division_record || "0-0";
-
-                    const aDivisionWins = parseInt(aDivisionRecord.split('-')[0]) || 0;
-                    const bDivisionWins = parseInt(bDivisionRecord.split('-')[0]) || 0;
-
-                    // Higher division wins = better (descending order)
-                    return bDivisionWins - aDivisionWins;
-                }
-
-                return primaryComparison;
-            }
-
-            // For string comparisons
-            return sortDirection === 'desc'
-                ? String(bValue).localeCompare(String(aValue))
-                : String(aValue).localeCompare(String(bValue));
-        });
-    };
-
-    // Sort function for situational standings
-    const sortSituationalStandings = (teams: any[]) => {
-        return [...teams].sort((a, b) => {
-            let aValue: any = 0;
-            let bValue: any = 0;
-
-            switch (sortField) {
-                case 'wins':
-                    aValue = a.wins || 0;
-                    bValue = b.wins || 0;
-                    break;
-                case 'losses':
-                    aValue = a.losses || 0;
-                    bValue = b.losses || 0;
-                    break;
-                case 'win_percentage':
-                    aValue = a.win_percentage || 0;
-                    bValue = b.win_percentage || 0;
-                    break;
-                case 'home_record':
-                    aValue = parseRecordWins(a.home_record);
-                    bValue = parseRecordWins(b.home_record);
-                    break;
-                case 'away_record':
-                    aValue = parseRecordWins(a.away_record);
-                    bValue = parseRecordWins(b.away_record);
-                    break;
-                case 'close_record':
-                    aValue = parseRecordWins(a.close_record);
-                    bValue = parseRecordWins(b.close_record);
-                    break;
-                case 'overtime_record':
-                    aValue = parseRecordWins(a.overtime_record);
-                    bValue = parseRecordWins(b.overtime_record);
-                    break;
-                default:
-                    aValue = a.wins || 0;
-                    bValue = b.wins || 0;
-            }
-
-            return sortDirection === 'desc' ? bValue - aValue : aValue - aValue;
-        });
-    };
-
-    // LEAGUE VIEW - sorted by selected field
-    const leagueStandings = sortBasicStandings(
-        standings.filter(team => team && typeof team.win_percentage === 'number')
-    );
-
-    // CONFERENCE VIEW - group by conference and sort within each conference
-    const conferenceStandings = () => {
-        const eastern = sortBasicStandings(
-            standings.filter(team => team.conference === 'Eastern Conference')
-        );
-        const western = sortBasicStandings(
-            standings.filter(team => team.conference === 'Western Conference')
-        );
-        return { eastern, western };
-    };
-
-    // DIVISION VIEW - group by division and sort within each division
-    const divisionStandings = () => {
-        const divisions: { [key: string]: any[] } = {};
-
+        // Find division leaders
+        const divisionLeaders: Record<string, TeamStanding> = {};
         standings.forEach(team => {
-            if (team.division) {
-                if (!divisions[team.division]) {
-                    divisions[team.division] = [];
-                }
-                divisions[team.division].push(team);
+            const division = team.team_division;
+            if (!divisionLeaders[division] || team.win_pct > divisionLeaders[division].win_pct) {
+                divisionLeaders[division] = team;
             }
         });
 
-        // Sort each division by selected field
-        Object.keys(divisions).forEach(division => {
-            divisions[division] = sortBasicStandings(divisions[division]);
+        return sorted.map(team => {
+            // Calculate overall games back
+            let overall_games_back = 0;
+            if (team.team_id !== overallLeader.team_id) {
+                overall_games_back = ((overallLeader.wins - team.wins) + (team.losses - overallLeader.losses)) / 2;
+            }
+
+            // Calculate division games back
+            let division_games_back = 0;
+            const divisionLeader = divisionLeaders[team.team_division];
+            if (team.team_id !== divisionLeader.team_id) {
+                division_games_back = ((divisionLeader.wins - team.wins) + (team.losses - divisionLeader.losses)) / 2;
+            }
+
+            return {
+                ...team,
+                overall_games_back,
+                division_games_back
+            };
         });
-
-        return divisions;
     };
 
-    // SITUATIONAL VIEW - use advanced standings data
-    const situationalStandings = sortSituationalStandings(
-        advancedStandings.filter(team => team && typeof team.win_percentage === 'number')
-    );
-
-    // Get the current standings based on active tab
-    const getCurrentStandings = () => {
-        switch (activeTab) {
-            case 'conference':
-                const conferences = conferenceStandings();
-                return [...conferences.eastern, ...conferences.western];
+    const getGamesBack = (team: TeamStandingWithGB): number => {
+        switch (viewMode) {
+            case 'all':
+                return team.overall_games_back;
             case 'division':
-                const divisions = divisionStandings();
-                return Object.values(divisions).flat();
-            case 'situational':
-                return situationalStandings;
-            case 'league':
+                return team.division_games_back;
+            case 'conference':
             default:
-                return leagueStandings;
+                return team.games_back;
         }
     };
 
-    // Get headers based on active tab
-    const getHeaders = () => {
-        const baseHeaders = [
-            { key: 'rank', label: '#', sortable: false },
-            { key: 'team', label: 'Team', sortable: false },
-            { key: 'wins', label: 'W', sortable: true },
-            { key: 'losses', label: 'L', sortable: true },
-            { key: 'win_percentage', label: 'Win%', sortable: true },
-            { key: 'points_for_per_game', label: 'PF/G', sortable: true },
-            { key: 'points_against_per_game', label: 'PA/G', sortable: true },
-            { key: 'point_differential', label: 'Diff', sortable: true },
-            { key: 'streak', label: 'Streak', sortable: true }
-        ];
+    const formatGamesBack = (gamesBack: number): string => {
+        if (gamesBack === 0) return '-';
+        return gamesBack.toFixed(1);
+    };
 
-        switch (activeTab) {
-            case 'situational':
-                return [
-                    { key: 'rank', label: '#', sortable: false },
-                    { key: 'team', label: 'Team', sortable: false },
-                    { key: 'wins', label: 'W', sortable: true },
-                    { key: 'losses', label: 'L', sortable: true },
-                    { key: 'win_percentage', label: 'Win%', sortable: true },
-                    { key: 'home_record', label: 'Home', sortable: true },
-                    { key: 'away_record', label: 'Away', sortable: true },
-                    { key: 'close_record', label: 'Close', sortable: true },
-                    { key: 'overtime_record', label: 'Overtime', sortable: true }
-                ];
+    const getStreakColor = (streak: string) => {
+        if (streak.startsWith('W')) {
+            return 'text-green-400';
+        } else if (streak.startsWith('L')) {
+            return 'text-red-400';
+        }
+        return 'text-gray-400';
+    };
+
+    // Get appropriate rankings based on view mode
+    const getRankedStandings = () => {
+        const filtered = [...standings];
+
+        switch (viewMode) {
+            case 'all':
+                // Sort all teams by win percentage
+                return filtered.sort((a, b) => b.win_pct - a.win_pct);
+
+            case 'conference':
+                // Sort by conference, then by win percentage within conference
+                return filtered.sort((a, b) => {
+                    if (a.team_conference !== b.team_conference) {
+                        return a.team_conference === 'East' ? -1 : 1;
+                    }
+                    return b.win_pct - a.win_pct;
+                });
+
+            case 'division':
+                // Sort by conference, then division, then win percentage within division
+                return filtered.sort((a, b) => {
+                    if (a.team_conference !== b.team_conference) {
+                        return a.team_conference === 'East' ? -1 : 1;
+                    }
+                    if (a.team_division !== b.team_division) {
+                        return a.team_division.localeCompare(b.team_division);
+                    }
+                    return b.win_pct - a.win_pct;
+                });
+
             default:
-                return baseHeaders;
+                return filtered;
         }
     };
 
-    // Get row data based on active tab
-    const getRowData = (team: any, index: number) => {
-        switch (activeTab) {
-            case 'situational':
-                return [
-                    index + 1,
-                    team.team_name,
-                    team.wins,
-                    team.losses,
-                    team.win_percentage.toFixed(3),
-                    team.home_record || '0-0',
-                    team.away_record || '0-0',
-                    team.close_record || '0-0',
-                    team.overtime_record || '0-0'
-                ];
-            default:
-                return [
-                    index + 1,
-                    team.team_name,
-                    team.wins,
-                    team.losses,
-                    team.win_percentage.toFixed(3),
-                    team.points_for_per_game,
-                    team.points_against_per_game,
-                    team.point_differential,
-                    team.streak
-                ];
+    const displayStandings = getRankedStandings();
+
+    // Group standings for different views
+    const easternTeams = displayStandings.filter(team => team.team_conference === 'East');
+    const westernTeams = displayStandings.filter(team => team.team_conference === 'West');
+
+    const divisionGroups: Record<string, TeamStandingWithGB[]> = {};
+    displayStandings.forEach(team => {
+        if (!divisionGroups[team.team_division]) {
+            divisionGroups[team.team_division] = [];
         }
-    };
+        divisionGroups[team.team_division].push(team);
+    });
 
-    const currentStandings = getCurrentStandings();
-    const headers = getHeaders();
+    const sortedDivisionKeys = Object.keys(divisionGroups).sort((a, b) => {
+        const aIsEast = a.includes('Atlantic') || a.includes('Central') || a.includes('Southeast');
+        const bIsEast = b.includes('Atlantic') || b.includes('Central') || b.includes('Southeast');
+        if (aIsEast && !bIsEast) return -1;
+        if (!aIsEast && bIsEast) return 1;
+        return a.localeCompare(b);
+    });
 
-    // Reset sort when tab changes - changed default to 'wins'
-    useEffect(() => {
-        setSortField('wins');
-        setSortDirection('desc');
-    }, [activeTab]);
+    const renderStandingsTable = (teams: TeamStandingWithGB[], showHeader = false) => (
+        <div className="w-full">
+            {/* Table Header - Matching OverviewTab style */}
+            <div className="grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-[#9f9f9f] font-semibold text-xs px-2 py-1 mb-3">
+                <p>{viewMode === 'all' ? '#' : viewMode === 'conference' ? 'Conf' : 'Div'}</p>
+                <p className="text-left">Team</p>
+                <p>W</p>
+                <p>L</p>
+                <p>Win%</p>
+                <p>GB</p>
+                <p>Home</p>
+                <p>Away</p>
+                <p>L10</p>
+                <p>Streak</p>
+            </div>
+
+            {/* Table Rows */}
+            {teams.map((team, index) => {
+                const rank = viewMode === 'all'
+                    ? index + 1
+                    : viewMode === 'conference'
+                        ? team.conference_rank
+                        : team.division_rank;
+
+                const gamesBack = getGamesBack(team);
+                const isSelectedTeam = team.team_id === team1Id || team.team_id === team2Id;
+
+                return (
+                    <div
+                        key={team.team_id}
+                        className={`grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-sm px-3 py-1 hover:bg-[#333] transition ${isSelectedTeam ? 'bg-black shadow-[inset_2px_0_0_0_#22c55e]' : ''
+                            }`}
+                    >
+                        <p>{rank}</p>
+                        <div className="flex flex-row items-center">
+                            <img
+                                src={`http://127.0.0.1:5000/api/team-logo/${team.team_id}`}
+                                alt={team.team_name}
+                                className="w-5 h-5 mr-3"
+                                onError={(e) => {
+                                    const teamWords = team.team_name.split(' ');
+                                    const teamAbbreviation = teamWords[teamWords.length - 1];
+                                    e.currentTarget.style.display = 'none';
+                                    const parent = e.currentTarget.parentElement;
+                                    if (parent) {
+                                        parent.innerHTML = `
+                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                            <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                        </div>
+                        <span>${team.team_name}</span>
+                    `;
+                                    }
+                                }}
+                            />
+                            <p className="text-left">{team.team_name}</p>
+                        </div>
+                        <p>{team.wins}</p>
+                        <p>{team.losses}</p>
+                        <p>{team.win_pct}</p>
+                        <p>{formatGamesBack(gamesBack)}</p>
+                        <p>{team.home_record}</p>
+                        <p>{team.away_record}</p>
+                        <p>{team.last_10_record}</p>
+                        <p className={getStreakColor(team.streak)}>{team.streak}</p>
+                    </div>
+                );
+            })}
+        </div>
+    );
 
     if (loading) {
         return (
             <div className="p-6">
-                <div className="text-white">Loading standings...</div>
+                <div className="text-white text-center py-8">
+                    <div className="spinner"></div>
+                    <p>Loading standings...</p>
+                </div>
             </div>
         );
     }
@@ -357,6 +275,12 @@ export default function StandingsTab() {
         return (
             <div className="p-6">
                 <div className="text-red-500">Error: {error}</div>
+                <button
+                    onClick={fetchStandings}
+                    className="mt-4 px-4 py-2 bg-blue-500 rounded hover:bg-blue-600 text-white"
+                >
+                    Retry
+                </button>
             </div>
         );
     }
@@ -370,98 +294,76 @@ export default function StandingsTab() {
     }
 
     return (
-        <div className="w-full text-white border-2 border-green-400 bg-[#1d1d1d] mr-3 rounded-2xl pb-5">
-            {/* Tab Navigation */}
-            <div className="w-full border-b-1 border-[#9f9f9f] min-h-10 flex justify-between">
-                <button
-                    className={`w-1/4 border-1 rounded-tl-2xl transition ${activeTab === 'league' ? 'bg-[#333]' : 'hover:bg-[#333]'
-                        }`}
-                    onClick={() => setActiveTab('league')}
-                >
-                    League
-                </button>
-                <button
-                    className={`w-1/4 border-1 transition ${activeTab === 'conference' ? 'bg-[#333]' : 'hover:bg-[#333]'
-                        }`}
-                    onClick={() => setActiveTab('conference')}
-                >
-                    Conference
-                </button>
-                <button
-                    className={`w-1/4 border-1 transition ${activeTab === 'division' ? 'bg-[#333]' : 'hover:bg-[#333]'
-                        }`}
-                    onClick={() => setActiveTab('division')}
-                >
-                    Division
-                </button>
-                <button
-                    className={`w-1/4 border-1 rounded-tr-2xl transition ${activeTab === 'situational' ? 'bg-[#333]' : 'hover:bg-[#333]'
-                        }`}
-                    onClick={() => setActiveTab('situational')}
-                >
-                    Situational
-                </button>
-            </div>
-
-            <div className="overflow-x-auto mx-auto">
-                {/* Header */}
-                <div className={`grid text-[#9f9f9f] font-semibold text-xs px-2 py-1 mb-3 pt-5 ${activeTab === 'situational'
-                    ? 'grid-cols-[25px_1fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr]'
-                    : 'grid-cols-[25px_1fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr]'
-                    }`}>
-                    {headers.map((header, index) => (
-                        header.sortable ? (
-                            <button
-                                key={header.key}
-                                className={`flex items-center justify-center gap-1 transition hover:text-white ${sortField === header.key ? 'text-white' : ''
-                                    } ${index === 1 ? 'justify-start' : ''}`}
-                                onClick={() => handleSort(header.key as SortField)}
-                            >
-                                <span>{header.label}</span>
-                                {sortField === header.key && (
-                                    <span className="text-xs">{sortDirection === 'desc' ? '↓' : '↑'}</span>
-                                )}
-                            </button>
-                        ) : (
-                            <div
-                                key={header.key}
-                                className={`${index === 1 ? 'text-left' : 'text-center'}`}
-                            >
-                                {header.label}
-                            </div>
-                        )
-                    ))}
-                </div>
-
-                {/* Rows */}
-                {currentStandings.map((team, index) => {
-                    const rowData = getRowData(team, index);
-                    return (
-                        <div
-                            key={team.team_name}
-                            className={`grid text-sm px-2 py-1 hover:bg-[#333] transition ${activeTab === 'situational'
-                                ? 'grid-cols-[25px_1fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr]'
-                                : 'grid-cols-[25px_1fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr_0.4fr]'
-                                }`}
+        <div className="flex flex-row">
+            <div className="w-full text-white border-2 border-green-400 bg-[#1d1d1d] rounded-2xl pb-5 pt-5">
+                <div className="overflow-x-auto max-w-4xl mx-auto">
+                    {/* View Mode Toggle Buttons - Centered */}
+                    <div className="flex mb-6 space-x-4">
+                        <button
+                            className={`px-4 py-2 rounded-3xl font-medium text-sm ${viewMode === 'all' ? 'bg-white text-black' : 'bg-[#333333] text-white'}`}
+                            onClick={() => setViewMode('all')}
                         >
-                            {rowData.map((data, dataIndex) => (
-                                dataIndex === 1 ? (
-                                    <div key={dataIndex} className="flex flex-row items-center">
-                                        <img
-                                            src={getTeamLogoUrlFromName(team.team_short)}
-                                            alt={team.id.toString()}
-                                            className="w-5 h-5 mr-3"
-                                            onError={(e) => (e.currentTarget.style.display = "none")}
-                                        />
-                                        <p className="text-left">{data}</p>
+                            All Teams
+                        </button>
+                        <button
+                            className={`px-4 py-2 rounded-3xl font-medium text-sm ${viewMode === 'conference' ? 'bg-white text-black' : 'bg-[#333333] text-white'}`}
+                            onClick={() => setViewMode('conference')}
+                        >
+                            By Conference
+                        </button>
+                        <button
+                            className={`px-4 py-2 rounded-3xl font-medium text-sm ${viewMode === 'division' ? 'bg-white text-black' : 'bg-[#333333] text-white'}`}
+                            onClick={() => setViewMode('division')}
+                        >
+                            By Division
+                        </button>
+                    </div>
+
+                    {/* Standings Content */}
+                    {viewMode === 'all' && (
+                        renderStandingsTable(displayStandings)
+                    )}
+
+                    {viewMode === 'conference' && (
+                        <div className="space-y-8">
+                            {/* Eastern Conference */}
+                            {easternTeams.length > 0 && (
+                                <div>
+                                    <div className="flex items-center mb-2">
+                                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                                        <h4 className="text-lg font-bold">Eastern Conference</h4>
                                     </div>
-                                ) : (
-                                    <p key={dataIndex} className="text-center">{data}</p>
-                                )
+                                    {renderStandingsTable(easternTeams)}
+                                </div>
+                            )}
+
+                            {/* Western Conference */}
+                            {westernTeams.length > 0 && (
+                                <div>
+                                    <div className="flex items-center mb-2 mt-6">
+                                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                                        <h4 className="text-lg font-bold">Western Conference</h4>
+                                    </div>
+                                    {renderStandingsTable(westernTeams)}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {viewMode === 'division' && (
+                        <div className="space-y-8">
+                            {sortedDivisionKeys.map(division => (
+                                <div key={division}>
+                                    <div className="flex items-center mb-2">
+                                        <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+                                        <h4 className="text-lg font-bold">{division}</h4>
+                                    </div>
+                                    {renderStandingsTable(divisionGroups[division])}
+                                </div>
                             ))}
                         </div>
-                    );
-                })}
+                    )}
+                </div>
             </div>
         </div>
     );

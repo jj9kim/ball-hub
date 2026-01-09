@@ -28,6 +28,11 @@ interface StandingsData {
     standings: TeamStanding[];
 }
 
+interface TeamStandingWithGB extends TeamStanding {
+    overall_games_back: number;
+    division_games_back: number;
+}
+
 interface TableTabProps {
     team1Id: number;
     team2Id: number;
@@ -36,7 +41,7 @@ interface TableTabProps {
 type ViewMode = 'all' | 'conference' | 'division';
 
 export default function TableTab({ team1Id, team2Id }: TableTabProps) {
-    const [standings, setStandings] = useState<TeamStanding[]>([]);
+    const [standings, setStandings] = useState<TeamStandingWithGB[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('all');
@@ -52,7 +57,8 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
             const data: StandingsData = await response.json();
 
             if (data.success && data.standings) {
-                setStandings(data.standings);
+                const standingsWithGB = calculateAllGamesBack(data.standings);
+                setStandings(standingsWithGB);
             } else {
                 setError(data.success === false ? 'Failed to load standings' : 'No standings data');
             }
@@ -64,75 +70,89 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
         }
     };
 
-    // Calculate overall league games back
-    const calculateOverallGamesBack = (team: TeamStanding): number => {
-        if (standings.length === 0) return 0;
+    const calculateAllGamesBack = (standings: TeamStanding[]): TeamStandingWithGB[] => {
+        const sorted = [...standings].sort((a, b) => b.win_pct - a.win_pct);
 
-        // Find team with best record (highest win percentage)
-        const bestTeam = standings.reduce((best, current) =>
-            current.win_pct > best.win_pct ? current : best
-        );
+        // Find overall leader
+        const overallLeader = sorted[0];
 
-        if (team.team_id === bestTeam.team_id) return 0;
+        // Find division leaders
+        const divisionLeaders: Record<string, TeamStanding> = {};
+        standings.forEach(team => {
+            const division = team.team_division;
+            if (!divisionLeaders[division] || team.win_pct > divisionLeaders[division].win_pct) {
+                divisionLeaders[division] = team;
+            }
+        });
 
-        // Calculate games back formula: ((leaderWins - teamWins) + (teamLosses - leaderLosses)) / 2
-        const gamesBack = ((bestTeam.wins - team.wins) + (team.losses - bestTeam.losses)) / 2;
-        return Math.max(0, gamesBack);
+        return sorted.map(team => {
+            // Calculate overall games back
+            let overall_games_back = 0;
+            if (team.team_id !== overallLeader.team_id) {
+                overall_games_back = ((overallLeader.wins - team.wins) + (team.losses - overallLeader.losses)) / 2;
+            }
+
+            // Calculate division games back
+            let division_games_back = 0;
+            const divisionLeader = divisionLeaders[team.team_division];
+            if (team.team_id !== divisionLeader.team_id) {
+                division_games_back = ((divisionLeader.wins - team.wins) + (team.losses - divisionLeader.losses)) / 2;
+            }
+
+            return {
+                ...team,
+                overall_games_back,
+                division_games_back
+            };
+        });
     };
 
-    // Calculate division games back
-    const calculateDivisionGamesBack = (team: TeamStanding): number => {
-        if (standings.length === 0) return 0;
-
-        // Find best team in same division
-        const divisionTeams = standings.filter(t => t.team_division === team.team_division);
-        if (divisionTeams.length === 0) return 0;
-
-        const bestDivisionTeam = divisionTeams.reduce((best, current) =>
-            current.win_pct > best.win_pct ? current : best
-        );
-
-        if (team.team_id === bestDivisionTeam.team_id) return 0;
-
-        const gamesBack = ((bestDivisionTeam.wins - team.wins) + (team.losses - bestDivisionTeam.losses)) / 2;
-        return Math.max(0, gamesBack);
-    };
-
-    // Get appropriate games back based on view mode
-    const getGamesBack = (team: TeamStanding): number => {
+    const getGamesBack = (team: TeamStandingWithGB): number => {
         switch (viewMode) {
             case 'all':
-                return calculateOverallGamesBack(team);
+                return team.overall_games_back;
             case 'division':
-                return calculateDivisionGamesBack(team);
+                return team.division_games_back;
             case 'conference':
             default:
-                return team.games_back; // Use conference games back from API
+                return team.games_back;
         }
     };
 
-    // Filter and sort standings based on view mode
-    const getFilteredAndSortedStandings = () => {
+    const formatGamesBack = (gamesBack: number): string => {
+        if (gamesBack === 0) return '-';
+        return gamesBack.toFixed(1);
+    };
+
+    const getStreakColor = (streak: string) => {
+        if (streak.startsWith('W')) {
+            return 'text-green-400';
+        } else if (streak.startsWith('L')) {
+            return 'text-red-400';
+        }
+        return 'text-gray-400';
+    };
+
+    // Get appropriate rankings based on view mode
+    const getRankedStandings = () => {
         const filtered = [...standings];
 
-        // Sort based on view mode
         switch (viewMode) {
             case 'all':
-                // Sort all teams by win percentage (best to worst)
+                // Sort all teams by win percentage
                 return filtered.sort((a, b) => b.win_pct - a.win_pct);
 
             case 'conference':
-                // Sort by conference, then by conference rank
+                // Sort by conference, then by win percentage within conference
                 return filtered.sort((a, b) => {
                     if (a.team_conference !== b.team_conference) {
-                        // East first, then West
                         return a.team_conference === 'East' ? -1 : 1;
                     }
-                    return a.conference_rank - b.conference_rank;
+                    return b.win_pct - a.win_pct;
                 });
 
             case 'division':
-                // Sort by conference, then division, then division rank
+                // Sort by conference, then division, then win percentage within division
                 return filtered.sort((a, b) => {
                     if (a.team_conference !== b.team_conference) {
                         return a.team_conference === 'East' ? -1 : 1;
@@ -140,7 +160,7 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
                     if (a.team_division !== b.team_division) {
                         return a.team_division.localeCompare(b.team_division);
                     }
-                    return a.division_rank - b.division_rank;
+                    return b.win_pct - a.win_pct;
                 });
 
             default:
@@ -148,14 +168,13 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
         }
     };
 
-    const displayStandings = getFilteredAndSortedStandings();
+    const displayStandings = getRankedStandings();
 
-    // Group standings by conference for display
+    // Group standings for different views
     const easternTeams = displayStandings.filter(team => team.team_conference === 'East');
     const westernTeams = displayStandings.filter(team => team.team_conference === 'West');
 
-    // Group standings by division for display
-    const divisionGroups: Record<string, TeamStanding[]> = {};
+    const divisionGroups: Record<string, TeamStandingWithGB[]> = {};
     displayStandings.forEach(team => {
         if (!divisionGroups[team.team_division]) {
             divisionGroups[team.team_division] = [];
@@ -163,7 +182,6 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
         divisionGroups[team.team_division].push(team);
     });
 
-    // Get division order: East divisions first, then West divisions
     const sortedDivisionKeys = Object.keys(divisionGroups).sort((a, b) => {
         const aIsEast = a.includes('Atlantic') || a.includes('Central') || a.includes('Southeast');
         const bIsEast = b.includes('Atlantic') || b.includes('Central') || b.includes('Southeast');
@@ -171,6 +189,76 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
         if (!aIsEast && bIsEast) return 1;
         return a.localeCompare(b);
     });
+
+    const renderStandingsTable = (teams: TeamStandingWithGB[], showHeader = false) => (
+        <div className="w-full">
+            {/* Table Header - Matching OverviewTab style */}
+            <div className="grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-[#9f9f9f] font-semibold text-xs px-2 py-1 mb-3">
+                <p>{viewMode === 'all' ? '#' : viewMode === 'conference' ? 'Conf' : 'Div'}</p>
+                <p className="text-left">Team</p>
+                <p>W</p>
+                <p>L</p>
+                <p>Win%</p>
+                <p>GB</p>
+                <p>Home</p>
+                <p>Away</p>
+                <p>L10</p>
+                <p>Streak</p>
+            </div>
+
+            {/* Table Rows */}
+            {teams.map((team, index) => {
+                const rank = viewMode === 'all'
+                    ? index + 1
+                    : viewMode === 'conference'
+                        ? team.conference_rank
+                        : team.division_rank;
+
+                const gamesBack = getGamesBack(team);
+                const isSelectedTeam = team.team_id === team1Id || team.team_id === team2Id;
+
+                return (
+                    <div
+                        key={team.team_id}
+                        className={`grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-sm px-3 py-1 hover:bg-[#333] transition ${isSelectedTeam ? 'bg-black shadow-[inset_2px_0_0_0_#22c55e]' : ''
+                            }`}
+                    >
+                        <p>{rank}</p>
+                        <div className="flex flex-row items-center">
+                            <img
+                                src={`http://127.0.0.1:5000/api/team-logo/${team.team_id}`}
+                                alt={team.team_name}
+                                className="w-5 h-5 mr-3"
+                                onError={(e) => {
+                                    const teamWords = team.team_name.split(' ');
+                                    const teamAbbreviation = teamWords[teamWords.length - 1];
+                                    e.currentTarget.style.display = 'none';
+                                    const parent = e.currentTarget.parentElement;
+                                    if (parent) {
+                                        parent.innerHTML = `
+                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                            <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                        </div>
+                        <span>${team.team_name}</span>
+                    `;
+                                    }
+                                }}
+                            />
+                            <p className="text-left">{team.team_name}</p>
+                        </div>
+                        <p>{team.wins}</p>
+                        <p>{team.losses}</p>
+                        <p>{team.win_pct}</p>
+                        <p>{formatGamesBack(gamesBack)}</p>
+                        <p>{team.home_record}</p>
+                        <p>{team.away_record}</p>
+                        <p>{team.last_10_record}</p>
+                        <p className={getStreakColor(team.streak)}>{team.streak}</p>
+                    </div>
+                );
+            })}
+        </div>
+    );
 
     if (loading) {
         return (
@@ -205,227 +293,77 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
         );
     }
 
-    const renderStandingsTable = (teams: TeamStanding[], showConferenceHeader = false, showDivisionHeader = false) => (
-        <div className="overflow-x-auto">
-            {/* Header */}
-            <div className="grid grid-cols-[30px_1fr_repeat(8,0.5fr)] bg-[#2b2b2b] text-gray-300 font-semibold text-xs px-3 py-2 border-b border-gray-700">
-                <p className="text-center">
-                    {viewMode === 'all' ? 'Rank' :
-                        viewMode === 'conference' ? 'Conf' :
-                            'Div'}
-                </p>
-                <p className="text-left pl-3">Team</p>
-                <p className="text-center">W</p>
-                <p className="text-center">L</p>
-                <p className="text-center">PCT</p>
-                <p className="text-center">GB</p>
-                <p className="text-center">Home</p>
-                <p className="text-center">Road</p>
-                <p className="text-center">L10</p>
-                <p className="text-center">Streak</p>
-            </div>
-
-            {/* Rows */}
-            {teams.map((team, index) => {
-
-                // Get rank based on view mode and context
-                let rank;
-                if (viewMode === 'all') {
-                    rank = index + 1;
-                } else if (viewMode === 'conference') {
-                    rank = team.conference_rank;
-                } else {
-                    rank = team.division_rank;
-                }
-
-                const gamesBack = getGamesBack(team);
-
-                return (
-                    <div
-                        key={team.team_id}
-                        className={`grid grid-cols-[30px_1fr_repeat(8,0.5fr)] text-sm px-3 py-2 items-center 
-                            ${team.team_id === team1Id || team.team_id === team2Id
-                                ? 'bg-blue-900/30 border-l-4 border-blue-500'
-                                : 'bg-[#1c1c1c] hover:bg-[#2a2a2a]'
-                            } transition-colors`}
-                    >
-                        {/* Rank */}
-                        <p className="text-center font-bold">{rank}</p>
-
-                        {/* Team Name with Logo */}
-                        <div className="flex items-center pl-3">
-                            <img
-                                src={`http://127.0.0.1:5000/api/team-logo/${team.team_id}`}
-                                alt={team.team_name}
-                                className="w-5 h-5 mr-3"
-                                onError={(e) => {
-                                    // Fallback: Show team abbreviation
-                                    const teamWords = team.team_name.split(' ');
-                                    const teamAbbreviation = teamWords[teamWords.length - 1];
-                                    e.currentTarget.style.display = 'none';
-                                    const parent = e.currentTarget.parentElement;
-                                    if (parent) {
-                                        parent.innerHTML = `
-                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
-                                            </div>
-                                            <span>${team.team_name}</span>
-                                        `;
-                                    }
-                                }}
-                            />
-                            <div className="flex flex-col">
-                                <span className="font-medium">{team.team_name}</span>
-                                <span className="text-xs text-gray-400">
-                                    {showDivisionHeader ? team.team_conference :
-                                        showConferenceHeader ? team.team_division :
-                                            `${team.team_conference} • ${team.team_division}`}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Wins */}
-                        <p className="text-center font-bold">{team.wins}</p>
-
-                        {/* Losses */}
-                        <p className="text-center">{team.losses}</p>
-
-                        {/* Win Percentage */}
-                        <p className="text-center">{team.win_pct}</p>
-
-                        {/* Games Back */}
-                        <p className="text-center">
-                            {gamesBack === 0 ? '—' : gamesBack.toFixed(1)}
-                        </p>
-
-                        {/* Home Record */}
-                        <p className="text-center text-sm">{team.home_record}</p>
-
-                        {/* Away Record */}
-                        <p className="text-center text-sm">{team.away_record}</p>
-
-                        {/* Last 10 */}
-                        <p className="text-center text-sm">{team.last_10_record}</p>
-
-                        {/* Streak */}
-                        <p className={`text-center font-bold ${team.streak.startsWith('W') ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                            {team.streak}
-                        </p>
-                    </div>
-                );
-            })}
-        </div>
-    );
-
     return (
-        <div className="w-full text-white mt-2 mb-5 p-2">
-            <h3 className="text-xl font-bold mb-4 text-center">NBA Standings</h3>
-
-            {/* View Mode Selection - Only 3 buttons now */}
-            <div className="flex justify-center mb-6 space-x-4">
-                <button
-                    className={`px-4 py-2 rounded ${viewMode === 'all' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-                    onClick={() => setViewMode('all')}
-                >
-                    All Teams
-                </button>
-                <button
-                    className={`px-4 py-2 rounded ${viewMode === 'conference' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-                    onClick={() => setViewMode('conference')}
-                >
-                    By Conference
-                </button>
-                <button
-                    className={`px-4 py-2 rounded ${viewMode === 'division' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-                    onClick={() => setViewMode('division')}
-                >
-                    By Division
-                </button>
-            </div>
-
-            {/* View Mode Indicator */}
-            <div className="text-center mb-6 text-gray-400">
-                {viewMode === 'all' && 'Sorted by Win Percentage • GB = Games Behind League Leader'}
-                {viewMode === 'conference' && 'Sorted by Conference • GB = Games Behind Conference Leader'}
-                {viewMode === 'division' && 'Sorted by Division • GB = Games Behind Division Leader'}
-            </div>
-
-            <div className="max-w-5xl mx-auto">
-                {/* Render standings based on view mode */}
-                {viewMode === 'all' && (
-                    <div className="mb-8">
-                        {renderStandingsTable(displayStandings)}
+        <div className="flex flex-row">
+            <div className="w-full text-white border-2 border-green-400 bg-[#1d1d1d] rounded-2xl pb-5 pt-5">
+                <div className="overflow-x-auto max-w-4xl mx-auto">
+                    {/* View Mode Toggle Buttons - Centered */}
+                    <div className="flex mb-6 space-x-4">
+                        <button
+                            className={`px-4 py-2 rounded-3xl font-medium text-sm ${viewMode === 'all' ? 'bg-white text-black' : 'bg-[#333333] text-white'}`}
+                            onClick={() => setViewMode('all')}
+                        >
+                            All Teams
+                        </button>
+                        <button
+                            className={`px-4 py-2 rounded-3xl font-medium text-sm ${viewMode === 'conference' ? 'bg-white text-black' : 'bg-[#333333] text-white'}`}
+                            onClick={() => setViewMode('conference')}
+                        >
+                            By Conference
+                        </button>
+                        <button
+                            className={`px-4 py-2 rounded-3xl font-medium text-sm ${viewMode === 'division' ? 'bg-white text-black' : 'bg-[#333333] text-white'}`}
+                            onClick={() => setViewMode('division')}
+                        >
+                            By Division
+                        </button>
                     </div>
-                )}
 
-                {viewMode === 'conference' && (
-                    <div className="space-y-8">
-                        {/* Eastern Conference */}
-                        {easternTeams.length > 0 && (
-                            <div>
-                                <div className="flex items-center mb-2">
-                                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                                    <h4 className="text-lg font-bold">Eastern Conference</h4>
+                    {/* Standings Content */}
+                    {viewMode === 'all' && (
+                        renderStandingsTable(displayStandings)
+                    )}
+
+                    {viewMode === 'conference' && (
+                        <div className="space-y-8">
+                            {/* Eastern Conference */}
+                            {easternTeams.length > 0 && (
+                                <div>
+                                    <div className="flex items-center mb-2">
+                                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                                        <h4 className="text-lg font-bold">Eastern Conference</h4>
+                                    </div>
+                                    {renderStandingsTable(easternTeams)}
                                 </div>
-                                {renderStandingsTable(easternTeams, true)}
-                            </div>
-                        )}
+                            )}
 
-                        {/* Western Conference */}
-                        {westernTeams.length > 0 && (
-                            <div>
-                                <div className="flex items-center mb-2 mt-6">
-                                    <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                                    <h4 className="text-lg font-bold">Western Conference</h4>
+                            {/* Western Conference */}
+                            {westernTeams.length > 0 && (
+                                <div>
+                                    <div className="flex items-center mb-2 mt-6">
+                                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                                        <h4 className="text-lg font-bold">Western Conference</h4>
+                                    </div>
+                                    {renderStandingsTable(westernTeams)}
                                 </div>
-                                {renderStandingsTable(westernTeams, true)}
-                            </div>
-                        )}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    )}
 
-                {viewMode === 'division' && (
-                    <div className="space-y-8">
-                        {sortedDivisionKeys.map(division => (
-                            <div key={division}>
-                                <div className="flex items-center mb-2">
-                                    <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
-                                    <h4 className="text-lg font-bold">{division}</h4>
+                    {viewMode === 'division' && (
+                        <div className="space-y-8">
+                            {sortedDivisionKeys.map(division => (
+                                <div key={division}>
+                                    <div className="flex items-center mb-2">
+                                        <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+                                        <h4 className="text-lg font-bold">{division}</h4>
+                                    </div>
+                                    {renderStandingsTable(divisionGroups[division])}
                                 </div>
-                                {renderStandingsTable(divisionGroups[division], false, true)}
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Legend */}
-            <div className="mt-8 p-4 bg-[#2c2c2c] rounded-lg max-w-5xl mx-auto">
-                <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-400">
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                        <span>Current Game Teams</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                        <span>Winning Streak</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                        <span>Losing Streak</span>
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
-            </div>
-
-            {/* Refresh Button */}
-            <div className="flex justify-center mt-6">
-                <button
-                    onClick={fetchStandings}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white font-medium"
-                >
-                    Refresh Standings
-                </button>
             </div>
         </div>
     );
