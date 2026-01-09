@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getTeamLogoUrl, getTeamName } from '../utils/teamMappings';
+import { getTeamName } from '../utils/teamMappings';
 import { useParams, useNavigate } from 'react-router-dom';
 import { NBAService, type NBAAPIResponse, type NBAGame, type NBATeamStats } from '../api/nbaService';
 

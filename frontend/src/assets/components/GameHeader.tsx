@@ -1,4 +1,4 @@
-import { getTeamLogoUrl, getTeamName } from '../../utils/teamMappings';
+import { getTeamName } from '../../utils/teamMappings';
 import type { TabType, UnderlineStyle } from './types';
 import { useRef, useEffect, useState } from 'react';
 

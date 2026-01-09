@@ -227,10 +227,6 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
 
             {/* Rows */}
             {teams.map((team, index) => {
-                // Extract team abbreviation from name (last word)
-                const teamWords = team.team_name.split(' ');
-                const teamAbbreviation = teamWords[teamWords.length - 1];
-                const teamShort = teamAbbreviation.toLowerCase();
 
                 // Get rank based on view mode and context
                 let rank;
