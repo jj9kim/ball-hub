@@ -130,3 +130,25 @@ export interface NBAAPIResponse {
   count: number;
   error?: string;
 }
+
+export interface Standings {
+    team_id: number;
+    team_name: string;
+    team_city: string;
+    team_conference: string;
+    team_division: string;
+    wins: number;
+    losses: number;
+    win_pct: number;
+    conference_rank: number;
+    division_rank: number;
+    games_back: number;
+    streak: string;
+    record: string;
+    home_record: string;
+    away_record: string;
+    last_10_record: string;
+    points_per_game: number;
+    opp_points_per_game: number;
+    point_differential: number;
+}

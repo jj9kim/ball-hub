@@ -1,9 +1,11 @@
-from flask import Flask, jsonify, Response, send_file
+from flask import Flask, jsonify, Response, send_file, request
 import io
 from flask_cors import CORS
 import pandas as pd
 from nba_api.stats.endpoints import leaguegamefinder
 from nba_boxscore_safe import get_boxscore_client  # Import the client
+from nba_api.stats.endpoints import leaguestandings
+import requests
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend requests
@@ -435,6 +437,282 @@ def player_image(player_id):
     
     # If all fail, return a placeholder or 404
     return Response(b'Image not available', status=404)
+
+
+@app.route('/api/standings', methods=['GET'])
+def get_standings():
+    """Get NBA standings for current season"""
+    try:
+        # Get parameters from request
+        season = request.args.get('season', '2025-26')
+        league_id = request.args.get('league_id', '00')
+        
+        print(f"[STANDINGS] Fetching standings for season: {season}")
+        
+        # Get standings from NBA API
+        standings_data = leaguestandings.LeagueStandings(
+            league_id=league_id,
+            season=season
+        )
+        
+        # Get the DataFrame
+        df_standings = standings_data.get_data_frames()[0]
+        
+        print(f"[STANDINGS] Retrieved {len(df_standings)} teams")
+        
+        # Helper function to parse record strings like "18-2"
+        def parse_record(record_str):
+            """Parse a record string like '18-2' or '25-10' into wins and losses"""
+            if isinstance(record_str, str) and '-' in record_str:
+                try:
+                    wins_str, losses_str = record_str.split('-')
+                    return int(wins_str), int(losses_str)
+                except:
+                    return 0, 0
+            return 0, 0
+        
+        # Convert to clean JSON format
+        standings_list = []
+        for _, team in df_standings.iterrows():
+            # Parse record strings
+            home_wins, home_losses = parse_record(team['HOME'])
+            away_wins, away_losses = parse_record(team['ROAD'])
+            last10_wins, last10_losses = parse_record(team['L10'])
+            
+            team_info = {
+                'team_id': int(team['TeamID']),
+                'team_city': team['TeamCity'],
+                'team_name': team['TeamName'],
+                'team_conference': team['Conference'],
+                'team_division': team['Division'],
+                'wins': int(team['WINS']),
+                'losses': int(team['LOSSES']),
+                'win_pct': float(team['WinPCT']),
+                'playoff_rank': int(team['PlayoffRank']),  # Conference rank (1-15)
+                'division_rank': int(team['DivisionRank']),
+                'home_wins': home_wins,
+                'home_losses': home_losses,
+                'home_record': team['HOME'],
+                'away_wins': away_wins,
+                'away_losses': away_losses,
+                'away_record': team['ROAD'],
+                'last_10_wins': last10_wins,
+                'last_10_losses': last10_losses,
+                'last_10_record': team['L10'],
+                'streak': team['strCurrentStreak'],
+                'points_per_game': float(team['PointsPG']),
+                'opp_points_per_game': float(team['OppPointsPG']),
+                'point_differential': float(team['DiffPointsPG']),
+                'conference_games_back': float(team['ConferenceGamesBack']),
+                'division_games_back': float(team['DivisionGamesBack']),
+                'record': team['Record'],
+                'vs_east': team['vsEast'],
+                'vs_west': team['vsWest'],
+                'clinched_playoffs': team.get('ClinchedPlayoffBirth', '') == 'x' or team.get('ClinchedPlayoffBirth', '') == 'y'
+            }
+            standings_list.append(team_info)
+        
+        # Sort by conference and playoff rank
+        eastern_conf = sorted(
+            [t for t in standings_list if t['team_conference'] == 'East'],
+            key=lambda x: (x['playoff_rank'])
+        )
+        
+        western_conf = sorted(
+            [t for t in standings_list if t['team_conference'] == 'West'],
+            key=lambda x: (x['playoff_rank'])
+        )
+        
+        return jsonify({
+            'success': True,
+            'season': season,
+            'last_updated': pd.Timestamp.now().isoformat(),
+            'eastern_conference': {
+                'name': 'Eastern Conference',
+                'teams': eastern_conf,
+                'count': len(eastern_conf)
+            },
+            'western_conference': {
+                'name': 'Western Conference',
+                'teams': western_conf,
+                'count': len(western_conf)
+            },
+            'overall': {
+                'teams': standings_list,
+                'count': len(standings_list)
+            }
+        })
+        
+    except Exception as e:
+        print(f"[STANDINGS] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to fetch standings'
+        }), 500
+
+
+@app.route('/api/standings/simple', methods=['GET'])
+def get_simple_standings():
+    """Get simplified standings (just win-loss records)"""
+    try:
+        season = request.args.get('season', '2025-26')
+        
+        standings_data = leaguestandings.LeagueStandings(
+            league_id='00',
+            season=season
+        )
+        
+        df_standings = standings_data.get_data_frames()[0]
+        
+        # Helper function to parse record strings
+        def parse_record(record_str):
+            if isinstance(record_str, str) and '-' in record_str:
+                try:
+                    wins_str, losses_str = record_str.split('-')
+                    return int(wins_str), int(losses_str)
+                except:
+                    return 0, 0
+            return 0, 0
+        
+        # Simplified format
+        simple_standings = []
+        for _, team in df_standings.iterrows():
+            # Parse records
+            home_wins, home_losses = parse_record(team['HOME'])
+            away_wins, away_losses = parse_record(team['ROAD'])
+            last10_wins, last10_losses = parse_record(team['L10'])
+            
+            simple_standings.append({
+                'team_id': int(team['TeamID']),
+                'team_name': f"{team['TeamCity']} {team['TeamName']}",
+                'team_abbreviation': team['TeamName'],
+                'team_city': team['TeamCity'],
+                'team_conference': team['Conference'],
+                'team_division': team['Division'],
+                'wins': int(team['WINS']),
+                'losses': int(team['LOSSES']),
+                'win_pct': float(team['WinPCT']),
+                'conference_rank': int(team['PlayoffRank']),  # PlayoffRank is the conference rank
+                'division_rank': int(team['DivisionRank']),
+                'games_back': float(team['ConferenceGamesBack']),
+                'streak': team['strCurrentStreak'],
+                'record': team['Record'],
+                'home_record': team['HOME'],
+                'home_wins': home_wins,
+                'home_losses': home_losses,
+                'away_record': team['ROAD'],
+                'away_wins': away_wins,
+                'away_losses': away_losses,
+                'last_10_record': team['L10'],
+                'last_10_wins': last10_wins,
+                'last_10_losses': last10_losses,
+                'points_per_game': float(team['PointsPG']),
+                'opp_points_per_game': float(team['OppPointsPG']),
+                'point_differential': float(team['DiffPointsPG'])
+            })
+        
+        return jsonify({
+            'success': True,
+            'season': season,
+            'standings': simple_standings
+        })
+        
+    except Exception as e:
+        print(f"[SIMPLE STANDINGS] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/standings/minimal', methods=['GET'])
+def get_minimal_standings():
+    """Get minimal standings data - just essentials"""
+    try:
+        season = request.args.get('season', '2025-26')
+        
+        standings_data = leaguestandings.LeagueStandings(
+            league_id='00',
+            season=season
+        )
+        
+        df_standings = standings_data.get_data_frames()[0]
+        
+        # Minimal format - just what's needed for basic display
+        minimal_standings = []
+        for _, team in df_standings.iterrows():
+            minimal_standings.append({
+                'team_id': int(team['TeamID']),
+                'team_name': f"{team['TeamCity']} {team['TeamName']}",
+                'wins': int(team['WINS']),
+                'losses': int(team['LOSSES']),
+                'win_pct': float(team['WinPCT']),
+                'conference': team['Conference'],
+                'conference_rank': int(team['PlayoffRank']),
+                'streak': team['strCurrentStreak'],
+                'record': team['Record'],
+                'games_back': float(team['ConferenceGamesBack'])
+            })
+        
+        # Sort by conference and rank
+        eastern = sorted(
+            [t for t in minimal_standings if t['conference'] == 'East'],
+            key=lambda x: x['conference_rank']
+        )
+        
+        western = sorted(
+            [t for t in minimal_standings if t['conference'] == 'West'],
+            key=lambda x: x['conference_rank']
+        )
+        
+        return jsonify({
+            'success': True,
+            'season': season,
+            'eastern_conference': eastern,
+            'western_conference': western
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/team-logo/<team_id>', methods=['GET'])
+def get_team_logo(team_id):
+    """Get team logo"""
+    try:
+        # NBA logo URLs pattern
+        logo_url = f"https://cdn.nba.com/logos/nba/{team_id}/primary/L/logo.svg"
+        
+        # Fetch the logo
+        headers = {
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://www.nba.com/'
+        }
+        response = requests.get(logo_url, headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            return Response(
+                response.content,
+                mimetype='image/svg+xml',
+                headers={
+                    'Cache-Control': 'public, max-age=86400',
+                    'Access-Control-Allow-Origin': '*'
+                }
+            )
+        else:
+            # Return a placeholder
+            return Response(b'<svg><!-- Placeholder --></svg>', mimetype='image/svg+xml')
+            
+    except Exception as e:
+        return Response(b'<svg><!-- Error --></svg>', mimetype='image/svg+xml')
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -220,11 +220,23 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                     <div className="flex items-center justify-end flex-1">
                                         <p className="mr-2 text-white">{getTeamName(team1.team_id)}</p>
                                         <img
-                                            src={getTeamLogoUrl(team1.team_id)}
+                                            src={`http://127.0.0.1:5000/api/team-logo/${team1.team_id}`}
                                             alt={team1.team_name}
-                                            className="w-8 h-8"
+                                            className="w-5 h-5"
                                             onError={(e) => {
+                                                // Fallback: Show team abbreviation
+                                                const teamWords = team1.team_name.split(' ');
+                                                const teamAbbreviation = teamWords[teamWords.length - 1];
                                                 e.currentTarget.style.display = 'none';
+                                                const parent = e.currentTarget.parentElement;
+                                                if (parent) {
+                                                    parent.innerHTML = `
+                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                            </div>
+                                            <span>${team1.team_name}</span>
+                                        `;
+                                                }
                                             }}
                                         />
                                     </div>
@@ -239,11 +251,23 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                     {/* Team 2 */}
                                     <div className="flex items-center justify-start flex-1">
                                         <img
-                                            src={getTeamLogoUrl(team2.team_id)}
+                                            src={`http://127.0.0.1:5000/api/team-logo/${team2.team_id}`}
                                             alt={team2.team_name}
-                                            className="w-8 h-8 mr-2"
+                                            className="w-5 h-5 mr-2"
                                             onError={(e) => {
+                                                // Fallback: Show team abbreviation
+                                                const teamWords = team2.team_name.split(' ');
+                                                const teamAbbreviation = teamWords[teamWords.length - 1];
                                                 e.currentTarget.style.display = 'none';
+                                                const parent = e.currentTarget.parentElement;
+                                                if (parent) {
+                                                    parent.innerHTML = `
+                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                            </div>
+                                            <span>${team2.team_name}</span>
+                                        `;
+                                                }
                                             }}
                                         />
                                         <p className="text-white">{getTeamName(team2.team_id)}</p>

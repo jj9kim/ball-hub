@@ -279,7 +279,7 @@ export default function LineupTab({ Team1, Team2, team1Id, team2Id, onPlayerClic
                 {/* Reserves Section - Different Format */}
                 {(benchPlayers.some(player => (player.stats?.minutes || 0) === 0)) && (
                     <>
-                        <h2 className='col-span-2 text-center text-white font-bold'>Reserves</h2>
+                        <h2 className='col-span-2 text-center text-white font-bold'>Reserves and Injuries</h2>
 
                         {/* Team 1 Reserves */}
                         <div className="space-y-4">

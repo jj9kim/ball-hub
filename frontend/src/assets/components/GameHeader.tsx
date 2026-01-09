@@ -107,11 +107,23 @@ export default function GameHeader({ date, teamsThisGame, onBack, activeTab, onT
                             {getTeamName(teamsThisGame[0].team_id)}
                         </p>
                         <img
-                            src={getTeamLogoUrl(teamsThisGame[0].team_id)}
-                            alt={teamsThisGame[0].team_id.toString()}
-                            className="w-16 h-16"
+                            src={`http://127.0.0.1:5000/api/team-logo/${teamsThisGame[0].team_id}`}
+                            alt={teamsThisGame[0].team_name}
+                            className="w-14 h-14 mr-5 ml-2"
                             onError={(e) => {
+                                // Fallback: Show team abbreviation
+                                const teamWords = teamsThisGame[0].team_name.split(' ');
+                                const teamAbbreviation = teamWords[teamWords.length - 1];
                                 e.currentTarget.style.display = 'none';
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) {
+                                    parent.innerHTML = `
+                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                            </div>
+                                            <span>${teamsThisGame[0].team_name}</span>
+                                        `;
+                                }
                             }}
                         />
                     </div>
@@ -129,11 +141,23 @@ export default function GameHeader({ date, teamsThisGame, onBack, activeTab, onT
                     {/* Team 2 */}
                     <div className="flex items-center justify-start gap-4">
                         <img
-                            src={getTeamLogoUrl(teamsThisGame[1].team_id)}
-                            alt={teamsThisGame[1].team_id.toString()}
-                            className="w-16 h-16"
+                            src={`http://127.0.0.1:5000/api/team-logo/${teamsThisGame[1].team_id}`}
+                            alt={teamsThisGame[1].team_name}
+                            className="w-14 h-14 ml-5 mr-2"
                             onError={(e) => {
+                                // Fallback: Show team abbreviation
+                                const teamWords = teamsThisGame[0].team_name.split(' ');
+                                const teamAbbreviation = teamWords[teamWords.length - 1];
                                 e.currentTarget.style.display = 'none';
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) {
+                                    parent.innerHTML = `
+                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                            </div>
+                                            <span>${teamsThisGame[1].team_name}</span>
+                                        `;
+                                }
                             }}
                         />
                         <p className="text-white text-2xl text-left whitespace-nowrap">
