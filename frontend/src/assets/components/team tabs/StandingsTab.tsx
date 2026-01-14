@@ -33,14 +33,10 @@ interface TeamStandingWithGB extends TeamStanding {
     division_games_back: number;
 }
 
-interface TableTabProps {
-    team1Id: number;
-    team2Id: number;
-}
 
 type ViewMode = 'all' | 'conference' | 'division';
 
-export default function TableTab({ team1Id, team2Id }: TableTabProps) {
+export default function TableTab() {
     const [standings, setStandings] = useState<TeamStandingWithGB[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -215,13 +211,11 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
                         : team.division_rank;
 
                 const gamesBack = getGamesBack(team);
-                const isSelectedTeam = team.team_id === team1Id || team.team_id === team2Id;
 
                 return (
                     <div
                         key={team.team_id}
-                        className={`grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-sm px-3 py-1 hover:bg-[#333] transition ${isSelectedTeam ? 'bg-black shadow-[inset_2px_0_0_0_#22c55e]' : ''
-                            }`}
+                        className={`grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-sm px-3 py-1 hover:bg-[#333] transition`}
                     >
                         <p>{rank}</p>
                         <div className="flex flex-row items-center">
@@ -296,7 +290,7 @@ export default function TableTab({ team1Id, team2Id }: TableTabProps) {
     return (
         <div className="flex flex-row">
             <div className="w-full text-white border-2 border-green-400 bg-[#1d1d1d] rounded-2xl pb-5 pt-5">
-                <div className="overflow-x-auto max-w-4xl mx-auto">
+                <div className="overflow-x-auto mx-auto ml-4">
                     {/* View Mode Toggle Buttons - Centered */}
                     <div className="flex mb-6 space-x-4">
                         <button

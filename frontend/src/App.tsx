@@ -5,6 +5,7 @@ import Main from './assets/Main';
 import Popup from './assets/Popup';
 import GamePage from './assets/GamePage';
 import TeamsPage from './assets/components/TeamPage';
+import TeamProfile from './assets/components/TeamProfile';
 
 // Layout component that includes Header for all pages
 function Layout({ children }: { children: React.ReactNode }) {
@@ -79,6 +80,8 @@ function App() {
             </div>
           </Layout>
         } />
+        <Route path="/team/:teamId" element={<TeamProfile />} />
+        <Route path="/team/:teamId/:teamName" element={<TeamProfile />} />
       </Routes>
     </Router>
   );

@@ -5,6 +5,7 @@ import pandas as pd
 from nba_api.stats.endpoints import leaguegamefinder
 from nba_boxscore_safe import get_boxscore_client  # Import the client
 from nba_api.stats.endpoints import leaguestandings
+from nba_api.stats.endpoints import commonteamroster
 import requests
 
 app = Flask(__name__)
@@ -712,7 +713,201 @@ def get_team_logo(team_id):
             
     except Exception as e:
         return Response(b'<svg><!-- Error --></svg>', mimetype='image/svg+xml')
+    
 
+@app.route('/api/team/<team_id>/roster', methods=['GET'])
+def get_team_roster(team_id):
+    """Get team roster with player details"""
+    try:
+        # Get parameters
+        season = request.args.get('season', '2025-26')
+        
+        print(f"[ROSTER] Fetching roster for team {team_id}, season {season}")
+        
+        # Get roster data
+        roster_data = commonteamroster.CommonTeamRoster(
+            team_id=team_id,
+            season=season
+        )
+        
+        # Get the dataframes
+        df_roster = roster_data.get_data_frames()[0]  # Players
+        df_coaches = roster_data.get_data_frames()[1]  # Coaches
+        
+        print(f"[ROSTER] Columns available: {list(df_roster.columns)}")
+        
+        # Convert player roster to list
+        players = []
+        for _, player in df_roster.iterrows():
+            # Format height (handle NaN and different formats)
+            height = player['HEIGHT']
+            height_display = str(height)
+            if pd.notna(height) and isinstance(height, str):
+                if '-' in height:
+                    feet, inches = height.split('-')
+                    height_display = f"{feet}'{inches}\""
+            
+            # Format weight
+            weight = player['WEIGHT']
+            if pd.isna(weight):
+                weight_display = "N/A"
+            else:
+                try:
+                    weight_display = f"{int(weight)} lbs"
+                except:
+                    weight_display = str(weight)
+            
+            # Format experience
+            experience = player['EXP']
+            if pd.isna(experience):
+                experience_display = 'N/A'
+            elif experience == 'R':
+                experience_display = 'Rookie'
+            else:
+                try:
+                    exp_years = int(experience)
+                    if exp_years == 0:
+                        experience_display = 'Rookie'
+                    elif exp_years == 1:
+                        experience_display = '1 year'
+                    else:
+                        experience_display = f'{exp_years} years'
+                except:
+                    experience_display = str(experience)
+            
+            # Get jersey number
+            jersey_number = ''
+            if 'NUM' in player:
+                jersey_number = str(player['NUM'])
+            elif 'JERSEY_NUMBER' in player:  # Some APIs use different column names
+                jersey_number = str(player['JERSEY_NUMBER'])
+            
+            # Get position
+            position = player.get('POSITION', 'N/A')
+            
+            # Get college
+            college = player.get('SCHOOL', '')
+            if pd.isna(college) or college == '':
+                college = 'Not Available'
+            
+            # Get birth date
+            birth_date = player.get('BIRTH_DATE', '')
+            if pd.isna(birth_date):
+                birth_date = 'N/A'
+            
+            # Get age
+            age = player.get('AGE')
+            if pd.isna(age):
+                age_display = None
+            else:
+                try:
+                    age_display = int(age)
+                except:
+                    age_display = None
+            
+            # Get nickname/player slug for display name
+            player_name = player.get('PLAYER', '')
+            nickname = player.get('NICKNAME', '')
+            player_slug = player.get('PLAYER_SLUG', '')
+            
+            # Use nickname if available, otherwise use full name
+            display_name = nickname if nickname and nickname != '' else player_name
+            
+            players.append({
+                'player_id': int(player['PLAYER_ID']),
+                'player_name': player_name,
+                'display_name': display_name,
+                'player_slug': player_slug,
+                'jersey_number': jersey_number,
+                'position': position,
+                'height': height_display,
+                'height_raw': str(height) if pd.notna(height) else '',
+                'weight': weight_display,
+                'weight_raw': float(weight) if pd.notna(weight) else None,
+                'birth_date': birth_date,
+                'age': age_display,
+                'experience': experience_display,
+                'experience_raw': experience if pd.notna(experience) else '',
+                'college': college,
+                'country': player.get('COUNTRY', 'USA') if pd.notna(player.get('COUNTRY')) else 'USA',
+                'how_acquired': player.get('HOW_ACQUIRED', '') if pd.notna(player.get('HOW_ACQUIRED')) else ''
+            })
+        
+        # Convert coaches to list (check for correct column names)
+        coaches = []
+        if not df_coaches.empty:
+            print(f"[ROSTER] Coach columns: {list(df_coaches.columns)}")
+            
+            # Map column names (they might vary)
+            coach_name_col = next((col for col in df_coaches.columns if 'COACH' in col and 'NAME' in col), None)
+            coach_type_col = next((col for col in df_coaches.columns if 'COACH' in col and 'TYPE' in col), None)
+            is_assistant_col = next((col for col in df_coaches.columns if 'ASSISTANT' in col or 'IS_' in col), None)
+            sort_seq_col = next((col for col in df_coaches.columns if 'SORT' in col or 'SEQUENCE' in col), None)
+            
+            for _, coach in df_coaches.iterrows():
+                coach_name = coach[coach_name_col] if coach_name_col else 'Unknown Coach'
+                coach_type = coach[coach_type_col] if coach_type_col else 'Unknown'
+                
+                # Determine if assistant
+                is_assistant = False
+                if is_assistant_col:
+                    is_assistant_val = coach[is_assistant_col]
+                    if pd.notna(is_assistant_val):
+                        if isinstance(is_assistant_val, (int, float)):
+                            is_assistant = is_assistant_val == 1
+                        else:
+                            is_assistant = str(is_assistant_val).lower() in ['true', 'yes', '1', 'assistant']
+                else:
+                    # Guess based on coach type
+                    is_assistant = 'assistant' in str(coach_type).lower() or coach_type != 'Head Coach'
+                
+                # Get sort sequence
+                sort_sequence = 999
+                if sort_seq_col and pd.notna(coach[sort_seq_col]):
+                    try:
+                        sort_sequence = int(coach[sort_seq_col])
+                    except:
+                        pass
+                
+                coaches.append({
+                    'coach_name': str(coach_name),
+                    'coach_type': str(coach_type),
+                    'is_assistant': is_assistant,
+                    'sort_sequence': sort_sequence
+                })
+        
+        # Sort coaches: Head coach first, then assistants
+        coaches.sort(key=lambda x: (
+            not any(word in x['coach_type'].lower() for word in ['head', 'head coach', 'hc']),
+            x['sort_sequence']
+        ))
+        
+        return jsonify({
+            'success': True,
+            'team_id': int(team_id),
+            'season': season,
+            'last_updated': pd.Timestamp.now().isoformat(),
+            'roster': {
+                'players': players,
+                'player_count': len(players),
+                'coaches': coaches,
+                'coach_count': len(coaches),
+                'metadata': {
+                    'player_columns_found': list(df_roster.columns),
+                    'coach_columns_found': list(df_coaches.columns) if not df_coaches.empty else []
+                }
+            }
+        })
+        
+    except Exception as e:
+        print(f"[ROSTER] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'team_id': team_id
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

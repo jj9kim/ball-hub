@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 
 interface TeamStanding {
     team_id: number;
@@ -36,6 +37,7 @@ export default function OverviewTab() {
     const [standings, setStandings] = useState<TeamStandingWithGB[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         fetchStandings();
@@ -137,6 +139,14 @@ export default function OverviewTab() {
         );
     }
 
+    const handleTeamClick = (teamId: number, teamName: string) => {
+        // Navigate to team profile page
+        navigate(`/team/${teamId}/${encodeURIComponent(teamName)}`);
+
+        // Or if you want to open in a new tab:
+        // window.open(`/team/${teamId}`, '_blank');
+    };
+
     return (
         <div className="flex flex-row">
             <div className="w-3/4 text-white border-2 border-green-400 bg-[#1d1d1d] mr-3 rounded-2xl pb-5 pt-5">
@@ -159,30 +169,33 @@ export default function OverviewTab() {
                     {standings.map((team, index) => (
                         <div
                             key={team.team_name}
-                            className={`grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-sm px-2 py-1 hover:bg-[#333] transition`}
+                            className={`grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-sm px-2 py-1 hover:bg-[#333] transition cursor-pointer`}
+                            onClick={() => handleTeamClick(team.team_id, team.team_name)}
                         >
                             <p>{index + 1}</p>
                             <div className="flex flex-row items-center">
-                                <img
-                                    src={`http://127.0.0.1:5000/api/team-logo/${team.team_id}`}
-                                    alt={team.team_name}
-                                    className="w-5 h-5 mr-3"
-                                    onError={(e) => {
-                                        // Fallback: Show team abbreviation
-                                        const teamWords = team.team_name.split(' ');
-                                        const teamAbbreviation = teamWords[teamWords.length - 1];
-                                        e.currentTarget.style.display = 'none';
-                                        const parent = e.currentTarget.parentElement;
-                                        if (parent) {
-                                            parent.innerHTML = `
+                                <div className="flex flex-row items-center">
+                                    <img
+                                        src={`http://127.0.0.1:5000/api/team-logo/${team.team_id}`}
+                                        alt={team.team_name}
+                                        className="w-5 h-5 mr-3"
+                                        onError={(e) => {
+                                            // Fallback: Show team abbreviation
+                                            const teamWords = team.team_name.split(' ');
+                                            const teamAbbreviation = teamWords[teamWords.length - 1];
+                                            e.currentTarget.style.display = 'none';
+                                            const parent = e.currentTarget.parentElement;
+                                            if (parent) {
+                                                parent.innerHTML = `
                                             <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
                                                 <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
                                             </div>
                                             <span>${team.team_name}</span>
                                         `;
-                                        }
-                                    }}
-                                />
+                                            }
+                                        }}
+                                    />
+                                </div>
                                 <p className="text-left">{team.team_name}</p>
                             </div>
                             <p>{team.wins}</p>
