@@ -41,7 +41,7 @@ interface RosterData {
     coach_count: number;
 }
 
-// Team ID to name mapping (we'll get this from the standings later)
+// Team ID to name mapping
 const teamIdToName: Record<number, string> = {
     1610612737: 'Atlanta Hawks',
     1610612738: 'Boston Celtics',
@@ -89,6 +89,83 @@ export default function TeamProfile() {
             fetchTeamData(parseInt(teamId));
         }
     }, [teamId]);
+
+    // Normalize position to G, F, or C
+    const normalizePosition = (position: string): string => {
+        if (!position) return 'Unknown';
+
+        const posUpper = position.toUpperCase();
+
+        // Guards
+        if (posUpper.includes('G')) {
+            if (posUpper.includes('PG') || posUpper.includes('POINT')) return 'G';
+            if (posUpper.includes('SG') || posUpper.includes('SHOOTING')) return 'G';
+            if (posUpper.includes('G-F') || posUpper.includes('F-G')) {
+                // G-F goes to F, F-G goes to G
+                if (posUpper.includes('G-F')) return 'F';
+                if (posUpper.includes('F-G')) return 'G';
+            }
+            return 'G';
+        }
+
+        // Forwards
+        if (posUpper.includes('F')) {
+            if (posUpper.includes('SF') || posUpper.includes('SMALL')) return 'F';
+            if (posUpper.includes('PF') || posUpper.includes('POWER')) return 'F'; {
+                // F-C goes to C, C-F goes to F
+                if (posUpper.includes('F-C')) return 'C';
+                if (posUpper.includes('C-F')) return 'C';
+            }
+            return 'F';
+        }
+
+        // Centers
+        if (posUpper.includes('C')) return 'C';
+        if (posUpper.includes('F-C') || posUpper.includes('C-F')) {
+            return 'C';
+        }
+
+        // Default mapping for unknown positions
+        return position;
+    };
+
+    // Get position display name
+    const getPositionDisplayName = (normalizedPosition: string): string => {
+        switch (normalizedPosition) {
+            case 'G': return 'Guards';
+            case 'F': return 'Forwards';
+            case 'C': return 'Centers';
+            default: return normalizedPosition;
+        }
+    };
+
+    // Get position order for sorting
+    const getPositionOrder = (position: string): number => {
+        switch (position) {
+            case 'G': return 1;
+            case 'F': return 2;
+            case 'C': return 3;
+            default: return 4;
+        }
+    };
+
+    // Group players by normalized position
+    const groupedPlayers = roster ? roster.players.reduce((acc: Record<string, Player[]>, player) => {
+        const normalizedPosition = normalizePosition(player.position);
+        if (!acc[normalizedPosition]) {
+            acc[normalizedPosition] = [];
+        }
+        acc[normalizedPosition].push(player);
+        return acc;
+    }, {}) : {};
+
+    // Sort positions: G, F, C, then others
+    const sortedPositions = Object.keys(groupedPlayers).sort((a, b) => {
+        const orderA = getPositionOrder(a);
+        const orderB = getPositionOrder(b);
+        if (orderA !== orderB) return orderA - orderB;
+        return a.localeCompare(b);
+    });
 
     const fetchTeamData = async (id: number) => {
         try {
@@ -145,30 +222,6 @@ export default function TeamProfile() {
         }
     };
 
-    // Group players by position for better organization
-    const groupedPlayers = roster ? roster.players.reduce((acc: Record<string, Player[]>, player) => {
-        const position = player.position || 'Unknown';
-        if (!acc[position]) {
-            acc[position] = [];
-        }
-        acc[position].push(player);
-        return acc;
-    }, {}) : {};
-
-    // Define position display order
-    const positionOrder = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'G-F', 'F-G', 'F-C', 'C-F'];
-
-    // Sort positions according to our order
-    const sortedPositions = Object.keys(groupedPlayers).sort((a, b) => {
-        const indexA = positionOrder.indexOf(a);
-        const indexB = positionOrder.indexOf(b);
-
-        if (indexA === -1 && indexB === -1) return a.localeCompare(b);
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-        return indexA - indexB;
-    });
-
     // Get team logo with fallback
     const getTeamLogo = (teamId: number) => {
         return `http://127.0.0.1:5000/api/team-logo/${teamId}`;
@@ -195,6 +248,15 @@ export default function TeamProfile() {
         if (exp === '1') return '1st Year';
         if (!isNaN(Number(exp))) return `${exp} Years`;
         return exp;
+    };
+
+    // Get original position with multi-position indicators
+    const getOriginalPosition = (player: Player): string => {
+        const pos = player.position || '';
+        if (pos.includes('-')) {
+            return pos; // Keep G-F, F-C, etc. as is
+        }
+        return pos;
     };
 
     if (loading) {
@@ -355,22 +417,36 @@ export default function TeamProfile() {
                         <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700">
                             <div className="mb-8">
                                 <h3 className="text-2xl font-bold mb-2">Team Roster</h3>
-                                <p className="text-gray-400">
-                                    {roster.player_count} Players • {roster.coach_count} Coaches
-                                </p>
+                                <div className="flex flex-wrap gap-4 mt-4">
+                                    {sortedPositions.map(position => (
+                                        <div key={position} className="flex items-center">
+                                            <div className={`w-3 h-3 rounded-full mr-2 ${position === 'G' ? 'bg-blue-500' :
+                                                    position === 'F' ? 'bg-green-500' :
+                                                        position === 'C' ? 'bg-purple-500' : 'bg-gray-500'
+                                                }`}></div>
+                                            <span className="text-gray-300">
+                                                {getPositionDisplayName(position)} ({groupedPlayers[position].length})
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
                             {sortedPositions.length > 0 ? (
                                 sortedPositions.map(position => (
-                                    <div key={position} className="mb-10">
-                                        <div className="flex items-center mb-4">
-                                            <h4 className="text-xl font-bold">{position}</h4>
-                                            <span className="ml-3 px-2 py-1 bg-gray-800 text-gray-300 text-sm rounded-full">
+                                    <div key={position} className="mb-12">
+                                        <div className="flex items-center mb-6">
+                                            <div className={`w-6 h-6 rounded-full mr-3 ${position === 'G' ? 'bg-blue-500' :
+                                                    position === 'F' ? 'bg-green-500' :
+                                                        position === 'C' ? 'bg-purple-500' : 'bg-gray-500'
+                                                }`}></div>
+                                            <h4 className="text-2xl font-bold">{getPositionDisplayName(position)}</h4>
+                                            <span className="ml-4 px-3 py-1 bg-gray-800 text-gray-300 text-sm rounded-full">
                                                 {groupedPlayers[position].length} players
                                             </span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                             {groupedPlayers[position]
                                                 .sort((a, b) => {
                                                     const numA = parseInt(a.jersey_number) || 999;
@@ -380,12 +456,20 @@ export default function TeamProfile() {
                                                 .map(player => (
                                                     <div
                                                         key={player.player_id}
-                                                        className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-gray-600 transition group"
+                                                        className={`bg-gray-800/50 rounded-xl p-4 border transition group hover:scale-[1.02] ${position === 'G' ? 'border-blue-700/30 hover:border-blue-500/50' :
+                                                                position === 'F' ? 'border-green-700/30 hover:border-green-500/50' :
+                                                                    position === 'C' ? 'border-purple-700/30 hover:border-purple-500/50' :
+                                                                        'border-gray-700 hover:border-gray-600'
+                                                            }`}
                                                     >
                                                         <div className="flex items-start">
                                                             {/* Player Image */}
                                                             <div className="relative mr-4">
-                                                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-900/50 to-purple-900/50 flex items-center justify-center border-2 border-gray-700 group-hover:border-blue-500 transition">
+                                                                <div className={`w-16 h-16 rounded-full flex items-center justify-center border-2 transition ${position === 'G' ? 'border-blue-700/50 group-hover:border-blue-500' :
+                                                                        position === 'F' ? 'border-green-700/50 group-hover:border-green-500' :
+                                                                            position === 'C' ? 'border-purple-700/50 group-hover:border-purple-500' :
+                                                                                'border-gray-700 group-hover:border-gray-600'
+                                                                    }`}>
                                                                     <img
                                                                         src={getPlayerImage(player.player_id)}
                                                                         alt={player.player_name}
@@ -401,7 +485,12 @@ export default function TeamProfile() {
                                                                                     .toUpperCase()
                                                                                     .substring(0, 2);
                                                                                 parent.innerHTML = `
-                                                                                    <span class="text-lg font-bold">${initials}</span>
+                                                                                    <div class="w-full h-full rounded-full flex items-center justify-center ${position === 'G' ? 'bg-blue-900/30' :
+                                                                                        position === 'F' ? 'bg-green-900/30' :
+                                                                                            position === 'C' ? 'bg-purple-900/30' : 'bg-gray-900/30'
+                                                                                    }">
+                                                                                        <span class="text-lg font-bold">${initials}</span>
+                                                                                    </div>
                                                                                 `;
                                                                             }
                                                                         }}
@@ -417,13 +506,26 @@ export default function TeamProfile() {
                                                                 <div className="flex justify-between items-start">
                                                                     <div>
                                                                         <h5 className="font-bold text-lg group-hover:text-blue-400 transition">
-                                                                            {player.display_name || player.player_name}
+                                                                            {player.player_name}
                                                                         </h5>
-                                                                        <p className="text-sm text-gray-400">{position}</p>
+                                                                        <div className="flex items-center mt-1">
+                                                                            <span className={`text-xs px-2 py-1 rounded ${position === 'G' ? 'bg-blue-500/20 text-blue-400' :
+                                                                                    position === 'F' ? 'bg-green-500/20 text-green-400' :
+                                                                                        position === 'C' ? 'bg-purple-500/20 text-purple-400' :
+                                                                                            'bg-gray-500/20 text-gray-400'
+                                                                                }`}>
+                                                                                {position}
+                                                                            </span>
+                                                                            {player.position.includes('-') && (
+                                                                                <span className="ml-2 text-xs text-gray-400">
+                                                                                    ({getOriginalPosition(player)})
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                                                                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                                                                     <div>
                                                                         <p className="text-gray-500 text-xs">Height</p>
                                                                         <p className="font-medium">{formatHeight(player.height)}</p>
@@ -442,9 +544,9 @@ export default function TeamProfile() {
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="mt-3">
+                                                                <div className="mt-4">
                                                                     <p className="text-gray-500 text-xs">College</p>
-                                                                    <p className="font-medium text-sm">{player.college}</p>
+                                                                    <p className="font-medium text-sm truncate">{player.college}</p>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -511,6 +613,9 @@ export default function TeamProfile() {
                 {/* Footer */}
                 <div className="mt-12 pt-8 border-t border-gray-800 text-center text-gray-500 text-sm">
                     <p>Data provided by NBA API • Team ID: {teamInfo.team_id}</p>
+                    <p className="mt-1 text-xs text-gray-600">
+                        Position grouping: G-F → F, F-C → C, C-F → F
+                    </p>
                 </div>
             </div>
         </div>
