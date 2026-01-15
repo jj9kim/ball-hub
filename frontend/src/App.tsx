@@ -80,8 +80,19 @@ function App() {
             </div>
           </Layout>
         } />
-        <Route path="/team/:teamId" element={<TeamProfile />} />
-        <Route path="/team/:teamId/:teamName" element={<TeamProfile />} />
+
+        {/* Team Profile routes WITH Layout */}
+        <Route path="/team/:teamId" element={
+          <Layout>
+            <TeamProfile />
+          </Layout>
+        } />
+
+        <Route path="/team/:teamId/:teamName" element={
+          <Layout>
+            <TeamProfile />
+          </Layout>
+        } />
       </Routes>
     </Router>
   );
