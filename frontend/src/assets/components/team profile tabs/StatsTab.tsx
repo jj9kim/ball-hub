@@ -1,7 +1,7 @@
 // assets/components/teamprofile/tabs/TeamStatsTab.tsx
 export default function TeamStatsTab() {
     return (
-        <div className="p-6">
+        <div className="border-2 border-blue-400 rounded-2xl min-h-[50vh] bg-[#1d1d1d] p-6">
             <h3 className="text-xl font-bold text-white mb-4">Team Statistics</h3>
             <p className="text-gray-400">Team statistics will be displayed here.</p>
             <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">

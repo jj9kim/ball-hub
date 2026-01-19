@@ -138,7 +138,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
     });
 
     return (
-        <div className="p-6">
+        <div className="border-2 border-blue-400 rounded-2xl min-h-[50vh] bg-[#1d1d1d] p-6">
             <div className="mb-8">
                 <h3 className="text-xl font-bold text-white mb-4">Team Roster</h3>
                 <div className="flex flex-wrap gap-4 mb-6">

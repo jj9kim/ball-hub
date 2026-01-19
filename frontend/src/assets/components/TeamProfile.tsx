@@ -225,7 +225,7 @@ export default function TeamProfile() {
                 </div>
 
                 {/* Tab Content */}
-                <div className="border-2 border-blue-400 rounded-2xl min-h-[50vh] bg-[#1d1d1d]">
+                <div>
                     {renderTabContent()}
                 </div>
             </div>
