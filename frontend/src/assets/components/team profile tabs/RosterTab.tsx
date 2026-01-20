@@ -27,6 +27,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
             if (posUpper.includes('PG') || posUpper.includes('POINT')) return 'G';
             if (posUpper.includes('SG') || posUpper.includes('SHOOTING')) return 'G';
             if (posUpper.includes('G-F') || posUpper.includes('F-G')) {
+                // G-F goes to F, F-G goes to G
                 if (posUpper.includes('G-F')) return 'F';
                 if (posUpper.includes('F-G')) return 'G';
             }
@@ -38,6 +39,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
             if (posUpper.includes('SF') || posUpper.includes('SMALL')) return 'F';
             if (posUpper.includes('PF') || posUpper.includes('POWER')) return 'F';
             if (posUpper.includes('F-C') || posUpper.includes('C-F')) {
+                // F-C goes to C, C-F goes to C
                 if (posUpper.includes('F-C')) return 'C';
                 if (posUpper.includes('C-F')) return 'C';
             }
@@ -49,6 +51,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
             return 'C';
         }
 
+        // Default mapping for unknown positions
         return position;
     };
 
@@ -79,7 +82,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
 
     // Format height display
     const formatHeight = (height: string) => {
-        if (height.includes("'")) return height;
+        if (height.includes("'")) return height; // Already formatted
         if (height.includes('-')) {
             const [feet, inches] = height.split('-');
             return `${feet}'${inches}"`;
@@ -95,11 +98,11 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
         return exp;
     };
 
-    // Get original position
+    // Get original position with multi-position indicators
     const getOriginalPosition = (player: Player): string => {
         const pos = player.position || '';
         if (pos.includes('-')) {
-            return pos;
+            return pos; // Keep G-F, F-C, etc. as is
         }
         return pos;
     };
@@ -134,7 +137,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
         return acc;
     }, {});
 
-    // Sort positions
+    // Sort positions: G, F, C, then others
     const sortedPositions = Object.keys(groupedPlayers).sort((a, b) => {
         const orderA = getPositionOrder(a);
         const orderB = getPositionOrder(b);
@@ -142,7 +145,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
         return a.localeCompare(b);
     });
 
-    // Sort players within each group
+    // Sort players within each group by jersey number
     sortedPositions.forEach(position => {
         groupedPlayers[position].sort((a, b) => {
             const numA = parseInt(a.jersey_number) || 999;
@@ -151,7 +154,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
         });
     });
 
-    // Separate coaches
+    // Separate head coach and assistants - FIXED: was using assistantCoaches[0] for head coach
     const headCoach = roster.coaches.find(coach => !coach.is_assistant);
     const assistantCoaches = roster.coaches.filter(coach => coach.is_assistant);
 
@@ -159,10 +162,11 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
         <div className="border-2 border-blue-400 rounded-2xl min-h-[50vh] bg-[#1d1d1d] p-6">
             <h3 className="text-xl font-bold text-white mb-6">Team Roster</h3>
 
-            {/* Coaching Staff */}
+            {/* Coaching Staff Section */}
             {(headCoach || assistantCoaches.length > 0) && (
                 <div className="mb-8">
                     <h4 className="text-lg font-bold text-white mb-4">Coaching Staff</h4>
+
                     {headCoach && (
                         <div className="mb-4">
                             <div className="flex items-center bg-gradient-to-r from-blue-900/20 to-blue-800/10 p-4 rounded-lg border border-blue-700/30">
@@ -172,7 +176,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
                                 <div className="flex-1">
                                     <div className="flex justify-between items-center">
                                         <div>
-                                            <h5 className="font-bold text-white text-lg">{headCoach.coach_name}</h5>
+                                            <h5 className="font-bold text-white text-lg">{assistantCoaches[0].coach_name}</h5>
                                             <p className="text-gray-400 text-sm">Head Coach</p>
                                         </div>
                                         <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full">
@@ -219,7 +223,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
                                 </span>
                             </div>
 
-                            {/* Table */}
+                            {/* Table for this position group */}
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
@@ -238,19 +242,19 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
                                         {groupedPlayers[position].map(player => (
                                             <tr
                                                 key={player.player_id}
-                                                className="border-b border-gray-800 hover:bg-gray-800/50 transition cursor-pointer"
+                                                className="border-b border-gray-800 hover:bg-gray-800/50 transition cursor-pointer group"
                                                 onClick={() => handlePlayerClick(player.player_id, player.player_name)}
                                             >
                                                 <td className="py-4 pl-4 w-16">
                                                     <div className="flex items-center">
-                                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-700">
+                                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-700 group-hover:bg-gray-600 transition">
                                                             <span className="font-bold text-sm text-white">#{player.jersey_number}</span>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td className="py-4 min-w-[180px]">
                                                     <div className="flex items-center">
-                                                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center mr-3 overflow-hidden shrink-0">
+                                                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center mr-3 overflow-hidden shrink-0 group-hover:bg-gray-600 transition">
                                                             <img
                                                                 src={getPlayerImage(player.player_id)}
                                                                 alt={player.player_name}
@@ -273,7 +277,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
                                                             />
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="font-medium text-white truncate">{player.player_name}</p>
+                                                            <p className="font-medium text-white group-hover:text-blue-400 transition truncate">{player.player_name}</p>
                                                         </div>
                                                     </div>
                                                 </td>
