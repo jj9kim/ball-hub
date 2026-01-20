@@ -1,5 +1,6 @@
 // assets/components/teamprofile/tabs/TeamRosterTab.tsx
 import type { Player, Coach } from './types';
+import { useNavigate } from 'react-router-dom';
 
 interface TeamRosterTabProps {
     roster: {
@@ -13,6 +14,8 @@ interface TeamRosterTabProps {
 }
 
 export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabProps) {
+    const navigate = useNavigate();
+
     // Normalize position to G, F, or C
     const normalizePosition = (position: string): string => {
         if (!position) return 'Unknown';
@@ -24,7 +27,6 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
             if (posUpper.includes('PG') || posUpper.includes('POINT')) return 'G';
             if (posUpper.includes('SG') || posUpper.includes('SHOOTING')) return 'G';
             if (posUpper.includes('G-F') || posUpper.includes('F-G')) {
-                // G-F goes to F, F-G goes to G
                 if (posUpper.includes('G-F')) return 'F';
                 if (posUpper.includes('F-G')) return 'G';
             }
@@ -36,7 +38,6 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
             if (posUpper.includes('SF') || posUpper.includes('SMALL')) return 'F';
             if (posUpper.includes('PF') || posUpper.includes('POWER')) return 'F';
             if (posUpper.includes('F-C') || posUpper.includes('C-F')) {
-                // F-C goes to C, C-F goes to F
                 if (posUpper.includes('F-C')) return 'C';
                 if (posUpper.includes('C-F')) return 'C';
             }
@@ -48,7 +49,6 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
             return 'C';
         }
 
-        // Default mapping for unknown positions
         return position;
     };
 
@@ -79,7 +79,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
 
     // Format height display
     const formatHeight = (height: string) => {
-        if (height.includes("'")) return height; // Already formatted
+        if (height.includes("'")) return height;
         if (height.includes('-')) {
             const [feet, inches] = height.split('-');
             return `${feet}'${inches}"`;
@@ -95,13 +95,18 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
         return exp;
     };
 
-    // Get original position with multi-position indicators
+    // Get original position
     const getOriginalPosition = (player: Player): string => {
         const pos = player.position || '';
         if (pos.includes('-')) {
-            return pos; // Keep G-F, F-C, etc. as is
+            return pos;
         }
         return pos;
+    };
+
+    // Handle player click
+    const handlePlayerClick = (playerId: number, playerName: string) => {
+        navigate(`/player/${playerId}/${encodeURIComponent(playerName)}`);
     };
 
     if (!roster) {
@@ -129,7 +134,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
         return acc;
     }, {});
 
-    // Sort positions: G, F, C, then others
+    // Sort positions
     const sortedPositions = Object.keys(groupedPlayers).sort((a, b) => {
         const orderA = getPositionOrder(a);
         const orderB = getPositionOrder(b);
@@ -137,142 +142,177 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
         return a.localeCompare(b);
     });
 
+    // Sort players within each group
+    sortedPositions.forEach(position => {
+        groupedPlayers[position].sort((a, b) => {
+            const numA = parseInt(a.jersey_number) || 999;
+            const numB = parseInt(b.jersey_number) || 999;
+            return numA - numB;
+        });
+    });
+
+    // Separate coaches
+    const headCoach = roster.coaches.find(coach => !coach.is_assistant);
+    const assistantCoaches = roster.coaches.filter(coach => coach.is_assistant);
+
     return (
         <div className="border-2 border-blue-400 rounded-2xl min-h-[50vh] bg-[#1d1d1d] p-6">
-            <div className="mb-8">
-                <h3 className="text-xl font-bold text-white mb-4">Team Roster</h3>
-                <div className="flex flex-wrap gap-4 mb-6">
-                    {sortedPositions.map(position => (
-                        <div key={position} className="flex items-center">
-                            <div className={`w-3 h-3 rounded-full mr-2 ${position === 'G' ? 'bg-blue-500' :
-                                    position === 'F' ? 'bg-green-500' :
-                                        position === 'C' ? 'bg-purple-500' : 'bg-gray-500'
-                                }`}></div>
-                            <span className="text-gray-300">
-                                {getPositionDisplayName(position)} ({groupedPlayers[position].length})
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            <h3 className="text-xl font-bold text-white mb-6">Team Roster</h3>
 
-            {sortedPositions.length > 0 ? (
-                sortedPositions.map(position => (
-                    <div key={position} className="mb-12">
-                        <div className="flex items-center mb-6">
-                            <div className={`w-6 h-6 rounded-full mr-3 ${position === 'G' ? 'bg-blue-500' :
-                                    position === 'F' ? 'bg-green-500' :
-                                        position === 'C' ? 'bg-purple-500' : 'bg-gray-500'
-                                }`}></div>
-                            <h4 className="text-2xl font-bold text-white">{getPositionDisplayName(position)}</h4>
-                            <span className="ml-4 px-3 py-1 bg-[#2a2a2a] text-gray-300 text-sm rounded-full">
-                                {groupedPlayers[position].length} players
-                            </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {groupedPlayers[position]
-                                .sort((a, b) => {
-                                    const numA = parseInt(a.jersey_number) || 999;
-                                    const numB = parseInt(b.jersey_number) || 999;
-                                    return numA - numB;
-                                })
-                                .map(player => (
-                                    <div
-                                        key={player.player_id}
-                                        className="bg-[#2a2a2a] rounded-xl p-4 border border-gray-700 hover:border-gray-600 transition group"
-                                    >
-                                        <div className="flex items-start">
-                                            {/* Player Image */}
-                                            <div className="relative mr-4">
-                                                <div className="w-16 h-16 rounded-full bg-[#333] flex items-center justify-center border-2 border-gray-700 group-hover:border-blue-500 transition">
-                                                    <img
-                                                        src={getPlayerImage(player.player_id)}
-                                                        alt={player.player_name}
-                                                        className="w-full h-full rounded-full object-cover"
-                                                        onError={(e) => {
-                                                            e.currentTarget.style.display = 'none';
-                                                            const parent = e.currentTarget.parentElement;
-                                                            if (parent) {
-                                                                const initials = player.player_name
-                                                                    .split(' ')
-                                                                    .map(n => n[0])
-                                                                    .join('')
-                                                                    .toUpperCase()
-                                                                    .substring(0, 2);
-                                                                parent.innerHTML = `
-                                                                    <div class="w-full h-full rounded-full flex items-center justify-center bg-[#444]">
-                                                                        <span class="text-lg font-bold">${initials}</span>
-                                                                    </div>
-                                                                `;
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#333] rounded-full flex items-center justify-center border border-gray-700">
-                                                    <span className="text-xs font-bold text-white">#{player.jersey_number}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Player Info */}
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h5 className="font-bold text-lg text-white group-hover:text-blue-400 transition">
-                                                            {player.player_name}
-                                                        </h5>
-                                                        <div className="flex items-center mt-1">
-                                                            <span className={`text-xs px-2 py-1 rounded ${position === 'G' ? 'bg-blue-500/20 text-blue-400' :
-                                                                    position === 'F' ? 'bg-green-500/20 text-green-400' :
-                                                                        position === 'C' ? 'bg-purple-500/20 text-purple-400' :
-                                                                            'bg-gray-500/20 text-gray-400'
-                                                                }`}>
-                                                                {position}
-                                                            </span>
-                                                            {player.position.includes('-') && (
-                                                                <span className="ml-2 text-xs text-gray-400">
-                                                                    ({getOriginalPosition(player)})
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Height</p>
-                                                        <p className="font-medium text-white">{formatHeight(player.height)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Weight</p>
-                                                        <p className="font-medium text-white">{player.weight}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Age</p>
-                                                        <p className="font-medium text-white">{player.age || 'N/A'}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs">Exp</p>
-                                                        <p className="font-medium text-white">{getExperienceDisplay(player.experience)}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-4">
-                                                    <p className="text-gray-500 text-xs">College</p>
-                                                    <p className="font-medium text-sm text-white truncate">{player.college}</p>
-                                                </div>
-                                            </div>
+            {/* Coaching Staff */}
+            {(headCoach || assistantCoaches.length > 0) && (
+                <div className="mb-8">
+                    <h4 className="text-lg font-bold text-white mb-4">Coaching Staff</h4>
+                    {headCoach && (
+                        <div className="mb-4">
+                            <div className="flex items-center bg-gradient-to-r from-blue-900/20 to-blue-800/10 p-4 rounded-lg border border-blue-700/30">
+                                <div className="w-12 h-12 bg-blue-900/30 rounded-full flex items-center justify-center mr-4">
+                                    <span className="text-blue-400 font-bold">HC</span>
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <h5 className="font-bold text-white text-lg">{headCoach.coach_name}</h5>
+                                            <p className="text-gray-400 text-sm">Head Coach</p>
                                         </div>
+                                        <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full">
+                                            Head Coach
+                                        </span>
                                     </div>
-                                ))}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                ))
-            ) : (
-                <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">No roster data available</div>
+                    )}
                 </div>
             )}
+
+            {/* Players Section */}
+            <div>
+                <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-lg font-bold text-white">Players ({roster.player_count})</h4>
+                    <div className="flex space-x-4">
+                        {sortedPositions.map(position => (
+                            <div key={position} className="flex items-center">
+                                <div className={`w-3 h-3 rounded-full mr-2 ${position === 'G' ? 'bg-blue-500' :
+                                    position === 'F' ? 'bg-green-500' :
+                                        position === 'C' ? 'bg-purple-500' : 'bg-gray-500'
+                                    }`}></div>
+                                <span className="text-gray-300 text-sm">
+                                    {getPositionDisplayName(position)} ({groupedPlayers[position].length})
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {sortedPositions.length > 0 ? (
+                    sortedPositions.map(position => (
+                        <div key={position} className="mb-8">
+                            <div className="flex items-center mb-4">
+                                <div className={`w-5 h-5 rounded-full mr-3 ${position === 'G' ? 'bg-blue-500' :
+                                    position === 'F' ? 'bg-green-500' :
+                                        position === 'C' ? 'bg-purple-500' : 'bg-gray-500'
+                                    }`}></div>
+                                <h5 className="text-xl font-bold text-white">{getPositionDisplayName(position)}</h5>
+                                <span className="ml-3 px-3 py-1 bg-[#2a2a2a] text-gray-300 text-sm rounded-full">
+                                    {groupedPlayers[position].length} players
+                                </span>
+                            </div>
+
+                            {/* Table */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="text-left text-gray-400 border-b border-gray-700">
+                                            <th className="pb-3 w-16 pl-4">#</th>
+                                            <th className="pb-3 min-w-[180px]">Player</th>
+                                            <th className="pb-3 w-32">Position</th>
+                                            <th className="pb-3 w-24">Height</th>
+                                            <th className="pb-3 w-24">Weight</th>
+                                            <th className="pb-3 w-20">Age</th>
+                                            <th className="pb-3 w-32">Experience</th>
+                                            <th className="pb-3 w-48 pr-4">College</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {groupedPlayers[position].map(player => (
+                                            <tr
+                                                key={player.player_id}
+                                                className="border-b border-gray-800 hover:bg-gray-800/50 transition cursor-pointer"
+                                                onClick={() => handlePlayerClick(player.player_id, player.player_name)}
+                                            >
+                                                <td className="py-4 pl-4 w-16">
+                                                    <div className="flex items-center">
+                                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-700">
+                                                            <span className="font-bold text-sm text-white">#{player.jersey_number}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 min-w-[180px]">
+                                                    <div className="flex items-center">
+                                                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center mr-3 overflow-hidden shrink-0">
+                                                            <img
+                                                                src={getPlayerImage(player.player_id)}
+                                                                alt={player.player_name}
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.style.display = 'none';
+                                                                    const parent = e.currentTarget.parentElement;
+                                                                    if (parent) {
+                                                                        const initials = player.player_name
+                                                                            .split(' ')
+                                                                            .map(n => n[0])
+                                                                            .join('')
+                                                                            .toUpperCase()
+                                                                            .substring(0, 2);
+                                                                        parent.innerHTML = `
+                                                                            <span class="font-bold text-sm">${initials}</span>
+                                                                        `;
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="font-medium text-white truncate">{player.player_name}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 w-32">
+                                                    <div className="flex items-center">
+                                                        <span className={`px-2 py-1 rounded text-xs font-medium ${position === 'G' ? 'bg-blue-500/20 text-blue-400' :
+                                                            position === 'F' ? 'bg-green-500/20 text-green-400' :
+                                                                position === 'C' ? 'bg-purple-500/20 text-purple-400' :
+                                                                    'bg-gray-500/20 text-gray-400'
+                                                            }`}>
+                                                            {position}
+                                                        </span>
+                                                        {player.position.includes('-') && (
+                                                            <span className="ml-2 text-xs text-gray-400 truncate">
+                                                                ({getOriginalPosition(player)})
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 w-24 text-white">{formatHeight(player.height)}</td>
+                                                <td className="py-4 w-24 text-white">{player.weight}</td>
+                                                <td className="py-4 w-20 text-white">{player.age || 'N/A'}</td>
+                                                <td className="py-4 w-32">
+                                                    <span className="text-white">{getExperienceDisplay(player.experience)}</span>
+                                                </td>
+                                                <td className="py-4 w-48 pr-4 text-white truncate">{player.college}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-center py-12">
+                        <div className="text-gray-400 mb-4">No roster data available</div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

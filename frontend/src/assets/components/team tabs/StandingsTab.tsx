@@ -242,7 +242,7 @@ export default function TableTab() {
                         </div>
                         <p>{team.wins}</p>
                         <p>{team.losses}</p>
-                        <p>{team.win_pct}</p>
+                        <p>{team.win_pct.toFixed(3)}</p>
                         <p>{formatGamesBack(gamesBack)}</p>
                         <p>{team.home_record}</p>
                         <p>{team.away_record}</p>
