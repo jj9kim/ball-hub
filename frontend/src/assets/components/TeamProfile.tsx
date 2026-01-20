@@ -128,7 +128,7 @@ export default function TeamProfile() {
             case 'overview':
                 return <OverviewTab teamInfo={teamInfo!} roster={roster} />;
             case 'standings':
-                return <StandingsTab />;
+                return <StandingsTab teamInfo={teamInfo!} roster={roster} />;
             case 'matches':
                 return <MatchesTab />;
             case 'roster':
@@ -175,7 +175,7 @@ export default function TeamProfile() {
 
     return (
         <div className="bg-black pt-20 flex justify-center min-h-screen">
-            <div className='border-white border-2 w-7/8 max-w-7xl'>
+            <div className='border-white border-2 w-7/8 h-335'>
                 <div className="flex flex-col mb-3">
                     <div className='w-full bg-[#1d1d1d] rounded-2xl px-8 pt-8 border-2 border-pink-500'>
                         <div className="flex items-center pb-10">
