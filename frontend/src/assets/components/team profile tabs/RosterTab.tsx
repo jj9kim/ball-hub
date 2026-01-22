@@ -109,7 +109,9 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
 
     // Handle player click
     const handlePlayerClick = (playerId: number, playerName: string) => {
-        navigate(`/player/${playerId}/${encodeURIComponent(playerName)}`);
+        navigate(`/player/${playerId}/${encodeURIComponent(playerName)}`, {
+            state: { fromPlayerProfile: true }
+        });
     };
 
     if (!roster) {

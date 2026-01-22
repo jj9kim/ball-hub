@@ -7,9 +7,15 @@ from nba_boxscore_safe import get_boxscore_client  # Import the client
 from nba_api.stats.endpoints import leaguestandings
 from nba_api.stats.endpoints import commonteamroster
 import requests
+import numpy as np
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests
+CORS(app, 
+     origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173"],
+     supports_credentials=True,
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization", "Accept"])
+
 
 # Create the boxscore client instance
 boxscore_client = get_boxscore_client()
@@ -17,13 +23,39 @@ boxscore_client = get_boxscore_client()
 @app.route('/api/nba-games', methods=['GET'])
 def get_nba_games_fixed():
     try:
+        print("[DEBUG] Starting /api/nba-games endpoint...")
         pd.set_option('display.max_columns', None)
         
+        print("[DEBUG] Fetching games from NBA API...")
         gamefinder = leaguegamefinder.LeagueGameFinder(league_id_nullable='00')
         games = gamefinder.get_data_frames()[0]
+        print(f"[DEBUG] Total games fetched: {len(games)}")
         
-        # Get all games for 2025-26 season
+        # Check what season IDs we have
+        print(f"[DEBUG] Unique season IDs: {games['SEASON_ID'].unique()[:10]}")
+        
+        # Get all games for 2025-26 season - try multiple possible IDs
+        # The season ID might be different format
         games_2526 = games[games.SEASON_ID == '22025']
+        print(f"[DEBUG] Games for season '22025': {len(games_2526)}")
+        
+        # If no games found with '22025', try other formats
+        if len(games_2526) == 0:
+            print("[DEBUG] Trying alternative season IDs...")
+            # Try to find any recent season
+            recent_seasons = [s for s in games['SEASON_ID'].unique() if s.startswith('2')]
+            print(f"[DEBUG] Recent seasons available: {recent_seasons[:5]}")
+            # Use the most recent season
+            if recent_seasons:
+                recent_season = recent_seasons[0]
+                print(f"[DEBUG] Using season: {recent_season}")
+                games_2526 = games[games.SEASON_ID == recent_season]
+        
+        # CRITICAL: Make a copy to avoid SettingWithCopyWarning
+        games_2526 = games_2526.copy()
+        print(f"[DEBUG] Created copy, shape: {games_2526.shape}")
+        
+        # Rest of your function...
         
         # Use more flexible pattern matching
         def is_home_game(matchup):
@@ -909,5 +941,108 @@ def get_team_roster(team_id):
             'team_id': team_id
         }), 500
 
+@app.route('/api/player/<player_id>/profile', methods=['GET'])
+def get_player_profile(player_id):
+    """Get detailed player profile information"""
+    try:
+        from nba_api.stats.endpoints import commonplayerinfo, playercareerstats
+        
+        print(f"[PLAYER PROFILE] Fetching profile for player ID: {player_id}")
+        
+        # Get player info - EXACTLY as you showed
+        player_info = commonplayerinfo.CommonPlayerInfo(player_id=player_id)
+        df_info = player_info.get_data_frames()[0]
+        
+        if df_info.empty:
+            return jsonify({
+                'success': False,
+                'error': f'Player with ID {player_id} not found'
+            }), 404
+        
+        # Get career stats
+        career_stats = playercareerstats.PlayerCareerStats(player_id=player_id)
+        df_career = career_stats.get_data_frames()[0]
+        
+        # Get the first row - EXACTLY as your DataFrame shows
+        row = df_info.iloc[0]
+        
+        # Helper to convert numpy/pandas types to JSON serializable
+        def clean_value(value):
+            if pd.isna(value):
+                return None
+            # Convert numpy types
+            if hasattr(value, 'item'):
+                return value.item()
+            return value
+        
+        # Extract ALL fields from YOUR EXACT DataFrame
+        player_data = {
+            'PERSON_ID': clean_value(row['PERSON_ID']),
+            'FIRST_NAME': clean_value(row['FIRST_NAME']),
+            'LAST_NAME': clean_value(row['LAST_NAME']),
+            'DISPLAY_FIRST_LAST': clean_value(row['DISPLAY_FIRST_LAST']),
+            'DISPLAY_LAST_COMMA_FIRST': clean_value(row['DISPLAY_LAST_COMMA_FIRST']),
+            'DISPLAY_FI_LAST': clean_value(row['DISPLAY_FI_LAST']),
+            'PLAYER_SLUG': clean_value(row['PLAYER_SLUG']),
+            'BIRTHDATE': clean_value(row['BIRTHDATE']),
+            'SCHOOL': clean_value(row['SCHOOL']),
+            'COUNTRY': clean_value(row['COUNTRY']),
+            'LAST_AFFILIATION': clean_value(row['LAST_AFFILIATION']),
+            'HEIGHT': clean_value(row['HEIGHT']),
+            'WEIGHT': clean_value(row['WEIGHT']),
+            'SEASON_EXP': clean_value(row['SEASON_EXP']),
+            'JERSEY': clean_value(row['JERSEY']),
+            'POSITION': clean_value(row['POSITION']),
+            'ROSTERSTATUS': clean_value(row['ROSTERSTATUS']),
+            'GAMES_PLAYED_CURRENT_SEASON_FLAG': clean_value(row['GAMES_PLAYED_CURRENT_SEASON_FLAG']),
+            'TEAM_ID': clean_value(row['TEAM_ID']),
+            'TEAM_NAME': clean_value(row['TEAM_NAME']),
+            'TEAM_ABBREVIATION': clean_value(row['TEAM_ABBREVIATION']),
+            'TEAM_CODE': clean_value(row['TEAM_CODE']),
+            'TEAM_CITY': clean_value(row['TEAM_CITY']),
+            'PLAYERCODE': clean_value(row['PLAYERCODE']),
+            'FROM_YEAR': clean_value(row['FROM_YEAR']),
+            'TO_YEAR': clean_value(row['TO_YEAR']),
+            'DLEAGUE_FLAG': clean_value(row['DLEAGUE_FLAG']),
+            'NBA_FLAG': clean_value(row['NBA_FLAG']),
+            'GAMES_PLAYED_FLAG': clean_value(row['GAMES_PLAYED_FLAG']),
+            'DRAFT_YEAR': clean_value(row['DRAFT_YEAR']),
+            'DRAFT_ROUND': clean_value(row['DRAFT_ROUND']),
+            'DRAFT_NUMBER': clean_value(row['DRAFT_NUMBER']),
+            'GREATEST_75_FLAG': clean_value(row['GREATEST_75_FLAG'])
+        }
+        
+        # Process career stats if available
+        career_stats_data = []
+        if not df_career.empty:
+            # Get regular season stats (SEASON_ID starting with '2')
+            regular_season = df_career[df_career['SEASON_ID'].astype(str).str.startswith('2')]
+            
+            # Get last 5 seasons
+            for _, season in regular_season.head(5).iterrows():
+                season_dict = {}
+                # Add all columns from the career stats DataFrame
+                for col in df_career.columns:
+                    season_dict[col] = clean_value(season[col])
+                career_stats_data.append(season_dict)
+        
+        # Return the EXACT data from the DataFrame
+        return jsonify({
+            'success': True,
+            'player_info': player_data,
+            'career_stats': career_stats_data[:5] if career_stats_data else [],
+            'has_career_stats': not df_career.empty
+        })
+        
+    except Exception as e:
+        print(f"[PLAYER PROFILE] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'player_id': player_id
+        }), 500
+    
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

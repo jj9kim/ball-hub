@@ -1,5 +1,5 @@
 // assets/components/TeamProfile.tsx
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import TeamProfileTabNavigation from './TeamProfileTabNavigation';
 import OverviewTab from './team profile tabs/OverviewTab'
@@ -46,11 +46,18 @@ const teamIdToName: Record<number, string> = {
 export default function TeamProfile() {
     const { teamId } = useParams<{ teamId: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
     const [teamInfo, setTeamInfo] = useState<TeamBasicInfo | null>(null);
     const [roster, setRoster] = useState<RosterData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<TeamProfileTabType>('overview');
+
+    // Get active tab from URL search params or default to 'overview'
+    const searchParams = new URLSearchParams(location.search);
+    const tabFromUrl = searchParams.get('tab') as TeamProfileTabType;
+    const [activeTab, setActiveTab] = useState<TeamProfileTabType>(
+        tabFromUrl || 'overview'
+    );
 
     useEffect(() => {
         if (teamId) {
@@ -58,8 +65,21 @@ export default function TeamProfile() {
         }
     }, [teamId]);
 
+    // Check if we're returning from a player profile and need to stay on roster tab
+    useEffect(() => {
+        const state = location.state as { fromPlayerProfile?: boolean };
+        if (state?.fromPlayerProfile) {
+            // Set active tab to roster if we're coming from a player profile
+            setActiveTab('roster');
+            // Clear the state to avoid sticking
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location, navigate]);
+
     const handleTabClick = (tabKey: TeamProfileTabType, index: number) => {
         setActiveTab(tabKey);
+        // Update URL with tab parameter when changing tabs
+        navigate(`?tab=${tabKey}`, { replace: true });
     };
 
     const fetchTeamData = async (id: number) => {
