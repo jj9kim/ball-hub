@@ -52,6 +52,16 @@ export default function PlayerProfilePage() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        // Scroll to top when component mounts
+        window.scrollTo(0, 0);
+
+        // Also scroll to top when playerId changes
+        return () => {
+            // Optional: Cleanup if needed
+        };
+    }, [playerId]);
+
+    useEffect(() => {
         fetchPlayerData();
     }, [playerId]);
 
@@ -178,15 +188,15 @@ export default function PlayerProfilePage() {
         <div className="bg-black pt-20 flex justify-center min-h-screen">
             <div className='border-white border-2 w-7/8 h-335'>
                 <div className="flex flex-row mb-3">
-                    <div className='w-3/5 border-2 border-cyan-500 h-100 bg-[#1d1d1d] rounded-2xl mr-2'>
-                        <div className="flex items-center pb-10">
+                    <div className='w-3/5 border-2 border-cyan-500 h-110 bg-[#1d1d1d] rounded-2xl mr-2'>
+                        <div className="flex items-center">
                             <div className='border-2 border-amber-300 w-full rounded-t-2xl'>
-                                <div className='flex flex-row items-center p-4'> 
-                                    <div className="mr-4">
+                                <div className='flex flex-row items-center p-4'>
+                                    <div className="mr-5 ml-3">
                                         <img
                                             src={getPlayerImage()}
                                             alt={playerInfo.DISPLAY_FIRST_LAST}
-                                            className="w-24 h-24 rounded-full object-cover"
+                                            className="w-24 h-24 rounded-2xl object-cover"
                                             onError={(e) => {
                                                 e.currentTarget.style.display = 'none';
                                                 const parent = e.currentTarget.parentElement;
@@ -207,9 +217,9 @@ export default function PlayerProfilePage() {
                                         />
                                     </div>
 
-                                    {/* Player Info - This will now be next to the image */}
-                                    <div className='flex flex-col'>
-                                        <h2 className="text-2xl font-bold text-white mb-2">{playerInfo.DISPLAY_FIRST_LAST}</h2>
+                                    {/* Player Info */}
+                                    <div className='flex flex-col ml-3'>
+                                        <h2 className="text-3xl font-bold text-white whitespace-nowrap">{playerInfo.DISPLAY_FIRST_LAST}</h2>
                                         <div className='flex flex-row items-center'>
                                             <img
                                                 src={getTeamLogo(playerInfo.TEAM_ID)}
@@ -222,18 +232,66 @@ export default function PlayerProfilePage() {
                                                     const parent = e.currentTarget.parentElement;
                                                     if (parent) {
                                                         parent.innerHTML = `
-                            <div class="w-7 h-7 bg-gray-700 rounded-full flex items-center justify-center mr-2">
-                                <span class="text-xs font-bold text-white">${teamAbbreviation.substring(0, 2)}</span>
-                            </div>
-                        `;
+                                <div class="w-7 h-7 bg-gray-700 rounded-full flex items-center justify-center mr-2">
+                                    <span class="text-xs font-bold text-white">${teamAbbreviation.substring(0, 2)}</span>
+                                </div>
+                            `;
                                                     }
                                                 }}
                                             />
                                             <h2 className="text-white font-light">{playerInfo.TEAM_CITY} {playerInfo.TEAM_NAME}</h2>
                                         </div>
                                     </div>
-                                    <button>Follow</button>
+
+                                    {/* Button with ml-auto to push it to the right */}
+                                    <button className='ml-auto bg-white rounded-2xl px-3 py-1 hover:bg-[#dedcdc] mr-7'>
+                                        Follow
+                                    </button>
                                 </div>
+                            </div>
+                        </div>
+                        <div className='border-2 border-red-200 h-77 rounded-b-2xl flex'>
+                            <div className='w-1/2 border-y-2 border-y-amber-900 h-77 border-r-1 border-[#333333]'>
+                                <div className='grid grid-cols-2 gap-4'>
+                                    <div>
+                                        <h2>{formatHeight(playerInfo.HEIGHT)}</h2>
+                                        <h2>Height</h2>
+                                    </div>
+                                    <div>
+                                        <h2>#{playerInfo.JERSEY}</h2>
+                                        <h2>Jersey</h2>
+                                    </div>
+                                    <div>
+                                        <h2>{playerInfo.WEIGHT} lbs</h2>
+                                        <h2>Weight</h2>
+                                    </div>
+                                    <div>
+                                        <h2>{playerInfo.BIRTHDATE ? Math.floor((new Date().getTime() - new Date(playerInfo.BIRTHDATE).getTime()) / (1000 * 60 * 60 * 24 * 365.25)) : 'N/A'} years</h2>
+                                        <h2>{playerInfo.BIRTHDATE ? new Date(playerInfo.BIRTHDATE).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        }) : 'N/A'}</h2>
+                                    </div>
+                                    <div>
+                                        <h2>{playerInfo.COUNTRY}</h2>
+                                        <h2>Country</h2>
+                                    </div>
+                                    <div>
+                                        <h2>{playerInfo.SCHOOL}</h2>
+                                        <h2>College</h2>
+                                    </div>
+                                    <div>{!playerInfo.DRAFT_NUMBER || String(playerInfo.DRAFT_NUMBER).toLowerCase() === 'undrafted' ? (
+                                        <h2>Undrafted</h2>
+                                    ) : (
+                                        <h2>Round {playerInfo.DRAFT_ROUND} Pick {playerInfo.DRAFT_NUMBER}, {playerInfo.DRAFT_YEAR}</h2>
+                                    )}
+                                        <h2>Draft</h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className='w-1/2 border-y-2 border-y-teal-600 h-77'>
+
                             </div>
                         </div>
                     </div>

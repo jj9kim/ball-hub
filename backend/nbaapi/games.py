@@ -8,6 +8,8 @@ from nba_api.stats.endpoints import leaguestandings
 from nba_api.stats.endpoints import commonteamroster
 import requests
 import numpy as np
+import time
+import random
 
 app = Flask(__name__)
 CORS(app, 
@@ -20,6 +22,36 @@ CORS(app,
 # Create the boxscore client instance
 boxscore_client = get_boxscore_client()
 
+# ========== SIMPLE FIXES ==========
+
+def safe_nba_call(api_func, *args, **kwargs):
+    """Simple wrapper with retry logic for NBA API calls"""
+    max_retries = 3
+    last_error = None
+    
+    # Add timeout and headers if not provided
+    if 'timeout' not in kwargs:
+        kwargs['timeout'] = 30
+    if 'headers' not in kwargs:
+        kwargs['headers'] = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.nba.com/'
+        }
+    
+    for attempt in range(max_retries):
+        try:
+            return api_func(*args, **kwargs)
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                wait_time = (2 ** attempt) + random.uniform(0, 1)
+                print(f"[NBA API] Attempt {attempt + 1} failed: {e}. Retrying in {wait_time:.1f}s...")
+                time.sleep(wait_time)
+    
+    raise last_error
+
 @app.route('/api/nba-games', methods=['GET'])
 def get_nba_games_fixed():
     try:
@@ -27,10 +59,16 @@ def get_nba_games_fixed():
         pd.set_option('display.max_columns', None)
         
         print("[DEBUG] Fetching games from NBA API...")
-        gamefinder = leaguegamefinder.LeagueGameFinder(league_id_nullable='00')
+        # Use safe wrapper
+        gamefinder = safe_nba_call(
+            leaguegamefinder.LeagueGameFinder,
+            league_id_nullable='00',
+            timeout=60
+        )
         games = gamefinder.get_data_frames()[0]
         print(f"[DEBUG] Total games fetched: {len(games)}")
         
+        # ... REST OF YOUR ORIGINAL CODE EXACTLY AS YOU HAD IT ...
         # Check what season IDs we have
         print(f"[DEBUG] Unique season IDs: {games['SEASON_ID'].unique()[:10]}")
         
@@ -389,11 +427,6 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'service': 'nba_games_api',
-        'endpoints': {
-            'games': '/api/nba-games',
-            'boxscore': '/api/game/<id>/boxscore',
-            'simple_boxscore': '/api/game/<id>/simple-boxscore'
-        },
         'timestamp': pd.Timestamp.now().isoformat()
     })
 
@@ -482,10 +515,12 @@ def get_standings():
         
         print(f"[STANDINGS] Fetching standings for season: {season}")
         
-        # Get standings from NBA API
-        standings_data = leaguestandings.LeagueStandings(
+        # Use safe wrapper for NBA API call
+        standings_data = safe_nba_call(
+            leaguestandings.LeagueStandings,
             league_id=league_id,
-            season=season
+            season=season,
+            timeout=60
         )
         
         # Get the DataFrame
@@ -593,9 +628,12 @@ def get_simple_standings():
     try:
         season = request.args.get('season', '2025-26')
         
-        standings_data = leaguestandings.LeagueStandings(
+        # Use safe wrapper
+        standings_data = safe_nba_call(
+            leaguestandings.LeagueStandings,
             league_id='00',
-            season=season
+            season=season,
+            timeout=60
         )
         
         df_standings = standings_data.get_data_frames()[0]
@@ -669,9 +707,12 @@ def get_minimal_standings():
     try:
         season = request.args.get('season', '2025-26')
         
-        standings_data = leaguestandings.LeagueStandings(
+        # Use safe wrapper
+        standings_data = safe_nba_call(
+            leaguestandings.LeagueStandings,
             league_id='00',
-            season=season
+            season=season,
+            timeout=60
         )
         
         df_standings = standings_data.get_data_frames()[0]
@@ -756,11 +797,34 @@ def get_team_roster(team_id):
         
         print(f"[ROSTER] Fetching roster for team {team_id}, season {season}")
         
-        # Get roster data
-        roster_data = commonteamroster.CommonTeamRoster(
-            team_id=team_id,
-            season=season
-        )
+        # Get roster data with retry logic
+        max_retries = 3
+        roster_data = None
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"[ROSTER] Attempt {attempt + 1}...")
+                roster_data = commonteamroster.CommonTeamRoster(
+                    team_id=team_id,
+                    season=season,
+                    timeout=60,
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept': 'application/json, text/plain, */*',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Referer': 'https://www.nba.com/'
+                    }
+                )
+                # Success - break out of retry loop
+                break
+            except Exception as e:
+                print(f"[ROSTER] Attempt {attempt + 1} failed: {e}")
+                if attempt == max_retries - 1:
+                    raise e
+                # Wait before retrying
+                wait_time = (2 ** attempt) + random.uniform(0, 1)
+                print(f"[ROSTER] Waiting {wait_time:.1f} seconds before retry...")
+                time.sleep(wait_time)
         
         # Get the dataframes
         df_roster = roster_data.get_data_frames()[0]  # Players
@@ -950,7 +1014,11 @@ def get_player_profile(player_id):
         print(f"[PLAYER PROFILE] Fetching profile for player ID: {player_id}")
         
         # Get player info - EXACTLY as you showed
-        player_info = commonplayerinfo.CommonPlayerInfo(player_id=player_id)
+        player_info = safe_nba_call(
+            commonplayerinfo.CommonPlayerInfo,
+            player_id=player_id,
+            timeout=45
+        )
         df_info = player_info.get_data_frames()[0]
         
         if df_info.empty:
@@ -960,7 +1028,11 @@ def get_player_profile(player_id):
             }), 404
         
         # Get career stats
-        career_stats = playercareerstats.PlayerCareerStats(player_id=player_id)
+        career_stats = safe_nba_call(
+            playercareerstats.PlayerCareerStats,
+            player_id=player_id,
+            timeout=45
+        )
         df_career = career_stats.get_data_frames()[0]
         
         # Get the first row - EXACTLY as your DataFrame shows

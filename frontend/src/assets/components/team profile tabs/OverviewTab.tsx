@@ -55,6 +55,16 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        // Scroll to top when component mounts
+        window.scrollTo(0, 0);
+
+        // Also scroll to top when playerId changes
+        return () => {
+            // Optional: Cleanup if needed
+        };
+    });
+
+    useEffect(() => {
         fetchStandings();
     }, []);
 

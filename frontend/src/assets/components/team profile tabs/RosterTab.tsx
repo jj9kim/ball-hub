@@ -1,4 +1,5 @@
 // assets/components/teamprofile/tabs/TeamRosterTab.tsx
+import { useEffect } from 'react';
 import type { Player, Coach } from './types';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,6 +16,16 @@ interface TeamRosterTabProps {
 
 export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabProps) {
     const navigate = useNavigate();
+
+    useEffect(() => {
+            // Scroll to top when component mounts
+            window.scrollTo(0, 0);
+    
+            // Also scroll to top when playerId changes
+            return () => {
+                // Optional: Cleanup if needed
+            };
+        });
 
     // Normalize position to G, F, or C
     const normalizePosition = (position: string): string => {
