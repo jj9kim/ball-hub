@@ -1,6 +1,46 @@
 // assets/components/playerprofile/PlayerProfilePage.tsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getTeamFullName } from '../../utils/teamMappings';
+
+// Raw data interface - EXACT column names from NBA API
+interface RawCareerData {
+    PLAYER_ID: number;
+    SEASON_ID: string;
+    LEAGUE_ID: string;
+    TEAM_ID: number;
+    TEAM_ABBREVIATION: string;
+    PLAYER_AGE: number | null;
+    GP: number;
+    GS: number;
+    MIN: number;
+    FGM: number;
+    FGA: number;
+    FG_PCT: number;
+    FG3M: number;
+    FG3A: number;
+    FG3_PCT: number;
+    FTM: number;
+    FTA: number;
+    FT_PCT: number;
+    OREB: number;
+    DREB: number;
+    REB: number;
+    AST: number;
+    STL: number;
+    BLK: number;
+    TOV: number;
+    PF: number;
+    PTS: number;
+}
+
+interface RawCareerResponse {
+    success: boolean;
+    player_id: string;
+    raw_data: RawCareerData[];  // RAW data, no changes
+    columns: string[];  // All column names
+    row_count: number;
+}
 
 // API RESPONSE INTERFACE - ONLY PLAYER INFO (no career stats)
 interface ApiPlayerInfo {
@@ -45,11 +85,13 @@ interface ApiResponse {
 }
 
 export default function PlayerProfilePage() {
+    const [rawCareerData, setRawCareerData] = useState<RawCareerResponse | null>(null);
     const { playerId, playerName } = useParams<{ playerId: string; playerName: string }>();
     const navigate = useNavigate();
     const [playerInfo, setPlayerInfo] = useState<ApiPlayerInfo | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'team' | 'season'>('team');
 
     useEffect(() => {
         // Scroll to top when component mounts
@@ -68,22 +110,39 @@ export default function PlayerProfilePage() {
     const fetchPlayerData = async () => {
         try {
             setLoading(true);
+            setError(null);
             console.log('Fetching player data for ID:', playerId);
 
-            const response = await fetch(`http://127.0.0.1:5000/api/player/${playerId}/profile`);
+            // Fetch player profile
+            const profileResponse = await fetch(`http://127.0.0.1:5000/api/player/${playerId}/profile`);
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            if (!profileResponse.ok) {
+                throw new Error(`Failed to fetch player profile: HTTP ${profileResponse.status}`);
             }
 
-            const data: ApiResponse = await response.json();
-            console.log('Player data received:', data);
+            const profileData: ApiResponse = await profileResponse.json();
+            console.log('Player profile data:', profileData);
 
-            if (data.success) {
-                setPlayerInfo(data.player_info);
+            if (profileData.success) {
+                setPlayerInfo(profileData.player_info);
             } else {
-                setError('Failed to load player data');
+                throw new Error('Failed to load player profile');
             }
+
+            // Fetch RAW career data
+            const rawResponse = await fetch(`http://127.0.0.1:5000/api/player/${playerId}/career-stats`);
+
+            if (rawResponse.ok) {
+                const rawData: RawCareerResponse = await rawResponse.json();
+                console.log('RAW career data:', rawData);
+
+                if (rawData.success) {
+                    setRawCareerData(rawData);
+                }
+            } else {
+                console.log('No career data available');
+            }
+
         } catch (err) {
             console.error('Error fetching player data:', err);
             setError(err instanceof Error ? err.message : 'Failed to fetch player data');
@@ -134,9 +193,14 @@ export default function PlayerProfilePage() {
         return 'bg-gray-500/20 text-gray-400';
     };
 
-    const formatWeight = (weight: string | number): string => {
-        if (!weight) return 'N/A';
-        return `${weight} lbs`;
+    const formatSeasonId = (seasonId: string): string => {
+        if (!seasonId || seasonId.length !== 5) return seasonId;
+
+        // Convert "22023" to "2023-24"
+        const year = seasonId.substring(1); // "2023"
+        const nextYear = (parseInt(year) + 1).toString().substring(2); // "24"
+
+        return `${year}-${nextYear}`;
     };
 
     if (loading) {
@@ -252,41 +316,41 @@ export default function PlayerProfilePage() {
                         </div>
                         <div className='border-2 border-red-200 h-77 rounded-b-2xl flex'>
                             <div className='w-1/2 border-y-2 border-y-amber-900 h-77 border-r-1 border-[#333333]'>
-                                <div className='grid grid-cols-2 gap-4 text-sm'>
-                                    <div className='w-36 border-b-1 ml-5 text-white border-[#333333] mt-5'>
+                                <div className='grid grid-cols-2 gap-4'>
+                                    <div className='w-41 border-b-1 ml-4 text-white border-[#333333] mt-5'>
                                         <h2>{formatHeight(playerInfo.HEIGHT)}</h2>
-                                        <h2 className='mb-2 text-[#9f9f9f]'>Height</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f] text-sm'>Height</h2>
                                     </div>
-                                    <div className='w-36 border-b-1 text-white border-[#333333] mt-5'>
+                                    <div className='w-41 border-b-1 text-white border-[#333333] mt-5'>
                                         <h2>#{playerInfo.JERSEY}</h2>
-                                        <h2 className='mb-2 text-[#9f9f9f]'>Jersey</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f] text-sm'>Jersey</h2>
                                     </div>
-                                    <div className='w-36 border-b-1 ml-5 text-white border-[#333333]'>
+                                    <div className='w-41 border-b-1 ml-4 text-white border-[#333333]'>
                                         <h2>{playerInfo.WEIGHT} lbs</h2>
-                                        <h2 className='mb-2 text-[#9f9f9f]'>Weight</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f] text-sm'>Weight</h2>
                                     </div>
-                                    <div className='w-36 border-b-1 text-white border-[#333333]'>
+                                    <div className='w-41 border-b-1 text-white border-[#333333]'>
                                         <h2>{playerInfo.BIRTHDATE ? Math.floor((new Date().getTime() - new Date(playerInfo.BIRTHDATE).getTime()) / (1000 * 60 * 60 * 24 * 365.25)) : 'N/A'} years</h2>
-                                        <h2 className='mb-2 text-[#9f9f9f]'>{playerInfo.BIRTHDATE ? new Date(playerInfo.BIRTHDATE).toLocaleDateString('en-US', {
+                                        <h2 className='mb-2 text-[#9f9f9f] text-sm'>{playerInfo.BIRTHDATE ? new Date(playerInfo.BIRTHDATE).toLocaleDateString('en-US', {
                                             year: 'numeric',
                                             month: 'long',
                                             day: 'numeric'
                                         }) : 'N/A'}</h2>
                                     </div>
-                                    <div className='w-36 border-b-1 ml-5 text-white border-[#333333]'>
+                                    <div className='w-41 border-b-1 ml-4 text-white border-[#333333]'>
                                         <h2>{playerInfo.COUNTRY}</h2>
-                                        <h2 className='mb-2 text-[#9f9f9f]'>Country</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f] text-sm'>Country</h2>
                                     </div>
-                                    <div className='w-36 border-b-1 text-white border-[#333333]'>
+                                    <div className='w-41 border-b-1 text-white border-[#333333]'>
                                         <h2>{playerInfo.SCHOOL}</h2>
-                                        <h2 className='mb-2 text-[#9f9f9f]'>College</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f] text-sm'>College</h2>
                                     </div>
-                                    <div className='w-36 border-b-1 ml-5 text-white border-[#333333]'>{!playerInfo.DRAFT_NUMBER || String(playerInfo.DRAFT_NUMBER).toLowerCase() === 'undrafted' ? (
+                                    <div className='w-41 ml-4 text-white border-[#333333]'>{!playerInfo.DRAFT_NUMBER || String(playerInfo.DRAFT_NUMBER).toLowerCase() === 'undrafted' ? (
                                         <h2>Undrafted</h2>
                                     ) : (
                                         <h2>Round {playerInfo.DRAFT_ROUND} Pick {playerInfo.DRAFT_NUMBER}, {playerInfo.DRAFT_YEAR}</h2>
                                     )}
-                                        <h2 className='mb-2 text-[#9f9f9f]'>Draft</h2>
+                                        <h2 className='text-[#9f9f9f] text-sm'>Draft</h2>
                                     </div>
                                 </div>
                             </div>
@@ -323,8 +387,177 @@ export default function PlayerProfilePage() {
                             </div>
                         </div>
                     </div>
-                    <div className='w-2/5 border-2 border-cyan-700 h-50 bg-[#1d1d1d] rounded-2xl ml-2'>
+                    <div
+                        className={`w-2/5 bg-[#1d1d1d] rounded-2xl ml-2 border-2 border-cyan-700 ${activeTab === 'season' && rawCareerData
+                            ? `h-auto min-h-0`
+                            : 'h-auto'
+                            }`}
+                        style={
+                            activeTab === 'season' && rawCareerData
+                                ? {
+                                    height: 'auto', // Force auto height
+                                    minHeight: '0px', // Remove min-height
+                                }
+                                : {}
+                        }
+                    >
+                        <div className='border-b-1 w-full border-[#333333]'>
+                            <h1 className='text-white text-xl ml-7 my-5'>Career</h1>
+                        </div>
 
+                        {/* Tab Navigation Container - FIXED HEIGHT */}
+                        <div className="w-full relative" style={{ height: '48px' }}>
+                            <div className='flex relative pl-5'>
+                                <button
+                                    className={`relative px-4 py-2 transition-colors duration-200 z-10 ${activeTab === 'team'
+                                        ? 'text-white font-medium'
+                                        : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
+                                        }`}
+                                    onClick={() => setActiveTab('team')}
+                                >
+                                    Team
+                                </button>
+                                <button
+                                    className={`relative px-4 py-2 transition-colors duration-200 z-10 ${activeTab === 'season'
+                                        ? 'text-[white] font-medium'
+                                        : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
+                                        }`}
+                                    onClick={() => setActiveTab('season')}
+                                >
+                                    Season
+                                </button>
+
+                                <div
+                                    className="absolute bottom-0 h-1 rounded-t-full bg-[#62df6e] transition-all duration-300 ease-out"
+                                    style={{
+                                        width: activeTab === 'team' ? '51px' : '70px',
+                                        left: activeTab === 'team' ? '33px' : '102px',
+                                    }}
+                                />
+                            </div>
+
+                            <div className='flex justify-between ml-4 rounded-t-full'>
+                                <div className='border-2 border-white opacity-0 flex-1' />
+                                <div className='border-2 border-white opacity-0 flex-1' />
+                            </div>
+                        </div>
+
+                        {/* Tab Content */}
+                        {activeTab === 'team' && (
+                            <div className="p-8 text-center text-gray-500">
+                                {/* Nothing shows up here */}
+                            </div>
+                        )}
+
+                        {activeTab === 'season' && rawCareerData && (
+                            <div className='ml-5 mr-5 pb-5'>
+                                <table className="min-w-full text-white">
+                                    <thead>
+                                        <tr className="border-b border-gray-700">
+                                            <th className="py-3 px-1 text-left w-2/5">SEASON</th>
+                                            <th className="py-3 pl-3 text-left w-1/10">GP</th>
+                                            <th className="py-3 px-2 text-left w-1/10">PTS</th>
+                                            <th className="py-3 px-2 text-left w-1/10">REB</th>
+                                            <th className="py-3 px-2 text-left w-1/10">AST</th>
+                                            <th className="py-3 px-2 text-left w-1/10">BLK</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(() => {
+                                            const filteredSeasons = rawCareerData.raw_data
+                                                .filter(row =>
+                                                    row.SEASON_ID &&
+                                                    row.SEASON_ID.toString().startsWith('2') &&
+                                                    row.TEAM_ABBREVIATION !== 'TOT'
+                                                )
+                                                .reverse();
+
+                                            if (filteredSeasons.length === 0) {
+                                                return (
+                                                    <tr>
+                                                        <td colSpan={6} className="py-4 text-center text-gray-400">
+                                                            No season data available
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }
+
+                                            return filteredSeasons.map((row, index) => (
+                                                <tr key={index} className="border-b border-gray-800 hover:bg-gray-800/30">
+                                                    {/* TEAM Column - ALL ON ONE LINE */}
+                                                    <td className="py-2 px-1">
+                                                        <div className="flex items-center space-x-2">
+                                                            {/* Team Logo - smaller */}
+                                                            <div className="w-5 h-5 flex-shrink-0">
+                                                                <img
+                                                                    src={`http://127.0.0.1:5000/api/team-logo/${row.TEAM_ID}`}
+                                                                    alt={row.TEAM_ABBREVIATION}
+                                                                    className="w-full h-full object-contain"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.style.display = 'none';
+                                                                        const parent = e.currentTarget.parentElement;
+                                                                        if (parent) {
+                                                                            parent.innerHTML = `
+                                                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                                                            <span class="text-[9px] font-bold text-white">
+                                                                ${row.TEAM_ABBREVIATION.substring(0, 2)}
+                                                            </span>
+                                                        </div>
+                                                    `;
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            {/* Team abbreviation and season on ONE LINE */}
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-medium whitespace-nowrap">
+                                                                    {getTeamFullName(row.TEAM_ABBREVIATION)}
+                                                                </span>
+                                                                <span className="text-xs text-gray-400">
+                                                                    {formatSeasonId(row.SEASON_ID)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Stats Columns - ALL EQUAL */}
+                                                    <td className="py-2 px-1">
+                                                        <div className="text-center">
+                                                            <div className="text-xs font-medium">{row.GP}</div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="py-2 px-1">
+                                                        <div className="text-center">
+                                                            <div className="text-xs font-medium">{row.PTS}</div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="py-2 px-1">
+                                                        <div className="text-center">
+                                                            <div className="text-xs font-medium">{row.REB}</div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="py-2 px-1">
+                                                        <div className="text-center">
+                                                            <div className="text-xs font-medium">{row.AST}</div>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="py-2 px-1">
+                                                        <div className="text-center">
+                                                            <div className="text-xs font-medium">{row.BLK}</div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ));
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -6,10 +6,15 @@ from nba_api.stats.endpoints import leaguegamefinder
 from nba_boxscore_safe import get_boxscore_client  # Import the client
 from nba_api.stats.endpoints import leaguestandings
 from nba_api.stats.endpoints import commonteamroster
+from nba_api.stats.endpoints import playercareerstats
 import requests
 import numpy as np
 import time
 import random
+import pickle
+import os
+from datetime import datetime, timedelta
+from functools import wraps
 
 app = Flask(__name__)
 CORS(app, 
@@ -24,6 +29,114 @@ boxscore_client = get_boxscore_client()
 
 # ========== SIMPLE FIXES ==========
 
+def safe_nba_call(api_func, *args, **kwargs):
+    """Simple wrapper with retry logic for NBA API calls"""
+    max_retries = 3
+    last_error = None
+    
+    # Add timeout and headers if not provided
+    if 'timeout' not in kwargs:
+        kwargs['timeout'] = 30
+    if 'headers' not in kwargs:
+        kwargs['headers'] = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.nba.com/'
+        }
+    
+    for attempt in range(max_retries):
+        try:
+            return api_func(*args, **kwargs)
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                wait_time = (2 ** attempt) + random.uniform(0, 1)
+                print(f"[NBA API] Attempt {attempt + 1} failed: {e}. Retrying in {wait_time:.1f}s...")
+                time.sleep(wait_time)
+    
+    raise last_error
+
+# Rate limiting decorator
+def rate_limit_decorator(func):
+    """Decorator for rate limiting"""
+    request_times = {}
+    
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        ip = request.remote_addr
+        current_time = time.time()
+        
+        # Clean old requests
+        if ip in request_times:
+            request_times[ip] = [t for t in request_times[ip] if current_time - t < 60]  # 60 second window
+        else:
+            request_times[ip] = []
+        
+        # Check rate limit
+        if len(request_times[ip]) >= 100:  # 100 requests per minute
+            return jsonify({
+                'success': False,
+                'error': 'Rate limit exceeded',
+                'message': 'Please wait 60 seconds before making more requests',
+                'timestamp': datetime.now().isoformat()
+            }), 429
+        
+        # Add current request
+        request_times[ip].append(current_time)
+        
+        return func(*args, **kwargs)
+    
+    return wrapper
+
+# Caching function
+CACHE_DIR = 'nba_cache'
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def cached_nba_data(cache_key, fetch_func, cache_minutes=30, force_refresh=False):
+    """
+    Cache NBA data to avoid repeated API calls
+    """
+    cache_file = os.path.join(CACHE_DIR, f"{cache_key}.pkl")
+    
+    # Check if we should force refresh
+    if not force_refresh and os.path.exists(cache_file):
+        file_age = datetime.now() - datetime.fromtimestamp(os.path.getmtime(cache_file))
+        if file_age < timedelta(minutes=cache_minutes):
+            print(f"[CACHE] Loading from cache: {cache_key}")
+            try:
+                with open(cache_file, 'rb') as f:
+                    return pickle.load(f)
+            except Exception as e:
+                print(f"[CACHE] Error loading cache {cache_key}: {e}")
+                # Continue to fetch fresh data
+    
+    # Fetch fresh data
+    print(f"[CACHE] Fetching fresh data: {cache_key}")
+    try:
+        data = fetch_func()
+        
+        # Save to cache
+        try:
+            with open(cache_file, 'wb') as f:
+                pickle.dump(data, f)
+            print(f"[CACHE] Saved to cache: {cache_key}")
+        except Exception as e:
+            print(f"[CACHE] Error saving cache {cache_key}: {e}")
+        
+        return data
+    except Exception as e:
+        # If fetch fails but we have stale cache, use it
+        if os.path.exists(cache_file) and cache_minutes < 1440:  # Less than 24 hours old
+            try:
+                print(f"[CACHE] Using stale cache due to fetch error: {cache_key}")
+                with open(cache_file, 'rb') as f:
+                    return pickle.load(f)
+            except:
+                pass
+        raise e
+
+# Safe NBA API call function (you might already have this, but here's a version if not)
 def safe_nba_call(api_func, *args, **kwargs):
     """Simple wrapper with retry logic for NBA API calls"""
     max_retries = 3
@@ -1110,6 +1223,62 @@ def get_player_profile(player_id):
         print(f"[PLAYER PROFILE] Error: {str(e)}")
         import traceback
         traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'player_id': player_id
+        }), 500
+    
+@app.route('/api/player/<player_id>/career-stats', methods=['GET'])
+@rate_limit_decorator
+def get_player_career_stats(player_id):
+    """Get RAW career statistics for a player - NO CHANGES"""
+    try:
+        print(f"[CAREER STATS RAW] Fetching raw career stats for player ID: {player_id}")
+        
+        # Get the raw data
+        career = playercareerstats.PlayerCareerStats(
+            player_id=player_id,
+            timeout=60,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Referer': 'https://www.nba.com/'
+            }
+        )
+        
+        # Get the raw DataFrame
+        df_raw = career.get_data_frames()[0]
+        
+        print(f"[CAREER STATS RAW] Raw DataFrame shape: {df_raw.shape}")
+        print(f"[CAREER STATS RAW] Columns: {list(df_raw.columns)}")
+        
+        if df_raw.empty:
+            return jsonify({
+                'success': False,
+                'error': f'Career stats not found for player ID {player_id}'
+            }), 404
+        
+        # Convert to list of dictionaries - EXACTLY as they are
+        raw_data = []
+        for _, row in df_raw.iterrows():
+            row_dict = {}
+            for col in df_raw.columns:
+                # Keep everything exactly as it is
+                row_dict[col] = row[col] if not pd.isna(row[col]) else None
+            raw_data.append(row_dict)
+        
+        # Return RAW data - no processing, no categorizing
+        return jsonify({
+            'success': True,
+            'player_id': player_id,
+            'raw_data': raw_data,  # ALL rows, ALL columns, exactly as they come
+            'columns': list(df_raw.columns),  # All 27 column names
+            'row_count': len(raw_data)
+        })
+        
+    except Exception as e:
+        print(f"[CAREER STATS RAW] Error: {e}")
         return jsonify({
             'success': False,
             'error': str(e),
