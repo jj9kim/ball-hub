@@ -252,50 +252,79 @@ export default function PlayerProfilePage() {
                         </div>
                         <div className='border-2 border-red-200 h-77 rounded-b-2xl flex'>
                             <div className='w-1/2 border-y-2 border-y-amber-900 h-77 border-r-1 border-[#333333]'>
-                                <div className='grid grid-cols-2 gap-4'>
-                                    <div>
+                                <div className='grid grid-cols-2 gap-4 text-sm'>
+                                    <div className='w-36 border-b-1 ml-5 text-white border-[#333333] mt-5'>
                                         <h2>{formatHeight(playerInfo.HEIGHT)}</h2>
-                                        <h2>Height</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f]'>Height</h2>
                                     </div>
-                                    <div>
+                                    <div className='w-36 border-b-1 text-white border-[#333333] mt-5'>
                                         <h2>#{playerInfo.JERSEY}</h2>
-                                        <h2>Jersey</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f]'>Jersey</h2>
                                     </div>
-                                    <div>
+                                    <div className='w-36 border-b-1 ml-5 text-white border-[#333333]'>
                                         <h2>{playerInfo.WEIGHT} lbs</h2>
-                                        <h2>Weight</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f]'>Weight</h2>
                                     </div>
-                                    <div>
+                                    <div className='w-36 border-b-1 text-white border-[#333333]'>
                                         <h2>{playerInfo.BIRTHDATE ? Math.floor((new Date().getTime() - new Date(playerInfo.BIRTHDATE).getTime()) / (1000 * 60 * 60 * 24 * 365.25)) : 'N/A'} years</h2>
-                                        <h2>{playerInfo.BIRTHDATE ? new Date(playerInfo.BIRTHDATE).toLocaleDateString('en-US', {
+                                        <h2 className='mb-2 text-[#9f9f9f]'>{playerInfo.BIRTHDATE ? new Date(playerInfo.BIRTHDATE).toLocaleDateString('en-US', {
                                             year: 'numeric',
                                             month: 'long',
                                             day: 'numeric'
                                         }) : 'N/A'}</h2>
                                     </div>
-                                    <div>
+                                    <div className='w-36 border-b-1 ml-5 text-white border-[#333333]'>
                                         <h2>{playerInfo.COUNTRY}</h2>
-                                        <h2>Country</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f]'>Country</h2>
                                     </div>
-                                    <div>
+                                    <div className='w-36 border-b-1 text-white border-[#333333]'>
                                         <h2>{playerInfo.SCHOOL}</h2>
-                                        <h2>College</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f]'>College</h2>
                                     </div>
-                                    <div>{!playerInfo.DRAFT_NUMBER || String(playerInfo.DRAFT_NUMBER).toLowerCase() === 'undrafted' ? (
+                                    <div className='w-36 border-b-1 ml-5 text-white border-[#333333]'>{!playerInfo.DRAFT_NUMBER || String(playerInfo.DRAFT_NUMBER).toLowerCase() === 'undrafted' ? (
                                         <h2>Undrafted</h2>
                                     ) : (
                                         <h2>Round {playerInfo.DRAFT_ROUND} Pick {playerInfo.DRAFT_NUMBER}, {playerInfo.DRAFT_YEAR}</h2>
                                     )}
-                                        <h2>Draft</h2>
+                                        <h2 className='mb-2 text-[#9f9f9f]'>Draft</h2>
                                     </div>
                                 </div>
                             </div>
-                            <div className='w-1/2 border-y-2 border-y-teal-600 h-77'>
+                            <div className='w-1/2 border-y-2 border-y-teal-600 h-77 flex'>
+                                <div className='mt-5'>
+                                    <h2 className='ml-5 text-white font-bold text-sm'>Position</h2>
+                                </div>
+                                <div className="relative h-50 bg-[#1d1d1d] ml-15 mt-10 rounded-[7px] w-50 overflow-hidden">
+                                    <div className="relative h-full bg-[#2c2c2c]">
+                                        {/* Court Base */}
+                                        <div className="absolute inset-0 bg-[#2c2c2c]"></div>
 
+                                        {/* Baseline */}
+                                        <div className="absolute top-0 left-0 right-0 h-1 bg-[#343434]"></div>
+
+                                        {/* Three-Point Line */}
+                                        <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
+                                            <div className="w-[160px] h-[125px] border-4 border-[#343434] 
+                        rounded-b-full rounded-l-2xl border-t-0"></div>
+                                        </div>
+
+                                        {/* Key/Paint Area */}
+                                        <div className="absolute top-0 left-33/100 right-33/100 h-8/20 
+                      border-x-4 border-[#343434]"></div>
+
+                                        {/* Free Throw Line */}
+                                        <div className="absolute top-8/20 left-33/100 right-33/100 h-1 bg-[#343434]"></div>
+
+                                        {/* Free Throw Circle */}
+                                        <div className="absolute top-31/100 left-1/2 w-10 h-10 border-4 
+                      border-[#343434] rounded-full transform -translate-x-1/2"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div className='w-2/5 border-2 border-cyan-700 h-50 bg-[#1d1d1d] rounded-2xl ml-2'>
+
                     </div>
                 </div>
             </div>
