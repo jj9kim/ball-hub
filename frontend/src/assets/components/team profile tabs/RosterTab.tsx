@@ -40,7 +40,7 @@ export default function TeamRosterTab({ roster, error, onRetry }: TeamRosterTabP
             if (posUpper.includes('G-F') || posUpper.includes('F-G')) {
                 // G-F goes to F, F-G goes to G
                 if (posUpper.includes('G-F')) return 'F';
-                if (posUpper.includes('F-G')) return 'G';
+                if (posUpper.includes('F-G')) return 'F';
             }
             return 'G';
         }
