@@ -392,6 +392,20 @@ export default function PlayerProfilePage() {
         return { value: formattedAverage, bg: colorClass };
     };
 
+    const getCurrentSeasonRating = () => {
+        if (!gameLogs || gameLogs.length === 0) return null;
+
+        const totalRating = gameLogs.reduce((sum, game) => sum + (game.rating || 0), 0);
+        const average = totalRating / gameLogs.length;
+
+        return {
+            value: average.toFixed(2),
+            color: average >= 7 ? 'bg-[#32c771] text-black' :
+                average >= 5 ? 'bg-orange-500 text-black' :
+                    'bg-red-500 text-black'
+        };
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-[#0f0f0f] p-6">
@@ -760,87 +774,97 @@ export default function PlayerProfilePage() {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {gameLogs.slice(currentPage * 10, (currentPage + 1) * 10).map((game, index) => (
-                                                        <tr key={index} className="border-b border-gray-800 hover:bg-gray-800/30">
-                                                            {/* Date */}
-                                                            <td className="py-2 px-2 text-xs">
-                                                                {new Date(game.GAME_DATE).toLocaleDateString('en-US', {
-                                                                    month: 'short',
-                                                                    day: 'numeric',
-                                                                    year: 'numeric'
-                                                                })}
-                                                            </td>
+                                                    {gameLogs.slice(currentPage * 10, (currentPage + 1) * 10).map((game, index) => {
+                                                        // Format date for URL
+                                                        const gameDate = new Date(game.GAME_DATE);
+                                                        const formattedDate = `${gameDate.getFullYear()}-${String(gameDate.getMonth() + 1).padStart(2, '0')}-${String(gameDate.getDate()).padStart(2, '0')}`;
 
-                                                            {/* Opponent */}
-                                                            <td className="py-2 px-2 text-xs">
-                                                                {game.MATCHUP}
-                                                            </td>
+                                                        return (
+                                                            <tr
+                                                                key={index}
+                                                                className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer transition-colors duration-150"
+                                                                onClick={() => navigate(`/${formattedDate}/game/${game.Game_ID}`)}
+                                                            >
+                                                                {/* Date */}
+                                                                <td className="py-2 px-2 text-xs">
+                                                                    {gameDate.toLocaleDateString('en-US', {
+                                                                        month: 'short',
+                                                                        day: 'numeric',
+                                                                        year: 'numeric'
+                                                                    })}
+                                                                </td>
 
-                                                            {/* Result */}
-                                                            <td className="py-2 px-2 text-center">
-                                                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${game.WL === 'W' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                                                                    }`}>
-                                                                    {game.WL}
-                                                                </span>
-                                                            </td>
+                                                                {/* Opponent */}
+                                                                <td className="py-2 px-2 text-xs">
+                                                                    {game.MATCHUP}
+                                                                </td>
 
-                                                            {/* Minutes */}
-                                                            <td className="py-2 px-2 text-center text-xs">
-                                                                {game.MIN}
-                                                            </td>
-
-                                                            {/* Points */}
-                                                            <td className="py-2 px-2 text-center text-xs font-semibold">
-                                                                {game.PTS}
-                                                            </td>
-
-                                                            {/* Rebounds */}
-                                                            <td className="py-2 px-2 text-center text-xs">
-                                                                {game.REB}
-                                                            </td>
-
-                                                            {/* Assists */}
-                                                            <td className="py-2 px-2 text-center text-xs">
-                                                                {game.AST}
-                                                            </td>
-
-                                                            {/* Steals */}
-                                                            <td className="py-2 px-2 text-center text-xs">
-                                                                {game.STL}
-                                                            </td>
-
-                                                            {/* Blocks */}
-                                                            <td className="py-2 px-2 text-center text-xs">
-                                                                {game.BLK}
-                                                            </td>
-
-                                                            {/* Turnovers */}
-                                                            <td className="py-2 px-2 text-center text-xs">
-                                                                {game.TOV}
-                                                            </td>
-
-                                                            {/* Plus/Minus */}
-                                                            <td className={`py-2 px-2 text-center text-xs ${game.PLUS_MINUS > 0 ? 'text-green-400' :
-                                                                game.PLUS_MINUS < 0 ? 'text-red-400' : 'text-gray-400'
-                                                                }`}>
-                                                                {game.PLUS_MINUS > 0 ? `+${game.PLUS_MINUS}` : game.PLUS_MINUS}
-                                                            </td>
-
-                                                            {/* Rating */}
-                                                            <td className="py-2 px-2 text-center">
-                                                                {game.rating !== undefined ? (
-                                                                    <div className={`inline-block px-2 py-1 rounded text-xs text-black ${game.rating >= 7 ? 'bg-[#32c771]' :
-                                                                        game.rating >= 5 ? 'bg-orange-500' :
-                                                                            game.rating < 5 ? 'bg-red-500' : ''
+                                                                {/* Result */}
+                                                                <td className="py-2 px-2 text-center">
+                                                                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${game.WL === 'W' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                                                                         }`}>
-                                                                        {game.rating.toFixed(1)}
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-gray-500 text-xs">--</span>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                                        {game.WL}
+                                                                    </span>
+                                                                </td>
+
+                                                                {/* Minutes */}
+                                                                <td className="py-2 px-2 text-center text-xs">
+                                                                    {game.MIN}
+                                                                </td>
+
+                                                                {/* Points */}
+                                                                <td className="py-2 px-2 text-center text-xs font-semibold">
+                                                                    {game.PTS}
+                                                                </td>
+
+                                                                {/* Rebounds */}
+                                                                <td className="py-2 px-2 text-center text-xs">
+                                                                    {game.REB}
+                                                                </td>
+
+                                                                {/* Assists */}
+                                                                <td className="py-2 px-2 text-center text-xs">
+                                                                    {game.AST}
+                                                                </td>
+
+                                                                {/* Steals */}
+                                                                <td className="py-2 px-2 text-center text-xs">
+                                                                    {game.STL}
+                                                                </td>
+
+                                                                {/* Blocks */}
+                                                                <td className="py-2 px-2 text-center text-xs">
+                                                                    {game.BLK}
+                                                                </td>
+
+                                                                {/* Turnovers */}
+                                                                <td className="py-2 px-2 text-center text-xs">
+                                                                    {game.TOV}
+                                                                </td>
+
+                                                                {/* Plus/Minus */}
+                                                                <td className={`py-2 px-2 text-center text-xs ${game.PLUS_MINUS > 0 ? 'text-green-400' :
+                                                                    game.PLUS_MINUS < 0 ? 'text-red-400' : 'text-gray-400'
+                                                                    }`}>
+                                                                    {game.PLUS_MINUS > 0 ? `+${game.PLUS_MINUS}` : game.PLUS_MINUS}
+                                                                </td>
+
+                                                                {/* Rating */}
+                                                                <td className="py-2 px-2 text-center">
+                                                                    {game.rating !== undefined ? (
+                                                                        <div className={`inline-block px-2 py-1 rounded text-xs text-black font-bold ${game.rating >= 7 ? 'bg-[#32c771]' :
+                                                                            game.rating >= 5 ? 'bg-orange-500' :
+                                                                                game.rating < 5 ? 'bg-red-500' : ''
+                                                                            }`}>
+                                                                            {game.rating.toFixed(1)}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-gray-500 text-xs">--</span>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -905,8 +929,21 @@ export default function PlayerProfilePage() {
 
                                                 return filteredSeasons.map((row, index) => {
                                                     const seasonId = row.SEASON_ID.toString();
-                                                    const seasonRating = seasonRatings[seasonId];
-                                                    const hasRating = seasonRating !== undefined && !isNaN(seasonRating);
+                                                    const isCurrentSeason = seasonId === '22025' || formatSeasonId(seasonId) === '2025-26';
+
+                                                    let seasonRating;
+                                                    let hasRating;
+
+                                                    if (isCurrentSeason && gameLogs && gameLogs.length > 0) {
+                                                        // Calculate rating from gameLogs for current season
+                                                        const totalRating = gameLogs.reduce((sum, game) => sum + (game.rating || 0), 0);
+                                                        seasonRating = totalRating / gameLogs.length;
+                                                        hasRating = !isNaN(seasonRating);
+                                                    } else {
+                                                        // For past seasons, use seasonRatings from API
+                                                        seasonRating = seasonRatings[seasonId];
+                                                        hasRating = seasonRating !== undefined && !isNaN(seasonRating);
+                                                    }
 
                                                     return (
                                                         <tr key={index} className="border-b border-gray-800 hover:bg-gray-800/30">
@@ -924,12 +961,12 @@ export default function PlayerProfilePage() {
                                                                                 const parent = e.currentTarget.parentElement;
                                                                                 if (parent) {
                                                                                     parent.innerHTML = `
-                                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
-                                                                <span class="text-[9px] font-bold text-white">
-                                                                    ${row.TEAM_ABBREVIATION.substring(0, 2)}
-                                                                </span>
-                                                            </div>
-                                                        `;
+                                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <span class="text-[9px] font-bold text-white">
+                                                ${row.TEAM_ABBREVIATION.substring(0, 2)}
+                                            </span>
+                                        </div>
+                                    `;
                                                                                 }
                                                                             }}
                                                                         />
@@ -942,6 +979,7 @@ export default function PlayerProfilePage() {
                                                                         </span>
                                                                         <span className="text-xs text-gray-400">
                                                                             {formatSeasonId(row.SEASON_ID)}
+                                                                            {isCurrentSeason}
                                                                         </span>
                                                                     </div>
                                                                 </div>
@@ -984,14 +1022,16 @@ export default function PlayerProfilePage() {
                                                             {/* Rating Column */}
                                                             <td className="py-2 px-1">
                                                                 <div className="text-center">
-                                                                    {seasonRatingsLoading ? (
+                                                                    {isCurrentSeason && gameLogsLoading ? (
+                                                                        <div className="text-gray-500 text-xs">Loading...</div>
+                                                                    ) : seasonRatingsLoading && !isCurrentSeason ? (
                                                                         <div className="text-gray-500 text-xs">...</div>
                                                                     ) : hasRating ? (
                                                                         <div className={`inline-block px-2 py-1 rounded text-xs font-bold ${seasonRating >= 8 ? 'bg-purple-500/20 text-purple-400' :
-                                                                            seasonRating >= 6 ? 'bg-blue-500/20 text-blue-400' :
-                                                                                seasonRating >= 4 ? 'bg-green-500/20 text-green-400' :
-                                                                                    seasonRating >= 2 ? 'bg-yellow-500/20 text-yellow-400' :
-                                                                                        'bg-red-500/20 text-red-400'
+                                                                                seasonRating >= 6 ? 'bg-blue-500/20 text-blue-400' :
+                                                                                    seasonRating >= 4 ? 'bg-green-500/20 text-green-400' :
+                                                                                        seasonRating >= 2 ? 'bg-yellow-500/20 text-yellow-400' :
+                                                                                            'bg-red-500/20 text-red-400'
                                                                             }`}>
                                                                             {seasonRating.toFixed(2)}
                                                                         </div>
@@ -1009,7 +1049,7 @@ export default function PlayerProfilePage() {
 
                                     {/* Show summary if we have ratings */}
                                     {Object.keys(seasonRatings).length > 0 && !seasonRatingsLoading && (
-                                        <div className="mt-4 pt-4">
+                                        <div className="pt-4">
                                             <div className="flex justify-between items-center text-sm">
                                                 <div className="text-gray-300">
                                                     Avg Career Rating: <span className="font-bold text-white">
