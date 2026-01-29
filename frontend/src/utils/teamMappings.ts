@@ -123,3 +123,44 @@ export const teamIdToAbbreviation: { [key: number]: string } = {
 export const getTeamId = (teamName: string): number => {
   return teamNameToId[teamName] || -1;
 }
+
+export const calculatePlayerRating = (player: any): number => {
+        let tdd = 0, rdd = 0, add = 0, foulrating = 0;        
+        
+        if (player.points > 10 && player.assists > 10 && player.rebounds > 10) {
+            tdd = 1.24;
+        } else if (player.points > 10 && player.rebounds > 10) {
+            rdd = 0.38;
+        } else if (player.points > 10 && player.assists > 10) {
+            add = 0.44;
+        }
+
+        if (player.fouls > 5) {
+            foulrating = 2;
+        } else {
+            foulrating = ((0.3 * Math.log(player.fouls + 1)) + 0.05 * player.fouls);
+        }
+
+
+        let rating = ((0.17 * Math.log(player.points + 1)) + (0.02 * player.points)) +
+            ((0.33 * Math.log(player.assists + 1)) + (0.06 * player.assists)) +
+            ((0.14 * Math.log(player.rebounds + 1)) + (0.02 * player.rebounds)) +
+            ((0.37 * Math.log(player.steals + 1)) + (0.06 * player.steals)) +
+            ((0.34 * Math.log(player.blocks + 1)) + (0.05 * player.blocks)) -
+            ((0.45 * Math.log(player.turnovers + 1)) + (0.03 * player.turnovers)) -
+            foulrating +
+            ((0.11 * Math.log(player.fg_made + 1)) + (0.02 * player.fg_made)) -
+            ((0.12 * Math.log(player.fg_missed + 1)) + (0.03 * player.fg_missed)) +
+            ((0.11 * Math.log(player.three_made + 1)) + (0.03 * player.three_made)) +
+            ((0.01 * Math.log(player.ft_attempted + 1))) +
+            ((0.04 * Math.log(player.ft_made + 1)) + (0.005 * player.ft_made)) -
+            ((0.07 * Math.log(player.ft_missed + 1)) + (0.02 * player.ft_missed)) -
+            ((2.5 * Math.log(player.ejections + 1))) +
+            tdd +
+            rdd +
+            add
+
+        rating = Math.max(0, Math.min(10, (6 + rating)));
+
+        return Number(rating.toFixed(2));
+    };

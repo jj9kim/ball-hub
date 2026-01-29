@@ -1284,6 +1284,226 @@ def get_player_career_stats(player_id):
             'error': str(e),
             'player_id': player_id
         }), 500
+
+# Add this import at the top with other imports
+from nba_api.stats.endpoints import playergamelog
+
+# Add this endpoint after your other player endpoints
+@app.route('/api/player/<player_id>/gamelogs', methods=['GET'])
+def get_player_gamelogs(player_id):
+    """Get game-by-game statistics for a player - RAW DATA ONLY"""
+    try:
+        # Get parameters from request
+        season = request.args.get('season', '2025-26')
+        season_type = request.args.get('season_type', 'Regular Season')
+        
+        print(f"[GAMELOGS] Fetching gamelogs for player ID: {player_id}, season: {season}")
+        
+        # Get gamelogs data
+        gamelogs = playergamelog.PlayerGameLog(
+            player_id=player_id,
+            season=season,
+            season_type_all_star=season_type,
+            timeout=60,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Referer': 'https://www.nba.com/'
+            }
+        )
+        
+        # Get the DataFrame
+        df_gamelogs = gamelogs.get_data_frames()[0]
+        
+        print(f"[GAMELOGS] Raw DataFrame shape: {df_gamelogs.shape}")
+        print(f"[GAMELOGS] Columns: {list(df_gamelogs.columns)}")
+        
+        if df_gamelogs.empty:
+            return jsonify({
+                'success': True,
+                'player_id': player_id,
+                'gamelogs': [],
+                'count': 0,
+                'message': 'No game logs found'
+            })
+        
+        # Convert DataFrame to list of dictionaries - RAW DATA ONLY
+        gamelogs_list = []
+        for _, row in df_gamelogs.iterrows():
+            # Get all columns as they are
+            game_log = {}
+            for col in df_gamelogs.columns:
+                value = row[col]
+                # Convert numpy types to Python types
+                if pd.isna(value):
+                    game_log[col] = None
+                elif hasattr(value, 'item'):  # numpy types
+                    game_log[col] = value.item()
+                else:
+                    game_log[col] = value
+            gamelogs_list.append(game_log)
+        
+        return jsonify({
+            'success': True,
+            'player_id': player_id,
+            'season': season,
+            'season_type': season_type,
+            'gamelogs': gamelogs_list,
+            'columns': list(df_gamelogs.columns),
+            'count': len(gamelogs_list)
+        })
+        
+    except Exception as e:
+        print(f"[GAMELOGS] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'player_id': player_id
+        }), 500
+    
+# Add this to your games.py file after the existing player endpoints
+@app.route('/api/player/<player_id>/all-season-gamelogs', methods=['GET'])
+def get_all_season_gamelogs(player_id):
+    """Get game logs for all seasons for a player - CACHED VERSION"""
+    try:
+        from nba_api.stats.endpoints import playergamelog
+        
+        print(f"[ALL SEASON GAMELOGS] Fetching for player ID: {player_id}")
+        
+        # First, get player's career to find all seasons
+        career = playercareerstats.PlayerCareerStats(
+            player_id=player_id,
+            timeout=60,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Referer': 'https://www.nba.com/'
+            }
+        )
+        
+        df_career = career.get_data_frames()[0]
+        
+        if df_career.empty:
+            return jsonify({
+                'success': True,
+                'player_id': player_id,
+                'seasons': {},
+                'count': 0,
+                'message': 'No career data found'
+            })
+        
+        # Get unique regular seasons (starting with '2')
+        unique_seasons = df_career[
+            df_career['SEASON_ID'].astype(str).str.startswith('2')
+        ]['SEASON_ID'].unique()
+        
+        print(f"[ALL SEASON GAMELOGS] Found seasons: {unique_seasons}")
+        
+        all_season_data = {}
+        
+        for season_id in unique_seasons:
+            try:
+                season_str = str(season_id)
+                print(f"[ALL SEASON GAMELOGS] Processing season: {season_str}")
+                
+                # Convert season ID to proper format
+                season_formatted = ""
+                if len(season_str) == 5 and season_str.startswith('2'):
+                    year = season_str[1:5]
+                    try:
+                        next_year = str(int(year) + 1)[2:]
+                        season_formatted = f"{year}-{next_year}"
+                    except:
+                        season_formatted = season_str
+                else:
+                    season_formatted = season_str
+                
+                print(f"[ALL SEASON GAMELOGS] Formatted as: {season_formatted}")
+                
+                # Use cached version to avoid rate limiting
+                cache_key = f"gamelogs_{player_id}_{season_formatted}"
+                
+                def fetch_season_gamelogs():
+                    print(f"[ALL SEASON GAMELOGS] Fetching fresh: {season_formatted}")
+                    gamelogs = playergamelog.PlayerGameLog(
+                        player_id=player_id,
+                        season=season_formatted,
+                        season_type_all_star='Regular Season',
+                        timeout=30,
+                        headers={
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                            'Accept': 'application/json, text/plain, */*',
+                            'Referer': 'https://www.nba.com/'
+                        }
+                    )
+                    return gamelogs.get_data_frames()[0]
+                
+                # Cache for 24 hours (1440 minutes)
+                df_season = cached_nba_data(cache_key, fetch_season_gamelogs, cache_minutes=1440)
+                
+                if not df_season.empty:
+                    print(f"[ALL SEASON GAMELOGS] Found {len(df_season)} games for {season_formatted}")
+                    
+                    # Convert to list
+                    season_logs = []
+                    for _, row in df_season.iterrows():
+                        game_log = {}
+                        for col in df_season.columns:
+                            value = row[col]
+                            if pd.isna(value):
+                                game_log[col] = None
+                            elif hasattr(value, 'item'):
+                                game_log[col] = value.item()
+                            else:
+                                game_log[col] = value
+                        season_logs.append(game_log)
+                    
+                    all_season_data[season_str] = {
+                        'season_id': season_str,
+                        'season_formatted': season_formatted,
+                        'games': season_logs,
+                        'game_count': len(season_logs)
+                    }
+                else:
+                    print(f"[ALL SEASON GAMELOGS] No games found for {season_formatted}")
+                    all_season_data[season_str] = {
+                        'season_id': season_str,
+                        'season_formatted': season_formatted,
+                        'games': [],
+                        'game_count': 0
+                    }
+                
+                # Small delay to be nice to the API
+                time.sleep(0.3)
+                
+            except Exception as e:
+                print(f"[ALL SEASON GAMELOGS] Error for season {season_id}: {str(e)}")
+                all_season_data[str(season_id)] = {
+                    'season_id': str(season_id),
+                    'season_formatted': str(season_id),
+                    'games': [],
+                    'game_count': 0,
+                    'error': str(e)
+                }
+                continue
+        
+        return jsonify({
+            'success': True,
+            'player_id': player_id,
+            'seasons': all_season_data,
+            'total_seasons': len(all_season_data),
+            'total_games': sum(data['game_count'] for data in all_season_data.values())
+        })
+        
+    except Exception as e:
+        print(f"[ALL SEASON GAMELOGS] General error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'player_id': player_id
+        }), 500
     
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

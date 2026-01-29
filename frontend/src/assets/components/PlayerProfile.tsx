@@ -2,8 +2,67 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getTeamFullName } from '../../utils/teamMappings';
+import { calculatePlayerRating } from '../../utils/teamMappings';
 
-// Raw data interface - EXACT column names from NBA API
+// Define interfaces in the correct order
+interface GameLogData {
+    SEASON_ID: string;
+    Player_ID: number;
+    Game_ID: string;
+    GAME_DATE: string;
+    MATCHUP: string;
+    WL: string;
+    MIN: number;
+    FGM: number;
+    FGA: number;
+    FG_PCT: number;
+    FG3M: number;
+    FG3A: number;
+    FG3_PCT: number;
+    FTM: number;
+    FTA: number;
+    FT_PCT: number;
+    OREB: number;
+    DREB: number;
+    REB: number;
+    AST: number;
+    STL: number;
+    BLK: number;
+    TOV: number;
+    PF: number;
+    PTS: number;
+    PLUS_MINUS: number;
+    VIDEO_AVAILABLE: number;
+    rating?: number;
+    [key: string]: any;
+}
+
+interface GameLogResponse {
+    success: boolean;
+    player_id: string;
+    season: string;
+    season_type: string;
+    gamelogs: GameLogData[];
+    columns: string[];
+    count: number;
+}
+
+interface SeasonGameLogs {
+    season_id: string;
+    season_formatted: string;
+    games: GameLogData[];
+    game_count: number;
+    error?: string;
+}
+
+interface AllSeasonGameLogsResponse {
+    success: boolean;
+    player_id: string;
+    seasons: { [seasonId: string]: SeasonGameLogs };
+    total_seasons: number;
+    total_games: number;
+}
+
 interface RawCareerData {
     PLAYER_ID: number;
     SEASON_ID: string;
@@ -37,12 +96,11 @@ interface RawCareerData {
 interface RawCareerResponse {
     success: boolean;
     player_id: string;
-    raw_data: RawCareerData[];  // RAW data, no changes
-    columns: string[];  // All column names
+    raw_data: RawCareerData[];
+    columns: string[];
     row_count: number;
 }
 
-// API RESPONSE INTERFACE - ONLY PLAYER INFO (no career stats)
 interface ApiPlayerInfo {
     PERSON_ID: number;
     FIRST_NAME: string;
@@ -85,27 +143,74 @@ interface ApiResponse {
 }
 
 export default function PlayerProfilePage() {
+    const [allSeasonGameLogs, setAllSeasonGameLogs] = useState<AllSeasonGameLogsResponse | null>(null);
+    const [seasonRatings, setSeasonRatings] = useState<{ [key: string]: number }>({});
+    const [seasonRatingsLoading, setSeasonRatingsLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [gameLogs, setGameLogs] = useState<GameLogData[] | null>(null);
+    const [gameLogsLoading, setGameLogsLoading] = useState(false);
     const [rawCareerData, setRawCareerData] = useState<RawCareerResponse | null>(null);
     const { playerId, playerName } = useParams<{ playerId: string; playerName: string }>();
     const navigate = useNavigate();
     const [playerInfo, setPlayerInfo] = useState<ApiPlayerInfo | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'team' | 'season'>('team');
 
     useEffect(() => {
         // Scroll to top when component mounts
         window.scrollTo(0, 0);
-
-        // Also scroll to top when playerId changes
-        return () => {
-            // Optional: Cleanup if needed
-        };
+        fetchPlayerData();
     }, [playerId]);
 
     useEffect(() => {
-        fetchPlayerData();
-    }, [playerId]);
+        if (playerId && rawCareerData) {
+            fetchAllSeasonGameLogs();
+        }
+    }, [playerId, rawCareerData]);
+
+    const fetchAllSeasonGameLogs = async () => {
+        if (!playerId) return;
+
+        try {
+            setSeasonRatingsLoading(true);
+            console.log('Fetching all season gamelogs for player:', playerId);
+
+            const response = await fetch(`http://127.0.0.1:5000/api/player/${playerId}/all-season-gamelogs`);
+
+            if (response.ok) {
+                const data: AllSeasonGameLogsResponse = await response.json();
+                console.log('All season gamelogs response:', data);
+
+                if (data.success) {
+                    setAllSeasonGameLogs(data);
+
+                    // Calculate ratings for each season
+                    const ratings: { [key: string]: number } = {};
+
+                    Object.entries(data.seasons).forEach(([seasonId, seasonData]) => {
+                        if (seasonData.games && seasonData.games.length > 0) {
+                            const totalRating = seasonData.games.reduce((sum, game) => {
+                                const rating = calculateGameRating(game);
+                                return sum + rating;
+                            }, 0);
+
+                            ratings[seasonId] = totalRating / seasonData.games.length;
+                            console.log(`Season ${seasonId} rating: ${ratings[seasonId]}`);
+                        }
+                    });
+
+                    setSeasonRatings(ratings);
+                    console.log('Calculated season ratings:', ratings);
+                }
+            } else {
+                console.error('Failed to fetch all season gamelogs');
+            }
+        } catch (err) {
+            console.error('Error fetching all season gamelogs:', err);
+        } finally {
+            setSeasonRatingsLoading(false);
+        }
+    };
 
     const fetchPlayerData = async () => {
         try {
@@ -143,12 +248,64 @@ export default function PlayerProfilePage() {
                 console.log('No career data available');
             }
 
+            // Fetch game logs
+            await fetchPlayerGameLogs();
+
         } catch (err) {
             console.error('Error fetching player data:', err);
             setError(err instanceof Error ? err.message : 'Failed to fetch player data');
         } finally {
             setLoading(false);
         }
+    };
+
+    const fetchPlayerGameLogs = async () => {
+        try {
+            setGameLogsLoading(true);
+            setCurrentPage(0); // Reset to first page when loading new player
+            const response = await fetch(`http://127.0.0.1:5000/api/player/${playerId}/gamelogs?season=2025-26`);
+
+            if (response.ok) {
+                const data: GameLogResponse = await response.json();
+                if (data.success) {
+                    // Add rating to each game log
+                    const gamesWithRating = data.gamelogs.map(game => ({
+                        ...game,
+                        rating: calculateGameRating(game) // Calculate rating once
+                    }));
+                    setGameLogs(gamesWithRating);
+                    console.log('Game logs loaded with ratings:', gamesWithRating.length);
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching game logs:', err);
+        } finally {
+            setGameLogsLoading(false);
+        }
+    };
+
+    // Add this helper function in your component
+    const calculateGameRating = (game: GameLogData): number => {
+        // Map the game log fields to match what calculatePlayerRating expects
+        const playerData = {
+            points: game.PTS,
+            assists: game.AST,
+            rebounds: game.REB,
+            steals: game.STL,
+            blocks: game.BLK,
+            turnovers: game.TOV,
+            fouls: game.PF,
+            fg_made: game.FGM,
+            fg_missed: game.FGA - game.FGM,
+            three_made: game.FG3M,
+            three_missed: game.FG3A - game.FG3M,
+            ft_made: game.FTM,
+            ft_missed: game.FTA - game.FTM,
+            ft_attempted: game.FTA,
+            ejections: 0 // Assuming this isn't in the game log data
+        };
+
+        return calculatePlayerRating(playerData);
     };
 
     const getTeamLogo = (teamId: number) => {
@@ -218,6 +375,22 @@ export default function PlayerProfilePage() {
     };
 
     const currentSeasonStats = getCurrentSeasonStats();
+
+    const getAverageRating = () => {
+        if (!gameLogs || gameLogs.length === 0) return { value: '--', color: 'text-black' };
+
+        const totalRating = gameLogs.reduce((sum, game) => sum + (game.rating || 0), 0);
+        const average = totalRating / gameLogs.length;
+        const formattedAverage = average.toFixed(2);
+
+        // Determine color based on average rating
+        let colorClass = '';
+        if (average >= 7) colorClass = 'bg-[#32c771]';
+        else if (average >= 5) colorClass = 'bg-orange-500';
+        else if (average < 5) colorClass = 'bg-red-500';
+
+        return { value: formattedAverage, bg: colorClass };
+    };
 
     if (loading) {
         return (
@@ -491,7 +664,7 @@ export default function PlayerProfilePage() {
                                         <h3 className="text-sm text-gray-400">Minutes</h3>
                                     </div>
 
-                                    
+
                                     <div className="rounded-lg p-3 flex flex-col justify-center items-center">
                                         <p className="text-white text-lg font-semibold">
                                             {currentSeasonStats && currentSeasonStats.FGA > 0
@@ -512,20 +685,172 @@ export default function PlayerProfilePage() {
                                     </div>
 
                                     <div className="rounded-lg p-3 flex flex-col justify-center items-center">
-                                        <p className="text-white text-lg font-semibold">
-                                            {currentSeasonStats && currentSeasonStats.FGA > 0
-                                                ? ((currentSeasonStats.FGM / currentSeasonStats.FGA) * 100).toFixed(1) + '%'
-                                                : '--'}
+                                        <p className={`text-lg font-semibold ${getAverageRating().bg} text-black px-2 rounded-md`}>
+                                            {getAverageRating().value}
                                         </p>
                                         <h3 className="text-sm text-gray-400">Rating</h3>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div className='border-2 border-blue-500 h-170 bg-[#1d1d1d] rounded-2xl'>
+                        <div className='border-2 border-blue-500 bg-[#1d1d1d] rounded-2xl'>
                             <div className='w-full border-b-1 border-[#333333] h-20 flex flex-row items-center p-6'>
-                                <h2 className='text-white text-lg ml-2'>Game Log</h2>
+                                <h2 className='text-white text-lg ml-2'>Game Log 2025-26</h2>
                             </div>
+
+                            {gameLogsLoading ? (
+                                <div className="p-8 text-center text-gray-500">
+                                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500 mb-2"></div>
+                                    <p className="text-white">Loading game logs...</p>
+                                </div>
+                            ) : gameLogs && gameLogs.length > 0 ? (
+                                <>
+                                    <div className="p-4">
+                                        {/* Pagination Controls - FIXED for chronological order */}
+                                        <div className="flex justify-between items-center mb-4">
+                                            <button
+                                                onClick={() => setCurrentPage(prev => prev + 1)}
+                                                disabled={(currentPage + 1) * 10 >= gameLogs.length}
+                                                className={`flex items-center px-3 py-1 rounded ${(currentPage + 1) * 10 >= gameLogs.length
+                                                    ? 'text-gray-500 cursor-not-allowed'
+                                                    : 'text-blue-400 hover:text-blue-300 hover:bg-gray-800'
+                                                    }`}
+                                            >
+                                                <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                                </svg>
+                                                Previous Games
+                                            </button>
+
+                                            <span className="text-gray-400 text-sm">
+                                                Showing {currentPage * 10 + 1}-{Math.min((currentPage + 1) * 10, gameLogs.length)} of {gameLogs.length} games
+                                            </span>
+
+                                            <button
+                                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
+                                                disabled={currentPage === 0}
+                                                className={`flex items-center px-3 py-1 rounded ${currentPage === 0
+                                                    ? 'text-gray-500 cursor-not-allowed'
+                                                    : 'text-blue-400 hover:text-blue-300 hover:bg-gray-800'
+                                                    }`}
+                                            >
+                                                Next Games
+                                                <svg className="w-5 h-5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full text-white">
+                                                <thead>
+                                                    <tr className="border-b border-gray-700 text-xs">
+                                                        <th className="py-3 px-2 text-left">Date</th>
+                                                        <th className="py-3 px-2 text-left">Opponent</th>
+                                                        <th className="py-3 px-2 text-center">Result</th>
+                                                        <th className="py-3 px-2 text-center">MIN</th>
+                                                        <th className="py-3 px-2 text-center">PTS</th>
+                                                        <th className="py-3 px-2 text-center">REB</th>
+                                                        <th className="py-3 px-2 text-center">AST</th>
+                                                        <th className="py-3 px-2 text-center">STL</th>
+                                                        <th className="py-3 px-2 text-center">BLK</th>
+                                                        <th className="py-3 px-2 text-center">TOV</th>
+                                                        <th className="py-3 px-2 text-center">+/-</th>
+                                                        <th className="py-3 px-2 text-center">Rating</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {gameLogs.slice(currentPage * 10, (currentPage + 1) * 10).map((game, index) => (
+                                                        <tr key={index} className="border-b border-gray-800 hover:bg-gray-800/30">
+                                                            {/* Date */}
+                                                            <td className="py-2 px-2 text-xs">
+                                                                {new Date(game.GAME_DATE).toLocaleDateString('en-US', {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    year: 'numeric'
+                                                                })}
+                                                            </td>
+
+                                                            {/* Opponent */}
+                                                            <td className="py-2 px-2 text-xs">
+                                                                {game.MATCHUP}
+                                                            </td>
+
+                                                            {/* Result */}
+                                                            <td className="py-2 px-2 text-center">
+                                                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${game.WL === 'W' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                                                                    }`}>
+                                                                    {game.WL}
+                                                                </span>
+                                                            </td>
+
+                                                            {/* Minutes */}
+                                                            <td className="py-2 px-2 text-center text-xs">
+                                                                {game.MIN}
+                                                            </td>
+
+                                                            {/* Points */}
+                                                            <td className="py-2 px-2 text-center text-xs font-semibold">
+                                                                {game.PTS}
+                                                            </td>
+
+                                                            {/* Rebounds */}
+                                                            <td className="py-2 px-2 text-center text-xs">
+                                                                {game.REB}
+                                                            </td>
+
+                                                            {/* Assists */}
+                                                            <td className="py-2 px-2 text-center text-xs">
+                                                                {game.AST}
+                                                            </td>
+
+                                                            {/* Steals */}
+                                                            <td className="py-2 px-2 text-center text-xs">
+                                                                {game.STL}
+                                                            </td>
+
+                                                            {/* Blocks */}
+                                                            <td className="py-2 px-2 text-center text-xs">
+                                                                {game.BLK}
+                                                            </td>
+
+                                                            {/* Turnovers */}
+                                                            <td className="py-2 px-2 text-center text-xs">
+                                                                {game.TOV}
+                                                            </td>
+
+                                                            {/* Plus/Minus */}
+                                                            <td className={`py-2 px-2 text-center text-xs ${game.PLUS_MINUS > 0 ? 'text-green-400' :
+                                                                game.PLUS_MINUS < 0 ? 'text-red-400' : 'text-gray-400'
+                                                                }`}>
+                                                                {game.PLUS_MINUS > 0 ? `+${game.PLUS_MINUS}` : game.PLUS_MINUS}
+                                                            </td>
+
+                                                            {/* Rating */}
+                                                            <td className="py-2 px-2 text-center">
+                                                                {game.rating !== undefined ? (
+                                                                    <div className={`inline-block px-2 py-1 rounded text-xs text-black ${game.rating >= 7 ? 'bg-[#32c771]' :
+                                                                        game.rating >= 5 ? 'bg-orange-500' :
+                                                                            game.rating < 5 ? 'bg-red-500' : ''
+                                                                        }`}>
+                                                                        {game.rating.toFixed(1)}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-gray-500 text-xs">--</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="p-8 text-center text-gray-500">
+                                    <p className="text-white">No game logs available for this season</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -533,7 +858,15 @@ export default function PlayerProfilePage() {
                     <div className='w-2/5 ml-2'>
                         <div className="bg-[#1d1d1d] rounded-2xl border-2 border-cyan-700">
                             <div className='border-b-1 w-full border-[#333333]'>
-                                <h1 className='text-white text-xl ml-7 my-5'>Career</h1>
+                                <div className='flex justify-between items-center'>
+                                    <h1 className='text-white text-xl ml-7 my-5'>Career</h1>
+                                    {seasonRatingsLoading && (
+                                        <div className="mr-5 flex items-center">
+                                            <div className="inline-block animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500"></div>
+                                            <span className="text-xs text-gray-400 ml-2">Loading season ratings...</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Season Stats Table - Always Visible */}
@@ -547,7 +880,7 @@ export default function PlayerProfilePage() {
                                                 <th className="py-3 px-2 text-left w-1/10">PTS</th>
                                                 <th className="py-3 px-2 text-left w-1/10">REB</th>
                                                 <th className="py-3 px-2 text-left w-1/10">AST</th>
-                                                <th className="py-3 px-2 text-left w-1/10">BLK</th>
+                                                <th className="py-3 px-2 text-left w-1/10">RAT</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -570,88 +903,122 @@ export default function PlayerProfilePage() {
                                                     );
                                                 }
 
-                                                return filteredSeasons.map((row, index) => (
-                                                    <tr key={index} className="border-b border-gray-800 hover:bg-gray-800/30">
-                                                        {/* TEAM Column */}
-                                                        <td className="py-2 px-1">
-                                                            <div className="flex items-center space-x-2">
-                                                                {/* Team Logo */}
-                                                                <div className="w-5 h-5 flex-shrink-0">
-                                                                    <img
-                                                                        src={`http://127.0.0.1:5000/api/team-logo/${row.TEAM_ID}`}
-                                                                        alt={row.TEAM_ABBREVIATION}
-                                                                        className="w-full h-full object-contain"
-                                                                        onError={(e) => {
-                                                                            e.currentTarget.style.display = 'none';
-                                                                            const parent = e.currentTarget.parentElement;
-                                                                            if (parent) {
-                                                                                parent.innerHTML = `
-                                                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
-                                                                                <span class="text-[9px] font-bold text-white">
-                                                                                    ${row.TEAM_ABBREVIATION.substring(0, 2)}
-                                                                                </span>
-                                                                            </div>
-                                                                        `;
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                </div>
+                                                return filteredSeasons.map((row, index) => {
+                                                    const seasonId = row.SEASON_ID.toString();
+                                                    const seasonRating = seasonRatings[seasonId];
+                                                    const hasRating = seasonRating !== undefined && !isNaN(seasonRating);
 
-                                                                {/* Team and Season */}
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-xs font-medium whitespace-nowrap">
-                                                                        {getTeamFullName(row.TEAM_ABBREVIATION)}
-                                                                    </span>
-                                                                    <span className="text-xs text-gray-400">
-                                                                        {formatSeasonId(row.SEASON_ID)}
-                                                                    </span>
-                                                                </div>
+                                                    return (
+                                                        <tr key={index} className="border-b border-gray-800 hover:bg-gray-800/30">
+                                                            {/* TEAM Column */}
+                                                            <td className="py-2 px-1">
+                                                                <div className="flex items-center space-x-2">
+                                                                    {/* Team Logo */}
+                                                                    <div className="w-5 h-5 flex-shrink-0">
+                                                                        <img
+                                                                            src={`http://127.0.0.1:5000/api/team-logo/${row.TEAM_ID}`}
+                                                                            alt={row.TEAM_ABBREVIATION}
+                                                                            className="w-full h-full object-contain"
+                                                                            onError={(e) => {
+                                                                                e.currentTarget.style.display = 'none';
+                                                                                const parent = e.currentTarget.parentElement;
+                                                                                if (parent) {
+                                                                                    parent.innerHTML = `
+                                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                                                                <span class="text-[9px] font-bold text-white">
+                                                                    ${row.TEAM_ABBREVIATION.substring(0, 2)}
+                                                                </span>
                                                             </div>
-                                                        </td>
+                                                        `;
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </div>
 
-                                                        {/* Stats Columns */}
-                                                        <td className="py-2 px-1">
-                                                            <div className="text-center">
-                                                                <div className="text-xs font-medium">{row.GP}</div>
-                                                            </div>
-                                                        </td>
-
-                                                        <td className="py-2 px-1">
-                                                            <div className="text-center">
-                                                                <div className="text-xs font-medium">
-                                                                    {(row.PTS / row.GP).toFixed(1)}
+                                                                    {/* Team and Season */}
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-xs font-medium whitespace-nowrap">
+                                                                            {getTeamFullName(row.TEAM_ABBREVIATION)}
+                                                                        </span>
+                                                                        <span className="text-xs text-gray-400">
+                                                                            {formatSeasonId(row.SEASON_ID)}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        </td>
+                                                            </td>
 
-                                                        <td className="py-2 px-1">
-                                                            <div className="text-center">
-                                                                <div className="text-xs font-medium">
-                                                                    {(row.REB / row.GP).toFixed(1)}
+                                                            {/* Games Played */}
+                                                            <td className="py-2 px-1">
+                                                                <div className="text-center">
+                                                                    <div className="text-xs font-medium">{row.GP}</div>
                                                                 </div>
-                                                            </div>
-                                                        </td>
+                                                            </td>
 
-                                                        <td className="py-2 px-1">
-                                                            <div className="text-center">
-                                                                <div className="text-xs font-medium">
-                                                                    {(row.AST / row.GP).toFixed(1)}
+                                                            {/* Points Per Game */}
+                                                            <td className="py-2 px-1">
+                                                                <div className="text-center">
+                                                                    <div className="text-xs font-medium">
+                                                                        {(row.PTS / row.GP).toFixed(1)}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        </td>
+                                                            </td>
 
-                                                        <td className="py-2 px-1">
-                                                            <div className="text-center">
-                                                                <div className="text-xs font-medium">
-                                                                    {(row.BLK / row.GP).toFixed(1)}
+                                                            {/* Rebounds Per Game */}
+                                                            <td className="py-2 px-1">
+                                                                <div className="text-center">
+                                                                    <div className="text-xs font-medium">
+                                                                        {(row.REB / row.GP).toFixed(1)}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ));
+                                                            </td>
+
+                                                            {/* Assists Per Game */}
+                                                            <td className="py-2 px-1">
+                                                                <div className="text-center">
+                                                                    <div className="text-xs font-medium">
+                                                                        {(row.AST / row.GP).toFixed(1)}
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+
+                                                            {/* Rating Column */}
+                                                            <td className="py-2 px-1">
+                                                                <div className="text-center">
+                                                                    {seasonRatingsLoading ? (
+                                                                        <div className="text-gray-500 text-xs">...</div>
+                                                                    ) : hasRating ? (
+                                                                        <div className={`inline-block px-2 py-1 rounded text-xs font-bold ${seasonRating >= 8 ? 'bg-purple-500/20 text-purple-400' :
+                                                                            seasonRating >= 6 ? 'bg-blue-500/20 text-blue-400' :
+                                                                                seasonRating >= 4 ? 'bg-green-500/20 text-green-400' :
+                                                                                    seasonRating >= 2 ? 'bg-yellow-500/20 text-yellow-400' :
+                                                                                        'bg-red-500/20 text-red-400'
+                                                                            }`}>
+                                                                            {seasonRating.toFixed(2)}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-gray-500 text-xs">--</div>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                });
                                             })()}
                                         </tbody>
                                     </table>
+
+                                    {/* Show summary if we have ratings */}
+                                    {Object.keys(seasonRatings).length > 0 && !seasonRatingsLoading && (
+                                        <div className="mt-4 pt-4">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <div className="text-gray-300">
+                                                    Avg Career Rating: <span className="font-bold text-white">
+                                                        {(Object.values(seasonRatings).reduce((a, b) => a + b, 0) / Object.keys(seasonRatings).length).toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="p-8 text-center text-gray-500">
