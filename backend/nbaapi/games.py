@@ -2,7 +2,7 @@ from flask import Flask, jsonify, Response, send_file, request
 import io
 from flask_cors import CORS
 import pandas as pd
-from nba_api.stats.endpoints import leaguegamefinder, playergamelog, leaguestandings, commonteamroster, playercareerstats, commonplayerinfo
+from nba_api.stats.endpoints import leaguegamefinder, playergamelog, leaguestandings, commonteamroster, playercareerstats, commonplayerinfo, leaguedashplayerstats, leaguehustlestatsplayer, playerestimatedmetrics
 from nba_boxscore_safe import get_boxscore_client
 import requests
 import numpy as np
@@ -39,6 +39,10 @@ CACHE_DURATIONS = {
     'team_logo': 10080,               # 7 days
     'nba_games': 180,                 # 3 hours
     'boxscore': 1440,                 # 24 hours
+    'player_stats_ranks': 180,
+    'player_hustle_stats': 180,
+    'player_estimated_metrics': 180,
+    'player_stats_percentiles': 180,
 }
 
 # In-memory cache
@@ -1592,6 +1596,643 @@ def nba_image_proxy(player_id):
     except Exception as e:
         print(f"Image proxy error for player {player_id}: {e}")
         return Response(b'Server error', status=500)
+    
+@app.route('/api/player-stats-ranks', methods=['GET'])
+@rate_limit_decorator
+def get_player_stats_ranks():
+    """Get ALL player statistics with ALL rankings"""
+    try:
+        season = request.args.get('season', '2025-26')
+        per_mode = request.args.get('per_mode', 'PerGame')
+        
+        cache_key = f"player_stats_ranks_{season}_{per_mode}"
+        
+        def fetch_player_stats_ranks():
+            print(f"[PLAYER STATS RANKS] Fetching ALL data for season: {season}")
+            
+            stats_data = safe_nba_call(
+                leaguedashplayerstats.LeagueDashPlayerStats,
+                season=season,
+                per_mode_detailed=per_mode,
+                timeout=60
+            )
+            
+            df_stats = stats_data.get_data_frames()[0]
+            print(f"[PLAYER STATS RANKS] Retrieved {len(df_stats)} players with {len(df_stats.columns)} columns")
+            print(f"[PLAYER STATS RANKS] Columns: {list(df_stats.columns)}")
+            
+            # Convert ALL data to a list of dictionaries
+            players_list = []
+            for _, row in df_stats.iterrows():
+                player_dict = {}
+                for col in df_stats.columns:
+                    player_dict[col] = clean_value(row[col])
+                players_list.append(player_dict)
+            
+            return {
+                'season': season,
+                'per_mode': per_mode,
+                'players': players_list,
+                'count': len(players_list),
+                'columns': list(df_stats.columns),
+                'last_updated': datetime.now().isoformat()
+            }
+        
+        data = cached_nba_data(cache_key, fetch_player_stats_ranks,
+                              cache_minutes=CACHE_DURATIONS['player_stats_ranks'])
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[PLAYER STATS RANKS] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to fetch player statistics'
+        }), 500
+
+@app.route('/api/player-hustle-stats', methods=['GET'])
+@rate_limit_decorator
+def get_player_hustle_stats():
+    """Get ALL player hustle statistics"""
+    try:
+        season = request.args.get('season', '2025-26')
+        
+        cache_key = f"player_hustle_stats_{season}"
+        
+        def fetch_player_hustle_stats():
+            print(f"[PLAYER HUSTLE STATS] Fetching ALL hustle data for season: {season}")
+            
+            hustle_data = safe_nba_call(
+                leaguehustlestatsplayer.LeagueHustleStatsPlayer,
+                season=season,
+                timeout=60
+            )
+            
+            df_hustle = hustle_data.get_data_frames()[0]
+            print(f"[PLAYER HUSTLE STATS] Retrieved {len(df_hustle)} players with {len(df_hustle.columns)} columns")
+            print(f"[PLAYER HUSTLE STATS] Columns: {list(df_hustle.columns)}")
+            
+            # Convert ALL data to a list of dictionaries
+            hustle_list = []
+            for _, row in df_hustle.iterrows():
+                player_dict = {}
+                for col in df_hustle.columns:
+                    player_dict[col] = clean_value(row[col])
+                hustle_list.append(player_dict)
+            
+            return {
+                'season': season,
+                'players': hustle_list,
+                'count': len(hustle_list),
+                'columns': list(df_hustle.columns),
+                'last_updated': datetime.now().isoformat()
+            }
+        
+        data = cached_nba_data(cache_key, fetch_player_hustle_stats,
+                              cache_minutes=CACHE_DURATIONS['player_hustle_stats'])
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[PLAYER HUSTLE STATS] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to fetch player hustle statistics'
+        }), 500
+
+@app.route('/api/player-estimated-metrics', methods=['GET'])
+@rate_limit_decorator
+def get_player_estimated_metrics():
+    """Get ALL player estimated impact metrics"""
+    try:
+        season = request.args.get('season', '2025-26')
+        
+        cache_key = f"player_estimated_metrics_{season}"
+        
+        def fetch_player_estimated_metrics():
+            print(f"[PLAYER ESTIMATED METRICS] Fetching ALL metrics data for season: {season}")
+            
+            metrics_data = safe_nba_call(
+                playerestimatedmetrics.PlayerEstimatedMetrics,
+                season=season,
+                league_id="00",
+                timeout=60
+            )
+            
+            df_metrics = metrics_data.get_data_frames()[0]
+            print(f"[PLAYER ESTIMATED METRICS] Retrieved {len(df_metrics)} players with {len(df_metrics.columns)} columns")
+            print(f"[PLAYER ESTIMATED METRICS] Columns: {list(df_metrics.columns)}")
+            
+            # Convert ALL data to a list of dictionaries
+            metrics_list = []
+            for _, row in df_metrics.iterrows():
+                player_dict = {}
+                for col in df_metrics.columns:
+                    player_dict[col] = clean_value(row[col])
+                metrics_list.append(player_dict)
+            
+            return {
+                'season': season,
+                'players': metrics_list,
+                'count': len(metrics_list),
+                'columns': list(df_metrics.columns),
+                'last_updated': datetime.now().isoformat()
+            }
+        
+        data = cached_nba_data(cache_key, fetch_player_estimated_metrics,
+                              cache_minutes=CACHE_DURATIONS['player_estimated_metrics'])
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[PLAYER ESTIMATED METRICS] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to fetch player estimated metrics'
+        }), 500
+
+# ========== COMBINED PLAYER DATA ENDPOINTS ==========
+
+@app.route('/api/player/<player_id>/all-stats', methods=['GET'])
+@rate_limit_decorator
+def get_player_all_stats(player_id):
+    """Get ALL stats for a specific player from all three datasets"""
+    try:
+        season = request.args.get('season', '2025-26')
+        
+        cache_key = f"player_all_stats_{player_id}_{season}"
+        
+        def fetch_player_all_stats():
+            print(f"[PLAYER ALL STATS] Fetching ALL data for player {player_id}")
+            
+            # Fetch all three datasets
+            stats_response = safe_nba_call(
+                leaguedashplayerstats.LeagueDashPlayerStats,
+                season=season,
+                per_mode_detailed='PerGame',
+                timeout=60
+            )
+            
+            hustle_response = safe_nba_call(
+                leaguehustlestatsplayer.LeagueHustleStatsPlayer,
+                season=season,
+                timeout=60
+            )
+            
+            metrics_response = safe_nba_call(
+                playerestimatedmetrics.PlayerEstimatedMetrics,
+                season=season,
+                league_id="00",
+                timeout=60
+            )
+            
+            df_stats = stats_response.get_data_frames()[0]
+            df_hustle = hustle_response.get_data_frames()[0]
+            df_metrics = metrics_response.get_data_frames()[0]
+            
+            player_id_int = int(player_id)
+            
+            # Find player in each dataset
+            player_stats = None
+            player_hustle = None
+            player_metrics = None
+            
+            # Get basic stats
+            stats_match = df_stats[df_stats['PLAYER_ID'] == player_id_int]
+            if not stats_match.empty:
+                player_stats = {}
+                for col in df_stats.columns:
+                    player_stats[col] = clean_value(stats_match.iloc[0][col])
+            
+            # Get hustle stats
+            hustle_match = df_hustle[df_hustle['PLAYER_ID'] == player_id_int]
+            if not hustle_match.empty:
+                player_hustle = {}
+                for col in df_hustle.columns:
+                    player_hustle[col] = clean_value(hustle_match.iloc[0][col])
+            
+            # Get estimated metrics
+            metrics_match = df_metrics[df_metrics['PLAYER_ID'] == player_id_int]
+            if not metrics_match.empty:
+                player_metrics = {}
+                for col in df_metrics.columns:
+                    player_metrics[col] = clean_value(metrics_match.iloc[0][col])
+            
+            return {
+                'player_id': player_id_int,
+                'season': season,
+                'basic_stats': player_stats,
+                'hustle_stats': player_hustle,
+                'estimated_metrics': player_metrics,
+                'has_data': {
+                    'basic': player_stats is not None,
+                    'hustle': player_hustle is not None,
+                    'estimated': player_metrics is not None
+                },
+                'last_updated': datetime.now().isoformat()
+            }
+        
+        data = cached_nba_data(cache_key, fetch_player_all_stats,
+                              cache_minutes=180)
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[PLAYER ALL STATS] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'player_id': player_id
+        }), 500
+
+@app.route('/api/players/all-stats', methods=['GET'])
+@rate_limit_decorator
+def get_all_players_all_stats():
+    """Get ALL stats for ALL players (for leaderboards/rankings)"""
+    try:
+        season = request.args.get('season', '2025-26')
+        
+        cache_key = f"all_players_all_stats_{season}"
+        
+        def fetch_all_players_all_stats():
+            print(f"[ALL PLAYERS ALL STATS] Fetching ALL data for ALL players")
+            
+            # Fetch all three datasets
+            stats_response = safe_nba_call(
+                leaguedashplayerstats.LeagueDashPlayerStats,
+                season=season,
+                per_mode_detailed='PerGame',
+                timeout=60
+            )
+            
+            hustle_response = safe_nba_call(
+                leaguehustlestatsplayer.LeagueHustleStatsPlayer,
+                season=season,
+                timeout=60
+            )
+            
+            metrics_response = safe_nba_call(
+                playerestimatedmetrics.PlayerEstimatedMetrics,
+                season=season,
+                league_id="00",
+                timeout=60
+            )
+            
+            df_stats = stats_response.get_data_frames()[0]
+            df_hustle = hustle_response.get_data_frames()[0]
+            df_metrics = metrics_response.get_data_frames()[0]
+            
+            # Merge all data into one dictionary by player_id
+            all_players_data = {}
+            
+            # Process basic stats
+            for _, row in df_stats.iterrows():
+                player_id = row['PLAYER_ID']
+                if player_id not in all_players_data:
+                    all_players_data[player_id] = {
+                        'player_id': player_id,
+                        'player_name': row['PLAYER_NAME'],
+                        'team': row['TEAM_ABBREVIATION']
+                    }
+                
+                # Add ALL basic stats columns
+                for col in df_stats.columns:
+                    if col not in ['PLAYER_ID', 'PLAYER_NAME', 'TEAM_ABBREVIATION']:
+                        all_players_data[player_id][col] = clean_value(row[col])
+            
+            # Process hustle stats
+            for _, row in df_hustle.iterrows():
+                player_id = row['PLAYER_ID']
+                if player_id in all_players_data:
+                    # Add ALL hustle stats columns
+                    for col in df_hustle.columns:
+                        if col not in ['PLAYER_ID', 'PLAYER_NAME', 'TEAM_ABBREVIATION']:
+                            all_players_data[player_id][f'hustle_{col}'] = clean_value(row[col])
+            
+            # Process estimated metrics
+            for _, row in df_metrics.iterrows():
+                player_id = row['PLAYER_ID']
+                if player_id in all_players_data:
+                    # Add ALL estimated metrics columns
+                    for col in df_metrics.columns:
+                        if col not in ['PLAYER_ID', 'PLAYER_NAME']:
+                            all_players_data[player_id][f'estimated_{col}'] = clean_value(row[col])
+            
+            # Convert to list
+            players_list = list(all_players_data.values())
+            
+            return {
+                'season': season,
+                'players': players_list,
+                'count': len(players_list),
+                'stats_columns': list(df_stats.columns),
+                'hustle_columns': list(df_hustle.columns),
+                'metrics_columns': list(df_metrics.columns),
+                'last_updated': datetime.now().isoformat()
+            }
+        
+        data = cached_nba_data(cache_key, fetch_all_players_all_stats,
+                              cache_minutes=180)
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[ALL PLAYERS ALL STATS] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to fetch all players data'
+        }), 500
+    
+@app.route('/api/player/<player_id>/all-ranking-stats', methods=['GET'])
+@rate_limit_decorator
+def get_player_all_ranking_stats(player_id):
+    """Get ALL stats for a specific player from all datasets - comprehensive"""
+    try:
+        season = request.args.get('season', '2025-26')
+        
+        cache_key = f"player_all_ranking_stats_{player_id}_{season}"
+        
+        def fetch_player_all_ranking_stats():
+            print(f"[PLAYER ALL RANKING STATS] Fetching ALL data for player {player_id}")
+            
+            # Fetch all three datasets
+            stats_response = safe_nba_call(
+                leaguedashplayerstats.LeagueDashPlayerStats,
+                season=season,
+                per_mode_detailed='PerGame',
+                timeout=60
+            )
+            
+            hustle_response = safe_nba_call(
+                leaguehustlestatsplayer.LeagueHustleStatsPlayer,
+                season=season,
+                timeout=60
+            )
+            
+            metrics_response = safe_nba_call(
+                playerestimatedmetrics.PlayerEstimatedMetrics,
+                season=season,
+                league_id="00",
+                timeout=60
+            )
+            
+            df_stats = stats_response.get_data_frames()[0]
+            df_hustle = hustle_response.get_data_frames()[0]
+            df_metrics = metrics_response.get_data_frames()[0]
+            
+            player_id_int = int(player_id)
+            
+            # Initialize result with player info
+            result = {
+                'player_id': player_id_int,
+                'season': season,
+                'basic_stats': {},
+                'hustle_stats': {},
+                'estimated_metrics': {},
+                'all_stats_flat': {},  # Combined flat structure
+                'last_updated': datetime.now().isoformat()
+            }
+            
+            # Get basic stats - ALL columns
+            stats_match = df_stats[df_stats['PLAYER_ID'] == player_id_int]
+            if not stats_match.empty:
+                for col in df_stats.columns:
+                    result['basic_stats'][col] = clean_value(stats_match.iloc[0][col])
+                    result['all_stats_flat'][col] = clean_value(stats_match.iloc[0][col])
+            
+            # Get hustle stats - ALL columns
+            hustle_match = df_hustle[df_hustle['PLAYER_ID'] == player_id_int]
+            if not hustle_match.empty:
+                for col in df_hustle.columns:
+                    result['hustle_stats'][col] = clean_value(hustle_match.iloc[0][col])
+                    result['all_stats_flat'][col] = clean_value(hustle_match.iloc[0][col])
+            
+            # Get estimated metrics - ALL columns
+            metrics_match = df_metrics[df_metrics['PLAYER_ID'] == player_id_int]
+            if not metrics_match.empty:
+                for col in df_metrics.columns:
+                    result['estimated_metrics'][col] = clean_value(metrics_match.iloc[0][col])
+                    result['all_stats_flat'][col] = clean_value(metrics_match.iloc[0][col])
+            
+            return result
+        
+        data = cached_nba_data(cache_key, fetch_player_all_ranking_stats,
+                              cache_minutes=180)
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[PLAYER ALL RANKING STATS] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'player_id': player_id
+        }), 500
+    
+@app.route('/api/player/<player_id>/stats-with-percentiles', methods=['GET'])
+@rate_limit_decorator
+def get_player_stats_with_percentiles(player_id):
+    """Get ALL player stats with proper percentile calculations"""
+    try:
+        season = request.args.get('season', '2025-26')
+        
+        cache_key = f"player_stats_percentiles_{player_id}_{season}"
+        
+        def fetch_player_stats_with_percentiles():
+            print(f"[PLAYER STATS PERCENTILES] Fetching data for player {player_id}")
+            
+            # Fetch all three datasets for ALL players
+            stats_response = safe_nba_call(
+                leaguedashplayerstats.LeagueDashPlayerStats,
+                season=season,
+                per_mode_detailed='PerGame',
+                timeout=60
+            )
+            
+            hustle_response = safe_nba_call(
+                leaguehustlestatsplayer.LeagueHustleStatsPlayer,
+                season=season,
+                timeout=60
+            )
+            
+            metrics_response = safe_nba_call(
+                playerestimatedmetrics.PlayerEstimatedMetrics,
+                season=season,
+                league_id="00",
+                timeout=60
+            )
+            
+            df_stats = stats_response.get_data_frames()[0]
+            df_hustle = hustle_response.get_data_frames()[0]
+            df_metrics = metrics_response.get_data_frames()[0]
+            
+            player_id_int = int(player_id)
+            
+            # Find player in each dataset
+            player_stats = {}
+            player_hustle = {}
+            player_metrics = {}
+            
+            # Get player basic stats
+            stats_match = df_stats[df_stats['PLAYER_ID'] == player_id_int]
+            if not stats_match.empty:
+                for col in df_stats.columns:
+                    player_stats[col] = clean_value(stats_match.iloc[0][col])
+            
+            # Get player hustle stats
+            hustle_match = df_hustle[df_hustle['PLAYER_ID'] == player_id_int]
+            if not hustle_match.empty:
+                for col in df_hustle.columns:
+                    player_hustle[col] = clean_value(hustle_match.iloc[0][col])
+            
+            # Get player estimated metrics
+            metrics_match = df_metrics[df_metrics['PLAYER_ID'] == player_id_int]
+            if not metrics_match.empty:
+                for col in df_metrics.columns:
+                    player_metrics[col] = clean_value(metrics_match.iloc[0][col])
+            
+            # Helper function to calculate percentile
+            def calculate_percentile(df, column_name, player_value, higher_is_better=True):
+                if player_value is None:
+                    return None
+                
+                # Get all non-null values for this column
+                valid_values = df[column_name].dropna()
+                if len(valid_values) == 0:
+                    return None
+                
+                if higher_is_better:
+                    # Higher value is better (points, assists, etc.)
+                    better_count = (valid_values > player_value).sum()
+                    percentile = (1 - (better_count / len(valid_values))) * 100
+                else:
+                    # Lower value is better (turnovers, fouls, etc.)
+                    better_count = (valid_values < player_value).sum()
+                    percentile = (1 - (better_count / len(valid_values))) * 100
+                
+                return round(percentile, 1)
+            
+            # Calculate percentiles for hustle stats
+            hustle_percentiles = {}
+            hustle_columns_to_calc = [
+                'DEFLECTIONS', 'CHARGES_DRAWN', 'SCREEN_ASSISTS', 'SCREEN_AST_PTS',
+                'OFF_LOOSE_BALLS_RECOVERED', 'DEF_LOOSE_BALLS_RECOVERED', 'LOOSE_BALLS_RECOVERED',
+                'OFF_BOXOUTS', 'DEF_BOXOUTS', 'BOX_OUT_PLAYER_TEAM_REBS', 'BOX_OUT_PLAYER_REBS', 'BOX_OUTS',
+                'CONTESTED_SHOTS', 'CONTESTED_SHOTS_2PT', 'CONTESTED_SHOTS_3PT'
+            ]
+            
+            for column in hustle_columns_to_calc:
+                if column in player_hustle and player_hustle[column] is not None:
+                    percentile = calculate_percentile(df_hustle, column, player_hustle[column], higher_is_better=True)
+                    if percentile is not None:
+                        hustle_percentiles[column] = percentile
+            
+            # For basic stats, use the pre-calculated ranks to compute percentiles
+            basic_percentiles = {}
+            basic_columns_with_ranks = [
+                'PTS', 'REB', 'AST', 'STL', 'BLK', 'FGM', 'FGA', 'FG_PCT',
+                'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA', 'FT_PCT',
+                'OREB', 'DREB', 'TOV', 'BLKA', 'PF', 'PFD', 'PLUS_MINUS',
+                'MIN', 'GP', 'GS', 'W', 'L', 'W_PCT', 'NBA_FANTASY_PTS', 'DD2', 'TD3'
+            ]
+            
+            total_players_basic = len(df_stats)
+            for column in basic_columns_with_ranks:
+                rank_key = f"{column}_RANK"
+                if rank_key in player_stats and player_stats[rank_key] is not None:
+                    rank = player_stats[rank_key]
+                    if rank > 0:
+                        # Determine if higher is better (most stats) or lower is better (TOV, PF, etc.)
+                        higher_is_better = column not in ['TOV', 'BLKA', 'PF', 'L']
+                        if higher_is_better:
+                            percentile = (1 - (rank - 1) / total_players_basic) * 100
+                        else:
+                            percentile = ((rank - 1) / total_players_basic) * 100
+                        basic_percentiles[column] = round(percentile, 1)
+            
+            # For estimated metrics, use pre-calculated ranks
+            metrics_percentiles = {}
+            metrics_columns_with_ranks = [
+                'E_OFF_RATING', 'E_DEF_RATING', 'E_NET_RATING', 'E_PACE',
+                'E_USG_PCT', 'E_AST_RATIO', 'E_OREB_PCT', 'E_DREB_PCT',
+                'E_REB_PCT', 'E_TOV_PCT'
+            ]
+            
+            total_players_estimated = len(df_metrics)
+            
+            for column in metrics_columns_with_ranks:
+                rank_key = f"{column}_RANK"
+                if rank_key in player_metrics and player_metrics[rank_key] is not None:
+                    rank = player_metrics[rank_key]
+                    if rank > 0 and total_players_estimated > 0:
+                        # Calculate percentile based on rank
+                        # For E_DEF_RATING, lower values are better (rank 1 = best defense)
+                        if column == 'E_DEF_RATING':
+                            # Invert the rank: rank 1 becomes 100%, rank N becomes 0%
+                            percentile = ((total_players_estimated - rank + 1) / total_players_estimated) * 100
+                        else:
+                            # For all other metrics, rank 1 is best (100th percentile)
+                            percentile = ((total_players_estimated - rank + 1) / total_players_estimated) * 100
+                        
+                        metrics_percentiles[column] = round(percentile, 1)
+            
+            return {
+                'player_id': player_id_int,
+                'season': season,
+                'basic_stats': player_stats,
+                'hustle_stats': player_hustle,
+                'estimated_metrics': player_metrics,
+                'percentiles': {
+                    'basic': basic_percentiles,
+                    'hustle': hustle_percentiles,
+                    'estimated': metrics_percentiles
+                },
+                'total_players': {
+                    'basic': total_players_basic,
+                    'hustle': len(df_hustle),
+                    'estimated': total_players_estimated
+                },
+                'last_updated': datetime.now().isoformat()
+            }
+        
+        # Use the new cache duration
+        data = cached_nba_data(cache_key, fetch_player_stats_with_percentiles,
+                              cache_minutes=CACHE_DURATIONS['player_stats_percentiles'])
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[PLAYER STATS PERCENTILES] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'player_id': player_id
+        }), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
