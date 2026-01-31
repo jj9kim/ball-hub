@@ -11,78 +11,56 @@ interface StatConfig {
     label: string;
     formatValue: (value: any) => string;
     higherIsBetter: boolean;
-    dataSource: 'basic_stats' | 'hustle_stats' | 'estimated_metrics';
+    dataSource: 'scoring' | 'playmaking' | 'rebounding' | 'defense';
+    category: 'basic' | 'hustle' | 'estimated' | 'advanced';
 }
 
 const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankingStats, allStatsLoading }) => {
-    // Define ALL stats with their configurations
+    // Define ALL stats with their configurations - reordered by priority
     const allStatsConfig: StatConfig[] = [
-        // === BASIC STATS ===
-        { key: 'PTS', label: 'PTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'REB', label: 'REB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'AST', label: 'AST', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'STL', label: 'STL', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'BLK', label: 'BLK', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FGM', label: 'FGM', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FGA', label: 'FGA', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FG_PCT', label: 'FG%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FG3M', label: '3PM', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FG3A', label: '3PA', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FG3_PCT', label: '3P%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FTM', label: 'FTM', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FTA', label: 'FTA', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'FT_PCT', label: 'FT%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'OREB', label: 'OREB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'DREB', label: 'DREB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'TOV', label: 'TOV', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'basic_stats' },
-        { key: 'BLKA', label: 'BLKA', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'basic_stats' },
-        { key: 'PF', label: 'PF', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'basic_stats' },
-        { key: 'PFD', label: 'PFD', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'PLUS_MINUS', label: '+/-', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'MIN', label: 'MIN', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'GP', label: 'GP', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'GS', label: 'GS', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'W', label: 'W', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'L', label: 'L', formatValue: (v) => v.toString(), higherIsBetter: false, dataSource: 'basic_stats' },
-        { key: 'W_PCT', label: 'W%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'NBA_FANTASY_PTS', label: 'FPTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'DD2', label: 'DD', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'basic_stats' },
-        { key: 'TD3', label: 'TD', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'basic_stats' },
+        // === SCORING (Highest Priority) ===
+        { key: 'PTS', label: 'PTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
+        { key: 'FG3_PCT', label: '3P%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
+        { key: 'E_OFF_RATING', label: 'OFF RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
+        { key: 'E_PACE', label: 'PACE', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
+        { key: 'PFD', label: 'PFD', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
+        { key: 'DD2', label: 'DD', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
+        { key: 'E_USG_PCT', label: 'USG%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
+        { key: 'FG_PCT', label: 'FG%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
+        { key: 'FT_PCT', label: 'FT%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
+        { key: 'E_NET_RATING', label: 'NET RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated'},
+        { key: 'PLUS_MINUS', label: '+/-', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'basic'},
+        { key: 'BLKA', label: 'BLKA', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'scoring', category: 'basic'},
+        { key: 'TD3', label: 'TD', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'scoring', category: 'basic'},
 
-        // === HUSTLE STATS ===
-        { key: 'DEFLECTIONS', label: 'DEFL', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'CHARGES_DRAWN', label: 'CHRG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'SCREEN_ASSISTS', label: 'SCRN', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'SCREEN_AST_PTS', label: 'SCR PTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'OFF_LOOSE_BALLS_RECOVERED', label: 'OFF LBR', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'DEF_LOOSE_BALLS_RECOVERED', label: 'DEF LBR', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'LOOSE_BALLS_RECOVERED', label: 'LBR', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'OFF_BOXOUTS', label: 'OFF BOX', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'DEF_BOXOUTS', label: 'DEF BOX', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'BOX_OUT_PLAYER_TEAM_REBS', label: 'TEAM REB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'BOX_OUT_PLAYER_REBS', label: 'PLAYER REB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'BOX_OUTS', label: 'BOXOUTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'CONTESTED_SHOTS', label: 'CONTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'CONTESTED_SHOTS_2PT', label: 'CONT2', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
-        { key: 'CONTESTED_SHOTS_3PT', label: 'CONT3', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'hustle_stats' },
+        // === PLAYMAKING ===
+        { key: 'AST', label: 'AST', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'basic'},
+        { key: 'E_AST_RATIO', label: 'AST RAT', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'estimated'},
+        { key: 'SCREEN_ASSISTS', label: 'SCRN AST', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'hustle' },
+        { key: 'TOV', label: 'TOV', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'playmaking', category: 'basic'},
+        { key: 'E_TOV_PCT', label: 'TOV%', formatValue: (v) => (v).toFixed(1) + '%', higherIsBetter: false, dataSource: 'playmaking', category: 'estimated' },
+        { key: 'SCREEN_AST_PTS', label: 'SCR PTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'hustle'},
 
-        // === ADVANCED METRICS ===
-        // FIXED: Defensive Rating - lower is better
-        { key: 'E_OFF_RATING', label: 'OFF RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'estimated_metrics' },
-        { key: 'E_DEF_RATING', label: 'DEF RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'estimated_metrics' }, // FIXED: lower is better
-        { key: 'E_NET_RATING', label: 'NET RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'estimated_metrics' },
-        { key: 'E_PACE', label: 'PACE', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'estimated_metrics' },
-        // FIXED: Multiply percentages by 100
-        { key: 'E_USG_PCT', label: 'USG%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'estimated_metrics' },
-        { key: 'E_AST_RATIO', label: 'AST RAT', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'estimated_metrics' },
-        // FIXED: Multiply percentages by 100
-        { key: 'E_OREB_PCT', label: 'OREB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'estimated_metrics' },
-        // FIXED: Multiply percentages by 100
-        { key: 'E_DREB_PCT', label: 'DREB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'estimated_metrics' },
-        // FIXED: Multiply percentages by 100
-        { key: 'E_REB_PCT', label: 'REB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'estimated_metrics' },
-        // FIXED: Multiply by 100 AND lower is better
-        { key: 'E_TOV_PCT', label: 'TOV%', formatValue: (v) => (v).toFixed(1) + '%', higherIsBetter: false, dataSource: 'estimated_metrics' },
+        // === REBOUNDING ===
+        { key: 'REB', label: 'REB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic'},
+        { key: 'DREB', label: 'DREB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic' },
+        { key: 'OREB', label: 'OREB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic' },
+        { key: 'BOX_OUTS', label: 'BOXOUTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'hustle' },
+        { key: 'E_REB_PCT', label: 'REB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated' },
+        { key: 'E_DREB_PCT', label: 'DREB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated'},
+        { key: 'E_OREB_PCT', label: 'OREB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated' },
+        
+
+        // === DEFENSE ===
+        { key: 'STL', label: 'STL', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'basic'},
+        { key: 'E_DEF_RATING', label: 'DEF RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'defense', category: 'estimated' },
+        { key: 'DEFLECTIONS', label: 'DEFL', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
+        { key: 'OFF_LOOSE_BALLS_RECOVERED', label: 'OFF LBR', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
+        { key: 'CHARGES_DRAWN', label: 'CHRG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
+        { key: 'BLK', label: 'BLK', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'basic' },
+        { key: 'PF', label: 'PF', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'defense', category: 'basic' },
+        { key: 'CONTESTED_SHOTS', label: 'CONTEST', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
+        { key: 'DEF_LOOSE_BALLS_RECOVERED', label: 'DEF LBR', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle'},
     ];
 
     const getBarColor = (higherIsBetter: boolean): string => {
@@ -92,14 +70,34 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
     };
 
     const getStatData = (config: StatConfig): { value: any; percentile: number } | null => {
-        const dataSource = allRankingStats[config.dataSource];
-        const percentileSource = allRankingStats.percentiles[config.dataSource === 'basic_stats' ? 'basic' :
-            config.dataSource === 'hustle_stats' ? 'hustle' : 'estimated'];
+        let backendDataSource;
+        let backendPercentileSource;
 
-        if (!dataSource || !percentileSource) return null;
+        switch (config.category) {
+            case 'basic':
+                backendDataSource = allRankingStats.basic_stats;
+                backendPercentileSource = allRankingStats.percentiles?.basic;
+                break;
+            case 'hustle':
+                backendDataSource = allRankingStats.hustle_stats;
+                backendPercentileSource = allRankingStats.percentiles?.hustle;
+                break;
+            case 'estimated':
+                backendDataSource = allRankingStats.estimated_metrics;
+                backendPercentileSource = allRankingStats.percentiles?.estimated;
+                break;
+            case 'advanced':
+                backendDataSource = allRankingStats.advanced_stats;
+                backendPercentileSource = allRankingStats.percentiles?.advanced;
+                break;
+            default:
+                return null;
+        }
 
-        const value = dataSource[config.key];
-        const percentile = percentileSource[config.key];
+        if (!backendDataSource || !backendPercentileSource) return null;
+
+        const value = backendDataSource[config.key];
+        const percentile = backendPercentileSource[config.key];
 
         if (value === undefined || percentile === undefined) return null;
 
@@ -124,75 +122,127 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
         );
     }
 
-    // Group stats by data source
-    const basicStats = allStatsConfig.filter(s => s.dataSource === 'basic_stats');
-    const hustleStats = allStatsConfig.filter(s => s.dataSource === 'hustle_stats');
-    const advancedStats = allStatsConfig.filter(s => s.dataSource === 'estimated_metrics');
+    // Filter and sort stats by priority
+    const scoringStats = allStatsConfig.filter(s => s.dataSource === 'scoring');
+    const playmakingStats = allStatsConfig.filter(s => s.dataSource === 'playmaking');
+    const reboundingStats = allStatsConfig.filter(s => s.dataSource === 'rebounding');
+    const defenseStats = allStatsConfig.filter(s => s.dataSource === 'defense');
 
-    const renderStatSection = (title: string, stats: StatConfig[], hasData: boolean) => {
-        if (!hasData) return null;
+    const renderStatSection = (title: string, stats: StatConfig[], color: string) => {
+        if (stats.length === 0) return null;
 
-        const filteredStats = stats.filter(config => getStatData(config) !== null);
-
-        if (filteredStats.length === 0) return null;
+        // Split into two columns for better layout
+        const half = Math.ceil(stats.length / 2);
+        const leftColumn = stats.slice(0, half);
+        const rightColumn = stats.slice(half);
 
         return (
-            <div className="mb-1">
-                <h3 className="text-white font-semibold mb-0.5 text-[10px] border-b border-gray-800 pb-0.5">
+            <div className="mb-3">
+                <h3 className="text-white font-semibold mb-1.5 text-[11px] border-b border-gray-800 pb-1 flex items-center">
+                    <div className={`w-2 h-2 rounded-full ${color} mr-2`}></div>
                     {title}
                 </h3>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                    {filteredStats.map((config) => {
-                        const data = getStatData(config);
-                        if (!data) return null;
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                    {/* Left Column */}
+                    <div className="space-y-1">
+                        {leftColumn.map((config) => {
+                            const data = getStatData(config);
+                            if (!data) return null;
 
-                        const percentileWidth = data.percentile;
-                        const barColor = getBarColor(config.higherIsBetter);
+                            const percentileWidth = data.percentile;
+                            const barColor = getBarColor(config.higherIsBetter);
 
-                        return (
-                            <div
-                                key={`${config.dataSource}-${config.key}`}
-                                className="flex items-center justify-between space-x-1 py-0.5 px-1 hover:bg-gray-800/30 rounded transition-colors"
-                            >
-                                {/* Stat Label - Leftmost */}
-                                <div className="w-10">
-                                    <span className="text-white text-[10px] font-medium whitespace-nowrap">
-                                        {config.label}
-                                    </span>
-                                </div>
-
-                                {/* Stat Value - Middle */}
-                                <div className="w-8 text-right">
-                                    <span className="text-white text-[10px] font-bold">
-                                        {config.formatValue(data.value)}
-                                    </span>
-                                </div>
-
-                                {/* Percentile Bar - Right side */}
-                                <div className="flex-1 flex items-center space-x-1">
-                                    <div className="flex-1 h-0.5 bg-gray-700 rounded-full overflow-hidden min-w-[20px]">
-                                        <div
-                                            className={`h-full ${barColor}`}
-                                            style={{ width: `${percentileWidth}%` }}
-                                        ></div>
+                            return (
+                                <div
+                                    key={`${config.dataSource}-${config.key}`}
+                                    className="flex items-center justify-between space-x-1 py-1 px-1.5 hover:bg-gray-800/40 rounded transition-colors"
+                                >
+                                    {/* Stat Label */}
+                                    <div className="w-14">
+                                        <span className="text-white text-[10px] font-medium whitespace-nowrap">
+                                            {config.label}
+                                        </span>
                                     </div>
-                                    <span className="text-[9px] text-gray-400 whitespace-nowrap w-6 text-right">
-                                        {Math.round(percentileWidth)}%
-                                    </span>
+
+                                    {/* Stat Value */}
+                                    <div className="w-10 text-right">
+                                        <span className="text-white text-[10px] font-bold">
+                                            {config.formatValue(data.value)}
+                                        </span>
+                                    </div>
+
+                                    {/* Percentile Bar */}
+                                    <div className="flex-1 flex items-center space-x-1">
+                                        <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden min-w-[20px]">
+                                            <div
+                                                className={`h-full ${barColor}`}
+                                                style={{ width: `${percentileWidth}%` }}
+                                            ></div>
+                                        </div>
+                                        <span className="text-[9px] text-gray-400 whitespace-nowrap w-6 text-right">
+                                            {Math.round(percentileWidth)}%
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-1">
+                        {rightColumn.map((config) => {
+                            const data = getStatData(config);
+                            if (!data) return null;
+
+                            const percentileWidth = data.percentile;
+                            const barColor = getBarColor(config.higherIsBetter);
+
+                            return (
+                                <div
+                                    key={`${config.dataSource}-${config.key}`}
+                                    className="flex items-center justify-between space-x-1 py-1 px-1.5 hover:bg-gray-800/40 rounded transition-colors"
+                                >
+                                    {/* Stat Label */}
+                                    <div className="w-14">
+                                        <span className="text-white text-[10px] font-medium whitespace-nowrap">
+                                            {config.label}
+                                        </span>
+                                    </div>
+
+                                    {/* Stat Value */}
+                                    <div className="w-10 text-right">
+                                        <span className="text-white text-[10px] font-bold">
+                                            {config.formatValue(data.value)}
+                                        </span>
+                                    </div>
+
+                                    {/* Percentile Bar */}
+                                    <div className="flex-1 flex items-center space-x-1">
+                                        <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden min-w-[20px]">
+                                            <div
+                                                className={`h-full ${barColor}`}
+                                                style={{ width: `${percentileWidth}%` }}
+                                            ></div>
+                                        </div>
+                                        <span className="text-[9px] text-gray-400 whitespace-nowrap w-6 text-right">
+                                            {Math.round(percentileWidth)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         );
     };
 
     return (
-        <div className="p-1">
-            {renderStatSection("BASIC", basicStats, !!allRankingStats.basic_stats)}
-            {renderStatSection("HUSTLE", hustleStats, !!allRankingStats.hustle_stats)}
-            {renderStatSection("ADVANCED", advancedStats, !!allRankingStats.estimated_metrics)}
+        <div className="p-2 bg-gray-900/20 rounded-lg">
+            {renderStatSection("SCORING", scoringStats, "bg-gradient-to-r from-purple-500 to-pink-500")}
+            {renderStatSection("PLAYMAKING", playmakingStats, "bg-gradient-to-r from-blue-500 to-cyan-500")}
+            {renderStatSection("REBOUNDING", reboundingStats, "bg-gradient-to-r from-green-500 to-emerald-500")}
+            {renderStatSection("DEFENSE", defenseStats, "bg-gradient-to-r from-red-500 to-orange-500")}
         </div>
     );
 };

@@ -30,7 +30,7 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 # Cache durations in minutes
 CACHE_DURATIONS = {
     'player_profile': 1440,           # 24 hours
-    'career_stats': 1440,             # 24 hours
+    'career_stats': 10080,            # 7 days
     'gamelogs': 360,                  # 6 hours
     'all_season_gamelogs': 1440,      # 24 hours
     'standings': 180,                 # 3 hours
@@ -2054,9 +2054,10 @@ def get_player_all_ranking_stats(player_id):
 @app.route('/api/player/<player_id>/stats-with-percentiles', methods=['GET'])
 @rate_limit_decorator
 def get_player_stats_with_percentiles(player_id):
-    """Get ALL player stats with proper percentile calculations"""
+    """Get ALL player stats with proper percentile calculations using custom ranks"""
     try:
         season = request.args.get('season', '2025-26')
+        force_refresh = request.args.get('refresh', 'false').lower() == 'true'
         
         cache_key = f"player_stats_percentiles_{player_id}_{season}"
         
@@ -2172,7 +2173,7 @@ def get_player_stats_with_percentiles(player_id):
                             percentile = ((rank - 1) / total_players_basic) * 100
                         basic_percentiles[column] = round(percentile, 1)
             
-            # For estimated metrics, use pre-calculated ranks
+            # For estimated metrics, calculate our own ranks and percentiles
             metrics_percentiles = {}
             metrics_columns_with_ranks = [
                 'E_OFF_RATING', 'E_DEF_RATING', 'E_NET_RATING', 'E_PACE',
@@ -2182,21 +2183,38 @@ def get_player_stats_with_percentiles(player_id):
             
             total_players_estimated = len(df_metrics)
             
+            # Create a DataFrame copy for calculations
+            df_metrics_calc = df_metrics.copy()
+            
+            # Calculate our own ranks for each metric
             for column in metrics_columns_with_ranks:
-                rank_key = f"{column}_RANK"
-                if rank_key in player_metrics and player_metrics[rank_key] is not None:
-                    rank = player_metrics[rank_key]
-                    if rank > 0 and total_players_estimated > 0:
-                        # Calculate percentile based on rank
-                        # For E_DEF_RATING, lower values are better (rank 1 = best defense)
-                        if column == 'E_DEF_RATING':
-                            # Invert the rank: rank 1 becomes 100%, rank N becomes 0%
-                            percentile = ((total_players_estimated - rank + 1) / total_players_estimated) * 100
-                        else:
-                            # For all other metrics, rank 1 is best (100th percentile)
-                            percentile = ((total_players_estimated - rank + 1) / total_players_estimated) * 100
-                        
-                        metrics_percentiles[column] = round(percentile, 1)
+                if column in df_metrics_calc.columns:
+                    # Determine if higher is better (most stats) or lower is better
+                    if column == 'E_DEF_RATING' or column == 'E_TOV_PCT':
+                        # For defensive rating and turnover percentage, LOWER values are better
+                        df_metrics_calc[f'{column}_CUSTOM_RANK'] = df_metrics_calc[column].rank(ascending=True, method='min')
+                    else:
+                        # For all other metrics, HIGHER values are better
+                        df_metrics_calc[f'{column}_CUSTOM_RANK'] = df_metrics_calc[column].rank(ascending=False, method='min')
+            
+            for column in metrics_columns_with_ranks:
+                if column in player_metrics and player_metrics[column] is not None:
+                    # Get the player's value for this metric
+                    player_value = player_metrics[column]
+                    
+                    if player_value is not None and total_players_estimated > 0:
+                        # Find the player's custom rank
+                        player_row = df_metrics_calc[df_metrics_calc['PLAYER_ID'] == player_id_int]
+                        if not player_row.empty:
+                            custom_rank = player_row.iloc[0][f'{column}_CUSTOM_RANK']
+                            
+                            # Calculate percentile from custom rank
+                            if not pd.isna(custom_rank):
+                                percentile = ((total_players_estimated - custom_rank + 1) / total_players_estimated) * 100
+                                metrics_percentiles[column] = round(percentile, 1)
+                                
+                                # Store our custom rank for comparison/debugging
+                                player_metrics[f'{column}_CUSTOM_RANK'] = int(custom_rank)
             
             return {
                 'player_id': player_id_int,
@@ -2214,12 +2232,18 @@ def get_player_stats_with_percentiles(player_id):
                     'hustle': len(df_hustle),
                     'estimated': total_players_estimated
                 },
-                'last_updated': datetime.now().isoformat()
+                'last_updated': datetime.now().isoformat(),
+                'metadata': {
+                    'estimated_custom_ranks': True,
+                    'defensive_rating_logic': 'lower_is_better',
+                    'turnover_percentage_logic': 'lower_is_better'
+                }
             }
         
-        # Use the new cache duration
+        # Use force_refresh parameter correctly
         data = cached_nba_data(cache_key, fetch_player_stats_with_percentiles,
-                              cache_minutes=CACHE_DURATIONS['player_stats_percentiles'])
+                              cache_minutes=CACHE_DURATIONS['player_stats_percentiles'],
+                              force_refresh=force_refresh)
         
         return jsonify({
             'success': True,
