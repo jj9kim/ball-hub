@@ -16,51 +16,51 @@ interface StatConfig {
 }
 
 const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankingStats, allStatsLoading }) => {
-    // Define ALL stats with their configurations - reordered by priority
+    // Define ALL stats with their configurations - EXACT SAME ORDER as before, just better labels
     const allStatsConfig: StatConfig[] = [
-        // === SCORING (Highest Priority) ===
+        // === SCORING (EXACT SAME ORDER) ===
         { key: 'PTS', label: 'PTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
         { key: 'FG3_PCT', label: '3P%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
-        { key: 'E_OFF_RATING', label: 'OFF RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
-        { key: 'E_PACE', label: 'PACE', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
-        { key: 'PFD', label: 'PFD', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
+        { key: 'E_OFF_RATING', label: 'Off Rtg', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
+        { key: 'E_PACE', label: 'Pace', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
+        { key: 'PFD', label: 'Fouls Drawn', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
         { key: 'DD2', label: 'DD', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
-        { key: 'E_USG_PCT', label: 'USG%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
+        { key: 'E_USG_PCT', label: 'Usage%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
         { key: 'FG_PCT', label: 'FG%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
         { key: 'FT_PCT', label: 'FT%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
-        { key: 'E_NET_RATING', label: 'NET RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated'},
-        { key: 'PLUS_MINUS', label: '+/-', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'basic'},
-        { key: 'BLKA', label: 'BLKA', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'scoring', category: 'basic'},
-        { key: 'TD3', label: 'TD', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'scoring', category: 'basic'},
+        { key: 'E_NET_RATING', label: 'Net Rtg', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'estimated' },
+        { key: 'PLUS_MINUS', label: '+/-', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
+        { key: 'BLKA', label: 'Blks Agst', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'scoring', category: 'basic' },
+        { key: 'TD3', label: 'TD', formatValue: (v) => v.toString(), higherIsBetter: true, dataSource: 'scoring', category: 'basic' },
 
-        // === PLAYMAKING ===
-        { key: 'AST', label: 'AST', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'basic'},
-        { key: 'E_AST_RATIO', label: 'AST RAT', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'estimated'},
-        { key: 'SCREEN_ASSISTS', label: 'SCRN AST', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'hustle' },
-        { key: 'TOV', label: 'TOV', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'playmaking', category: 'basic'},
+        // === PLAYMAKING (EXACT SAME ORDER) ===
+        { key: 'AST', label: 'Ast', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'basic' },
+        { key: 'E_AST_RATIO', label: 'Ast Ratio', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'estimated' },
+        { key: 'SCREEN_ASSISTS', label: 'Scrn Ast', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'hustle' },
+        { key: 'TOV', label: 'TOV', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'playmaking', category: 'basic' },
         { key: 'E_TOV_PCT', label: 'TOV%', formatValue: (v) => (v).toFixed(1) + '%', higherIsBetter: false, dataSource: 'playmaking', category: 'estimated' },
-        { key: 'SCREEN_AST_PTS', label: 'SCR PTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'hustle'},
+        { key: 'SCREEN_AST_PTS', label: 'Scrn Ast Pts', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'playmaking', category: 'hustle' },
 
-        // === REBOUNDING ===
-        { key: 'REB', label: 'REB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic'},
-        { key: 'DREB', label: 'DREB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic' },
-        { key: 'OREB', label: 'OREB', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic' },
-        { key: 'BOX_OUTS', label: 'BOXOUTS', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'hustle' },
-        { key: 'E_REB_PCT', label: 'REB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated' },
-        { key: 'E_DREB_PCT', label: 'DREB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated'},
-        { key: 'E_OREB_PCT', label: 'OREB%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated' },
-        
+        // === REBOUNDING (EXACT SAME ORDER) ===
+        { key: 'REB', label: 'Reb', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic' },
+        { key: 'DREB', label: 'D Reb', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic' },
+        { key: 'OREB', label: 'O Reb', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'basic' },
+        { key: 'BOX_OUTS', label: 'Boxouts', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'rebounding', category: 'hustle' },
+        { key: 'E_REB_PCT', label: 'Reb%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated' },
+        { key: 'E_DREB_PCT', label: 'D Reb%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated' },
+        { key: 'E_OREB_PCT', label: 'O Reb%', formatValue: (v) => (v * 100).toFixed(1) + '%', higherIsBetter: true, dataSource: 'rebounding', category: 'estimated' },
 
-        // === DEFENSE ===
-        { key: 'STL', label: 'STL', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'basic'},
-        { key: 'E_DEF_RATING', label: 'DEF RTG', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'defense', category: 'estimated' },
-        { key: 'DEFLECTIONS', label: 'DEFL', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
-        { key: 'OFF_LOOSE_BALLS_RECOVERED', label: 'OFF LBR', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
-        { key: 'CHARGES_DRAWN', label: 'CHRG', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
-        { key: 'BLK', label: 'BLK', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'basic' },
-        { key: 'PF', label: 'PF', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'defense', category: 'basic' },
-        { key: 'CONTESTED_SHOTS', label: 'CONTEST', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
-        { key: 'DEF_LOOSE_BALLS_RECOVERED', label: 'DEF LBR', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle'},
+
+        // === DEFENSE (EXACT SAME ORDER) ===
+        { key: 'STL', label: 'Stl', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'basic' },
+        { key: 'E_DEF_RATING', label: 'Def Rtg', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'defense', category: 'estimated' },
+        { key: 'DEFLECTIONS', label: 'Deflections', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
+        { key: 'OFF_LOOSE_BALLS_RECOVERED', label: 'Off Loose B Rec.', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
+        { key: 'CHARGES_DRAWN', label: 'Charges Drawn', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
+        { key: 'BLK', label: 'Blk', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'basic' },
+        { key: 'PF', label: 'Player Fouls', formatValue: (v) => v.toFixed(1), higherIsBetter: false, dataSource: 'defense', category: 'basic' },
+        { key: 'CONTESTED_SHOTS', label: 'Contest Shots', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
+        { key: 'DEF_LOOSE_BALLS_RECOVERED', label: 'Def Loose B Rec.', formatValue: (v) => v.toFixed(1), higherIsBetter: true, dataSource: 'defense', category: 'hustle' },
     ];
 
     const getBarColor = (higherIsBetter: boolean): string => {
@@ -122,11 +122,22 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
         );
     }
 
-    // Filter and sort stats by priority
-    const scoringStats = allStatsConfig.filter(s => s.dataSource === 'scoring');
-    const playmakingStats = allStatsConfig.filter(s => s.dataSource === 'playmaking');
-    const reboundingStats = allStatsConfig.filter(s => s.dataSource === 'rebounding');
-    const defenseStats = allStatsConfig.filter(s => s.dataSource === 'defense');
+    // Filter stats that have data
+    const scoringStats = allStatsConfig
+        .filter(s => s.dataSource === 'scoring')
+        .filter(config => getStatData(config) !== null);
+
+    const playmakingStats = allStatsConfig
+        .filter(s => s.dataSource === 'playmaking')
+        .filter(config => getStatData(config) !== null);
+
+    const reboundingStats = allStatsConfig
+        .filter(s => s.dataSource === 'rebounding')
+        .filter(config => getStatData(config) !== null);
+
+    const defenseStats = allStatsConfig
+        .filter(s => s.dataSource === 'defense')
+        .filter(config => getStatData(config) !== null);
 
     const renderStatSection = (title: string, stats: StatConfig[], color: string) => {
         if (stats.length === 0) return null;
@@ -142,9 +153,9 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
                     <div className={`w-2 h-2 rounded-full ${color} mr-2`}></div>
                     {title}
                 </h3>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                     {/* Left Column */}
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                         {leftColumn.map((config) => {
                             const data = getStatData(config);
                             if (!data) return null;
@@ -155,10 +166,10 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
                             return (
                                 <div
                                     key={`${config.dataSource}-${config.key}`}
-                                    className="flex items-center justify-between space-x-1 py-1 px-1.5 hover:bg-gray-800/40 rounded transition-colors"
+                                    className="flex items-center justify-between space-x-1 py-0.5 px-1 hover:bg-gray-800/30 rounded transition-colors"
                                 >
-                                    {/* Stat Label */}
-                                    <div className="w-14">
+                                    {/* Stat Label - Balanced width */}
+                                    <div className="w-16">
                                         <span className="text-white text-[10px] font-medium whitespace-nowrap">
                                             {config.label}
                                         </span>
@@ -171,9 +182,9 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
                                         </span>
                                     </div>
 
-                                    {/* Percentile Bar */}
+                                    {/* Percentile Bar - Balanced width */}
                                     <div className="flex-1 flex items-center space-x-1">
-                                        <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden min-w-[20px]">
+                                        <div className="w-14 h-1 bg-gray-700 rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full ${barColor}`}
                                                 style={{ width: `${percentileWidth}%` }}
@@ -189,7 +200,7 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
                     </div>
 
                     {/* Right Column */}
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                         {rightColumn.map((config) => {
                             const data = getStatData(config);
                             if (!data) return null;
@@ -200,10 +211,10 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
                             return (
                                 <div
                                     key={`${config.dataSource}-${config.key}`}
-                                    className="flex items-center justify-between space-x-1 py-1 px-1.5 hover:bg-gray-800/40 rounded transition-colors"
+                                    className="flex items-center justify-between space-x-1 py-0.5 px-1 hover:bg-gray-800/30 rounded transition-colors"
                                 >
-                                    {/* Stat Label */}
-                                    <div className="w-14">
+                                    {/* Stat Label - Balanced width */}
+                                    <div className="w-16">
                                         <span className="text-white text-[10px] font-medium whitespace-nowrap">
                                             {config.label}
                                         </span>
@@ -216,9 +227,9 @@ const PlayerPercentileStats: React.FC<PlayerPercentileStatsProps> = ({ allRankin
                                         </span>
                                     </div>
 
-                                    {/* Percentile Bar */}
+                                    {/* Percentile Bar - Balanced width */}
                                     <div className="flex-1 flex items-center space-x-1">
-                                        <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden min-w-[20px]">
+                                        <div className="w-14 h-1 bg-gray-700 rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full ${barColor}`}
                                                 style={{ width: `${percentileWidth}%` }}

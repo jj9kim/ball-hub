@@ -1249,13 +1249,13 @@ export default function PlayerProfilePage() {
                             </div>
                         </div>
                         <div className='bg-[#1d1d1d] rounded-2xl border-1 border-orange-400'>
-                            <div className='w-full border-b-1 border-[#333333] h-10 flex flex-row items-center p-3'>
+                            <div className='w-full border-b-1 border-[#333333] h-20 flex flex-row items-center p-3'>
                                 <img
                                     src="https://content.rotowire.com/images/teamlogo/basketball/100fa.png?v=7"
                                     alt="NBA"
                                     className="w-6 h-6 mr-1.5"
                                 />
-                                <h2 className='text-white text-sm'>Stat Percentiles 2025-26</h2>
+                                <h2 className='text-white text-lg'>NBA Stats 2025-26</h2>
                             </div>
                             <PlayerProfilePercentiles
                                 allRankingStats={allRankingStats}
