@@ -533,33 +533,77 @@ export default function PlayerProfilePage() {
             .join(' ');
     };
 
-    // Helper function to format stat value
-    const formatStatValue = (statName: string, value: any): string => {
-        if (value === null || value === undefined) return '--';
+    // Helper function to check if a position should be shown
+    const shouldShowPosition = (positionAbbr: string): boolean => {
+        if (!playerInfo?.POSITION) return false;
 
-        // Handle percentage stats
-        if (statName.includes('_PCT') || statName.includes('PERCENT') || statName.includes('RATIO')) {
-            if (typeof value === 'number') {
-                if (statName.includes('_PCT') && !statName.includes('RANK')) {
-                    // Display as percentage (e.g., 0.455 -> 45.5%)
-                    return `${(value * 100).toFixed(1)}%`;
-                }
-                return value.toFixed(1);
+        const playerPos = playerInfo.POSITION.toUpperCase();
+        const positionAbbrUpper = positionAbbr.toUpperCase();
+
+        // Map full position names to abbreviations
+        const positionMapping: Record<string, string[]> = {
+            'PG': ['PG', 'POINT GUARD', 'GUARD'],
+            'SG': ['SG', 'SHOOTING GUARD', 'GUARD'],
+            'SF': ['SF', 'SMALL FORWARD', 'FORWARD'],
+            'PF': ['PF', 'POWER FORWARD', 'FORWARD'],
+            'C': ['C', 'CENTER']
+        };
+
+        // Get the possible full names for this abbreviation
+        const possibleNames = positionMapping[positionAbbrUpper] || [];
+
+        // Check if player's position contains any of the possible names
+        for (const name of possibleNames) {
+            if (playerPos.includes(name)) {
+                return true;
             }
-            return String(value);
         }
 
-        // Handle rank stats
-        if (statName.includes('_RANK')) {
-            return `#${value}`;
+        // Handle hyphenated positions like "Forward-Guard"
+        if (playerPos.includes('-')) {
+            const [pos1, pos2] = playerPos.split('-');
+
+            // Check if either part matches our position
+            for (const name of possibleNames) {
+                if (pos1.includes(name) || pos2.includes(name)) {
+                    return true;
+                }
+            }
         }
 
-        // Handle numeric values
-        if (typeof value === 'number') {
-            return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+        return false;
+    };
+
+    // Function to get display text (shows full position for single positions)
+    const getPositionDisplayText = (positionAbbr: string): string => {
+        if (!playerInfo?.POSITION) return positionAbbr;
+
+        const playerPos = playerInfo.POSITION.toUpperCase();
+
+        // For hyphenated positions, show appropriate part
+        if (playerPos.includes('-')) {
+            const [pos1, pos2] = playerPos.split('-');
+
+            if (positionAbbr === 'PG') {
+                if (pos1.includes('GUARD') || pos2.includes('GUARD')) return 'PG';
+            } 
+
+            if (positionAbbr === 'SG') {
+                if (pos1.includes('GUARD') || pos2.includes('GUARD')) return 'SG';
+            }
+            if (positionAbbr === 'SF' ) {
+                if (pos1.includes('FORWARD') || pos2.includes('FORWARD')) return 'SF';
+            }
+            if (positionAbbr === 'PF') {
+                if (pos1.includes('FORWARD') || pos2.includes('FORWARD')) return 'PF';
+            }
+            if (positionAbbr === 'C') {
+                if (pos1.includes('CENTER') || pos2.includes('CENTER')) return 'C';
+            }
         }
 
-        return String(value);
+        // For single positions, return the abbreviation
+        return positionAbbr;
     };
 
     if (loading) {
@@ -718,9 +762,10 @@ export default function PlayerProfilePage() {
                                 </div>
                                 <div className='w-1/2 border-y-2 border-y-teal-600 h-77 flex'>
                                     <div className='mt-5'>
-                                        <h2 className='ml-5 text-white font-bold text-sm'>Position</h2>
+                                        <h2 className='ml-5 text-white font-bold'>Position</h2>
+                                        <h2 className='ml-5 mt-1 text-white text-sm'>{playerInfo.POSITION}</h2>
                                     </div>
-                                    <div className="relative h-50 bg-[#1d1d1d] ml-15 mt-10 rounded-[7px] w-50 overflow-hidden">
+                                    <div className="relative h-50 bg-[#1d1d1d] ml-7 mt-10 rounded-[7px] w-50 overflow-hidden">
                                         <div className="relative h-full bg-[#2c2c2c]">
                                             {/* Court Base */}
                                             <div className="absolute inset-0 bg-[#2c2c2c]"></div>
@@ -731,19 +776,50 @@ export default function PlayerProfilePage() {
                                             {/* Three-Point Line */}
                                             <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
                                                 <div className="w-[160px] h-[125px] border-4 border-[#343434] 
-                                            rounded-b-full rounded-l-2xl border-t-0"></div>
+                    rounded-b-full rounded-l-2xl border-t-0"></div>
                                             </div>
 
                                             {/* Key/Paint Area */}
                                             <div className="absolute top-0 left-33/100 right-33/100 h-8/20 
-                                        border-x-4 border-[#343434]"></div>
+                border-x-4 border-[#343434]"></div>
 
                                             {/* Free Throw Line */}
                                             <div className="absolute top-8/20 left-33/100 right-33/100 h-1 bg-[#343434]"></div>
 
                                             {/* Free Throw Circle */}
                                             <div className="absolute top-31/100 left-1/2 w-10 h-10 border-4 
-                                        border-[#343434] rounded-full transform -translate-x-1/2"></div>
+                border-[#343434] rounded-full transform -translate-x-1/2"></div>
+
+                                            {/* Position indicators - only show player's actual position */}
+                                            {shouldShowPosition('PG') && (
+                                                <div className='absolute px-2 top-67/100 left-41/100 bg-amber-500 rounded-2xl border-black border-1 text-black font-semibold'>
+                                                    {getPositionDisplayText('PG')}
+                                                </div>
+                                            )}
+
+                                            {shouldShowPosition('SG') && (
+                                                <div className='absolute px-2 top-43/100 left-4/100 bg-amber-500 rounded-2xl border-black border-1 text-black font-semibold'>
+                                                    {getPositionDisplayText('SG')}
+                                                </div>
+                                            )}
+
+                                            {shouldShowPosition('SF') && (
+                                                <div className='absolute px-2 top-37/100 left-71/100 bg-amber-500 rounded-2xl border-black border-1 text-black font-semibold'>
+                                                    {getPositionDisplayText('SF')}
+                                                </div>
+                                            )}
+
+                                            {shouldShowPosition('PF') && (
+                                                <div className='absolute px-2 top-14/100 left-14/100 bg-amber-500 rounded-2xl border-black border-1 text-black font-semibold'>
+                                                    {getPositionDisplayText('PF')}
+                                                </div>
+                                            )}
+
+                                            {shouldShowPosition('C') && (
+                                                <div className='absolute px-3 top-10/100 left-48/100 bg-amber-500 rounded-2xl border-black border-1 text-black font-semibold'>
+                                                    {getPositionDisplayText('C')}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1255,7 +1331,7 @@ export default function PlayerProfilePage() {
                                     alt="NBA"
                                     className="w-6 h-6 mr-1.5"
                                 />
-                                <h2 className='text-white text-lg'>NBA Stats 2025-26</h2>
+                                <h2 className='text-white text-lg'>NBA Stat Percentiles 2025-26</h2>
                             </div>
                             <PlayerProfilePercentiles
                                 allRankingStats={allRankingStats}
