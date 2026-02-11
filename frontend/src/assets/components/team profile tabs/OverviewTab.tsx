@@ -53,6 +53,9 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
     const [standings, setStandings] = useState<TeamStandingWithGB[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastGameStarters, setLastGameStarters] = useState<any[]>([]);
+    const [startersLoading, setStartersLoading] = useState(true);
+    const [startersError, setStartersError] = useState<string | null>(null);
 
     useEffect(() => {
         // Scroll to top when component mounts
@@ -87,6 +90,79 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
             setLoading(false);
         }
     };
+
+    const fetchLastGameStarters = async () => {
+        try {
+            setStartersLoading(true);
+
+            // First, get the last game for this team
+            const gamesResponse = await fetch('http://127.0.0.1:5000/api/nba-games');
+            const gamesData = await gamesResponse.json();
+
+            if (!gamesData.success) {
+                throw new Error('Failed to fetch games');
+            }
+
+            // Find the most recent game for this team
+            const teamGames = gamesData.games
+                .filter((game: any) =>
+                    game.teams.some((team: any) => team.team_id === teamInfo.team_id)
+                )
+                .sort((a: any, b: any) => b.game_date.localeCompare(a.game_date));
+
+            if (teamGames.length === 0) {
+                setStartersError('No games found for this team');
+                setStartersLoading(false);
+                return;
+            }
+
+            const lastGame = teamGames[0];
+            const gameId = lastGame.game_id;
+
+            // Fetch the boxscore for that game
+            const boxscoreResponse = await fetch(`http://127.0.0.1:5000/api/game/${gameId}/simple-boxscore`);
+            const boxscoreData = await boxscoreResponse.json();
+
+            if (!boxscoreData.success) {
+                throw new Error('Failed to fetch boxscore');
+            }
+
+            // Get the team ID to filter players
+            const teamId = teamInfo.team_id;
+
+            // Filter starters for this team
+            const starters = boxscoreData.players
+                .filter((player: any) =>
+                    player.team_id === teamId &&
+                    player.starter === true
+                )
+                .map((player: any) => ({
+                    ...player,
+                    // Normalize position names
+                    position: player.position?.toUpperCase().replace(/\s+/g, '') || ''
+                }))
+                .sort((a: any, b: any) => {
+                    // Sort by position order: PG, SG, SF, PF, C
+                    const positionOrder = ['PG', 'SG', 'SF', 'PF', 'C'];
+                    return positionOrder.indexOf(a.position) - positionOrder.indexOf(b.position);
+                });
+
+            console.log('Last game starters:', starters);
+            setLastGameStarters(starters);
+
+        } catch (err) {
+            console.error('Error fetching starters:', err);
+            setStartersError(err instanceof Error ? err.message : 'Failed to fetch starters');
+        } finally {
+            setStartersLoading(false);
+        }
+    };
+
+    // Add to useEffect
+    useEffect(() => {
+        fetchStandings();
+        fetchLastGameStarters();
+    }, []);
 
     const calculateAllGamesBack = (standings: TeamStanding[]): TeamStandingWithGB[] => {
         const sorted = [...standings].sort((a, b) => b.win_pct - a.win_pct);
@@ -159,8 +235,10 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
             </div>
             {/* Right tall (spans both rows) */}
             <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] row-span-2 h-110">
-                <div className="h-19 flex items-center flex-row-reverse">
-                    <h2 className="text-white mr-5">Last Starting 5</h2>
+                <div className="h-19 flex items-center flex-row-reverse px-4">
+                    <h2 className="text-white mr-5">
+                        {startersLoading ? 'Loading Starting 5...' : 'Last Starting 5'}
+                    </h2>
                 </div>
                 <div className="relative h-90 bg-[#1d1d1d] rounded-2xl">
                     <div className="relative h-full bg-[#2c2c2c] overflow-hidden rounded-b-2xl">
@@ -170,19 +248,232 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                         {/* Baseline */}
                         <div className="absolute top-0 left-0 right-0 h-1 bg-[#343434]"></div>
 
-                        {/* Three-Point Line (your original but vertical) */}
+                        {/* Three-Point Line */}
                         <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
                             <div className="w-[360px] h-[280px] border-4 border-[#343434] rounded-b-full rounded-l-3xl border-t-0"></div>
                         </div>
 
-                        {/* Key/Paint Area (vertical version of your key) */}
+                        {/* Key/Paint Area */}
                         <div className="absolute top-0 left-1/3 right-1/3 h-9/20 border-x-4 border-[#343434]"></div>
 
                         {/* Free Throw Line */}
                         <div className="absolute top-9/20 left-1/3 right-1/3 h-1 bg-[#343434]"></div>
-                        {/* Free Throw Circle (your circle but half) */}
+
+                        {/* Free Throw Circle */}
                         <div className="absolute top-7/20 left-1/2 w-20 h-20 border-4 border-[#343434] rounded-full transform -translate-x-1/2"></div>
 
+                        {/* Dynamic Starters - Player Cards */}
+                        {startersLoading ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-gray-400">Loading starters...</div>
+                            </div>
+                        ) : startersError ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-gray-500 text-sm">No starting lineup data</div>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Point Guard */}
+                                {lastGameStarters.find(p => p.position === 'PG') && (
+                                    <div className="absolute top-83/100 left-45/100 transform -translate-x-1/2 -translate-y-1/2">
+                                        <div className="relative hover:opacity-50 w-50 h-50 flex flex-col items-center transition-opacity">
+                                            <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden bg-white border-2 border-amber-500">
+                                                <img
+                                                    src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'PG')?.player_id}`}
+                                                    alt={lastGameStarters.find(p => p.position === 'PG')?.name}
+                                                    className="absolute top-0 left-0 w-full h-full rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const parent = e.currentTarget.parentElement;
+                                                        if (parent) {
+                                                            const initials = lastGameStarters.find(p => p.position === 'PG')?.name
+                                                                .split(' ')
+                                                                .map((n: string) => n[0])
+                                                                .join('')
+                                                                .toUpperCase()
+                                                                .substring(0, 2);
+                                                            parent.innerHTML = `
+                                                    <div class="w-14 h-14 rounded-full bg-gradient-to-br from-blue-900 to-purple-900 flex items-center justify-center border-2 border-amber-500">
+                                                        <span class="text-xl font-bold text-white">${initials}</span>
+                                                    </div>
+                                                `;
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className='flex flex-row justify-center mt-1'>
+                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                    #{lastGameStarters.find(p => p.position === 'PG')?.jersey || ''}
+                                                </div>
+                                                <div className='text-white text-xs'>
+                                                    {lastGameStarters.find(p => p.position === 'PG')?.name}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Shooting Guard */}
+                                {lastGameStarters.find(p => p.position === 'SG') && (
+                                    <div className="absolute top-60/100 left-5/100 transform -translate-x-1/2 -translate-y-1/2">
+                                        <div className="relative hover:opacity-50 w-50 h-50 flex flex-col items-center transition-opacity">
+                                            <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden bg-white border-2 border-amber-500">
+                                                <img
+                                                    src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'SG')?.player_id}`}
+                                                    alt={lastGameStarters.find(p => p.position === 'SG')?.name}
+                                                    className="absolute top-0 left-0 w-full h-full rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const parent = e.currentTarget.parentElement;
+                                                        if (parent) {
+                                                            const initials = lastGameStarters.find(p => p.position === 'SG')?.name
+                                                                .split(' ')
+                                                                .map((n: string) => n[0])
+                                                                .join('')
+                                                                .toUpperCase()
+                                                                .substring(0, 2);
+                                                            parent.innerHTML = `
+                                                    <div class="w-14 h-14 rounded-full bg-gradient-to-br from-blue-900 to-purple-900 flex items-center justify-center border-2 border-amber-500">
+                                                        <span class="text-xl font-bold text-white">${initials}</span>
+                                                    </div>
+                                                `;
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className='flex flex-row justify-center mt-1'>
+                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                    #{lastGameStarters.find(p => p.position === 'SG')?.jersey || ''}
+                                                </div>
+                                                <div className='text-white text-xs'>
+                                                    {lastGameStarters.find(p => p.position === 'SG')?.name}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Small Forward */}
+                                {lastGameStarters.find(p => p.position === 'SF') && (
+                                    <div className="absolute top-50/100 left-79/100 transform -translate-x-1/2 -translate-y-1/2">
+                                        <div className="relative hover:opacity-50 w-50 h-50 flex flex-col items-center transition-opacity">
+                                            <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden bg-white border-2 border-amber-500">
+                                                <img
+                                                    src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'SF')?.player_id}`}
+                                                    alt={lastGameStarters.find(p => p.position === 'SF')?.name}
+                                                    className="absolute top-0 left-0 w-full h-full rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const parent = e.currentTarget.parentElement;
+                                                        if (parent) {
+                                                            const initials = lastGameStarters.find(p => p.position === 'SF')?.name
+                                                                .split(' ')
+                                                                .map((n: string) => n[0])
+                                                                .join('')
+                                                                .toUpperCase()
+                                                                .substring(0, 2);
+                                                            parent.innerHTML = `
+                                                    <div class="w-14 h-14 rounded-full bg-gradient-to-br from-blue-900 to-purple-900 flex items-center justify-center border-2 border-amber-500">
+                                                        <span class="text-xl font-bold text-white">${initials}</span>
+                                                    </div>
+                                                `;
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className='flex flex-row justify-center mt-1'>
+                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                    #{lastGameStarters.find(p => p.position === 'SF')?.jersey || ''}
+                                                </div>
+                                                <div className='text-white text-xs'>
+                                                    {lastGameStarters.find(p => p.position === 'SF')?.name}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Power Forward */}
+                                {lastGameStarters.find(p => p.position === 'PF') && (
+                                    <div className="absolute top-18/100 left-13/100 transform -translate-x-1/2 -translate-y-1/2">
+                                        <div className="relative hover:opacity-50 w-50 h-50 flex flex-col items-center transition-opacity">
+                                            <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden bg-white border-2 border-amber-500">
+                                                <img
+                                                    src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'PF')?.player_id}`}
+                                                    alt={lastGameStarters.find(p => p.position === 'PF')?.name}
+                                                    className="absolute top-0 left-0 w-full h-full rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const parent = e.currentTarget.parentElement;
+                                                        if (parent) {
+                                                            const initials = lastGameStarters.find(p => p.position === 'PF')?.name
+                                                                .split(' ')
+                                                                .map((n: string) => n[0])
+                                                                .join('')
+                                                                .toUpperCase()
+                                                                .substring(0, 2);
+                                                            parent.innerHTML = `
+                                                    <div class="w-14 h-14 rounded-full bg-gradient-to-br from-blue-900 to-purple-900 flex items-center justify-center border-2 border-amber-500">
+                                                        <span class="text-xl font-bold text-white">${initials}</span>
+                                                    </div>
+                                                `;
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className='flex flex-row justify-center mt-1'>
+                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                    #{lastGameStarters.find(p => p.position === 'PF')?.jersey || ''}
+                                                </div>
+                                                <div className='text-white text-xs'>
+                                                    {lastGameStarters.find(p => p.position === 'PF')?.name}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Center */}
+                                {lastGameStarters.find(p => p.position === 'C') && (
+                                    <div className="absolute top-8/100 left-53/100 transform -translate-x-1/2 -translate-y-1/2">
+                                        <div className="relative hover:opacity-50 w-50 h-50 flex flex-col items-center transition-opacity">
+                                            <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden bg-white border-2 border-amber-500">
+                                                <img
+                                                    src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'C')?.player_id}`}
+                                                    alt={lastGameStarters.find(p => p.position === 'C')?.name}
+                                                    className="absolute top-0 left-0 w-full h-full rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const parent = e.currentTarget.parentElement;
+                                                        if (parent) {
+                                                            const initials = lastGameStarters.find(p => p.position === 'C')?.name
+                                                                .split(' ')
+                                                                .map((n: string) => n[0])
+                                                                .join('')
+                                                                .toUpperCase()
+                                                                .substring(0, 2);
+                                                            parent.innerHTML = `
+                                                    <div class="w-14 h-14 rounded-full bg-gradient-to-br from-blue-900 to-purple-900 flex items-center justify-center border-2 border-amber-500">
+                                                        <span class="text-xl font-bold text-white">${initials}</span>
+                                                    </div>
+                                                `;
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className='flex flex-row justify-center mt-1'>
+                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                    #{lastGameStarters.find(p => p.position === 'C')?.jersey || ''}
+                                                </div>
+                                                <div className='text-white text-xs'>
+                                                    {lastGameStarters.find(p => p.position === 'C')?.name}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
