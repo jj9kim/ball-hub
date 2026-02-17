@@ -238,10 +238,17 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
             </div>
             {/* Right tall (spans both rows) */}
             <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] row-span-2 h-110">
+
                 <div className="h-19 flex items-center flex-row-reverse px-4">
                     <h2 className="text-white mr-5">
                         {startersLoading ? 'Loading Starting 5...' : 'Last Starting 5'}
                     </h2>
+                    <div className="text-white mr-25">Season Stats</div>
+                    <img
+                        src="https://content.rotowire.com/images/teamlogo/basketball/100fa.png?v=7"
+                        alt="NBA"
+                        className="w-10 h-10 mr-2"
+                    />
                 </div>
                 <div className="relative h-90 bg-[#1d1d1d] rounded-2xl">
                     <div className="relative h-full bg-[#2c2c2c] overflow-hidden rounded-b-2xl">
@@ -279,12 +286,12 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                 {/* Point Guard */}
                                 {lastGameStarters.find(p => p.position === 'PG') && (
                                     <div className="absolute top-90/100 left-51/100 transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                                                onClick={() => {
-                                                    const player = lastGameStarters.find(p => p.position === 'PG');
-                                                    const playerName = encodeURIComponent(player.name);
-                                                    navigate(`/player/${player.player_id}/${playerName}`);
-                                                }}>
-                                                <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap">
+                                        onClick={() => {
+                                            const player = lastGameStarters.find(p => p.position === 'PG');
+                                            const playerName = encodeURIComponent(player.name);
+                                            navigate(`/player/${player.player_id}/${playerName}`);
+                                        }}>
+                                        <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap">
                                             <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2 border-amber-500">
                                                 <img
                                                     src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'PG')?.player_id}`}
@@ -310,10 +317,10 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                                 />
                                             </div>
                                             <div className='flex flex-row justify-center mt-1'>
-                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                <div className='text-[#ababab] text-[11px] pr-1'>
                                                     #{lastGameStarters.find(p => p.position === 'PG')?.jersey || ''}
                                                 </div>
-                                                <div className='text-white text-xs'>
+                                                <div className='text-white text-[11px]'>
                                                     {lastGameStarters.find(p => p.position === 'PG')?.name}
                                                 </div>
                                             </div>
@@ -323,13 +330,13 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
 
                                 {/* Shooting Guard */}
                                 {lastGameStarters.find(p => p.position === 'SG') && (
-                                    <div className="absolute top-74/100 left-14/100 transform -translate-x-1/2 -translate-y-1/2">
-                                                <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap cursor-pointer"
-                                                    onClick={() => {
-                                                        const player = lastGameStarters.find(p => p.position === 'SG');
-                                                        const playerName = encodeURIComponent(player.name);
-                                                        navigate(`/player/${player.player_id}/${playerName}`);
-                                                    }}>
+                                    <div className="absolute top-74/100 left-16/100 transform -translate-x-1/2 -translate-y-1/2">
+                                        <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap cursor-pointer"
+                                            onClick={() => {
+                                                const player = lastGameStarters.find(p => p.position === 'SG');
+                                                const playerName = encodeURIComponent(player.name);
+                                                navigate(`/player/${player.player_id}/${playerName}`);
+                                            }}>
                                             <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2 border-amber-500">
                                                 <img
                                                     src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'SG')?.player_id}`}
@@ -355,10 +362,10 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                                 />
                                             </div>
                                             <div className='flex flex-row justify-center mt-1'>
-                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                <div className='text-[#ababab] text-[11px] pr-1'>
                                                     #{lastGameStarters.find(p => p.position === 'SG')?.jersey || ''}
                                                 </div>
-                                                <div className='text-white text-xs'>
+                                                <div className='text-white text-[11px]'>
                                                     {lastGameStarters.find(p => p.position === 'SG')?.name}
                                                 </div>
                                             </div>
@@ -369,12 +376,12 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                 {/* Small Forward */}
                                 {lastGameStarters.find(p => p.position === 'SF') && (
                                     <div className="absolute top-60/100 left-80/100 transform -translate-x-1/2 -translate-y-1/2">
-                                                <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap cursor-pointer"
-                                                    onClick={() => {
-                                                        const player = lastGameStarters.find(p => p.position === 'SF');
-                                                        const playerName = encodeURIComponent(player.name);
-                                                        navigate(`/player/${player.player_id}/${playerName}`);
-                                                    }}>
+                                        <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap cursor-pointer"
+                                            onClick={() => {
+                                                const player = lastGameStarters.find(p => p.position === 'SF');
+                                                const playerName = encodeURIComponent(player.name);
+                                                navigate(`/player/${player.player_id}/${playerName}`);
+                                            }}>
                                             <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2 border-amber-500">
                                                 <img
                                                     src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'SF')?.player_id}`}
@@ -400,10 +407,10 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                                 />
                                             </div>
                                             <div className='flex flex-row justify-center mt-1'>
-                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                <div className='text-[#ababab] text-[11px] pr-1'>
                                                     #{lastGameStarters.find(p => p.position === 'SF')?.jersey || ''}
                                                 </div>
-                                                <div className='text-white text-xs'>
+                                                <div className='text-white text-[11px]'>
                                                     {lastGameStarters.find(p => p.position === 'SF')?.name}
                                                 </div>
                                             </div>
@@ -414,12 +421,12 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                 {/* Power Forward */}
                                 {lastGameStarters.find(p => p.position === 'PF') && (
                                     <div className="absolute top-34/100 left-20/100 transform -translate-x-1/2 -translate-y-1/2">
-                                                <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap cursor-pointer"
-                                                    onClick={() => {
-                                                        const player = lastGameStarters.find(p => p.position === 'PF');
-                                                        const playerName = encodeURIComponent(player.name);
-                                                        navigate(`/player/${player.player_id}/${playerName}`);
-                                                    }}>
+                                        <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap cursor-pointer"
+                                            onClick={() => {
+                                                const player = lastGameStarters.find(p => p.position === 'PF');
+                                                const playerName = encodeURIComponent(player.name);
+                                                navigate(`/player/${player.player_id}/${playerName}`);
+                                            }}>
                                             <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2 border-amber-500">
                                                 <img
                                                     src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'PF')?.player_id}`}
@@ -445,10 +452,10 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                                 />
                                             </div>
                                             <div className='flex flex-row justify-center mt-1'>
-                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                <div className='text-[#ababab] text-[11px] pr-1'>
                                                     #{lastGameStarters.find(p => p.position === 'PF')?.jersey || ''}
                                                 </div>
-                                                <div className='text-white text-xs'>
+                                                <div className='text-white text-[11px]'>
                                                     {lastGameStarters.find(p => p.position === 'PF')?.name}
                                                 </div>
                                             </div>
@@ -459,12 +466,12 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                 {/* Center */}
                                 {lastGameStarters.find(p => p.position === 'C') && (
                                     <div className="absolute top-22/100 left-56/100 transform -translate-x-1/2 -translate-y-1/2">
-                                                <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap cursor-pointer"
-                                                    onClick={() => {
-                                                        const player = lastGameStarters.find(p => p.position === 'C');
-                                                        const playerName = encodeURIComponent(player.name);
-                                                        navigate(`/player/${player.player_id}/${playerName}`);
-                                                    }}>
+                                        <div className="relative hover:opacity-50 w-30 h-30 flex flex-col items-center transition-opacity whitespace-nowrap cursor-pointer"
+                                            onClick={() => {
+                                                const player = lastGameStarters.find(p => p.position === 'C');
+                                                const playerName = encodeURIComponent(player.name);
+                                                navigate(`/player/${player.player_id}/${playerName}`);
+                                            }}>
                                             <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2 border-amber-500">
                                                 <img
                                                     src={`http://127.0.0.1:5000/api/nba-image/${lastGameStarters.find(p => p.position === 'C')?.player_id}`}
@@ -490,10 +497,10 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                                 />
                                             </div>
                                             <div className='flex flex-row justify-center mt-1'>
-                                                <div className='text-[#ababab] text-xs pr-1'>
+                                                <div className='text-[#ababab] text-[11px] pr-1'>
                                                     #{lastGameStarters.find(p => p.position === 'C')?.jersey || ''}
                                                 </div>
-                                                <div className='text-white text-xs'>
+                                                <div className='text-white text-[11px]'>
                                                     {lastGameStarters.find(p => p.position === 'C')?.name}
                                                 </div>
                                             </div>
@@ -548,7 +555,13 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                             {leagueStandings.map((team, index) => (
                                 <div
                                     key={team.team_id}
-                                    className={`grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-sm text-white px-2 py-1 hover:bg-[#333] transition ${team.team_id === teamInfo.team_id ? 'bg-black shadow-[inset_2px_0_0_0_#22c55e]' : ''
+                                    onClick={() => {
+                                        if (team.team_id !== teamInfo.team_id) {
+                                            const teamName = encodeURIComponent(team.team_name);
+                                            navigate(`/team/${team.team_id}/${teamName}`);
+                                        }
+                                    }}
+                                    className={`grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-sm text-white px-2 py-1 hover:bg-[#333] transition cursor-pointer ${team.team_id === teamInfo.team_id ? 'bg-black shadow-[inset_2px_0_0_0_#22c55e]' : ''
                                         }`}
                                 >
                                     <p>{index + 1}</p>
@@ -564,11 +577,11 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                                 const parent = e.currentTarget.parentElement;
                                                 if (parent) {
                                                     parent.innerHTML = `
-                                                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                                            <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
-                                                        </div>
-                                                        <span>${team.team_name}</span>
-                                                    `;
+                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                            </div>
+                            <span>${team.team_name}</span>
+                        `;
                                                 }
                                             }}
                                         />
