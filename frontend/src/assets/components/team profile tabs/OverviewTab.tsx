@@ -50,6 +50,20 @@ interface TeamStandingWithGB extends TeamStanding {
     division_games_back: number;
 }
 
+interface GameFormData {
+    game_id: string;
+    game_date: string;
+    opponent: string;
+    opponent_id: number;
+    result: string;
+    points_for: number;
+    points_against: number;
+    is_home: boolean;
+    home_score: number;  // Add this
+    away_score: number;  // Add this
+    matchup: string;
+}
+
 export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
     const [standings, setStandings] = useState<TeamStandingWithGB[]>([]);
     const [loading, setLoading] = useState(true);
@@ -57,6 +71,9 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
     const [lastGameStarters, setLastGameStarters] = useState<any[]>([]);
     const [startersLoading, setStartersLoading] = useState(true);
     const [startersError, setStartersError] = useState<string | null>(null);
+    const [teamForm, setTeamForm] = useState<any[]>([]);
+    const [formLoading, setFormLoading] = useState(true);
+    const [formError, setFormError] = useState<string | null>(null);
 
     const navigate = useNavigate();
 
@@ -161,11 +178,70 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
         }
     };
 
-    // Add to useEffect
     useEffect(() => {
         fetchStandings();
         fetchLastGameStarters();
+        fetchTeamForm();
     }, []);
+
+    const fetchTeamForm = async () => {
+        try {
+            setFormLoading(true);
+
+            const gamesResponse = await fetch('http://127.0.0.1:5000/api/nba-games');
+            const gamesData = await gamesResponse.json();
+
+            if (!gamesData.success) {
+                throw new Error('Failed to fetch games');
+            }
+
+            const teamGames = gamesData.games
+                .filter((game: any) =>
+                    game.teams.some((team: any) => team.team_id === teamInfo.team_id)
+                )
+                .sort((a: any, b: any) => a.game_date.localeCompare(b.game_date))
+                .slice(-5);
+
+            const formattedGames = teamGames.map((game: any) => {
+                // Find both teams
+                const homeTeam = game.teams[0]; // First team is home
+                const awayTeam = game.teams[1]; // Second team is away
+
+                // Determine if our team is home or away
+                const isHome = homeTeam?.team_id === teamInfo.team_id;
+
+                // Get opponent
+                const opponent = isHome ? awayTeam : homeTeam;
+
+                // Get result (W/L) for our team
+                const ourTeam = isHome ? homeTeam : awayTeam;
+
+                return {
+                    game_id: game.game_id,
+                    game_date: game.game_date,
+                    opponent: opponent?.team_name || 'Unknown',
+                    opponent_id: opponent?.team_id,
+                    result: ourTeam?.wl || 'N/A',
+                    points_for: ourTeam?.pts || 0,
+                    points_against: opponent?.pts || 0,
+                    is_home: isHome,
+                    // Store both home and away scores for proper display
+                    home_score: homeTeam?.pts || 0,
+                    away_score: awayTeam?.pts || 0,
+                    matchup: game.matchup
+                };
+            });
+
+            console.log('Team form games:', formattedGames);
+            setTeamForm(formattedGames);
+
+        } catch (err) {
+            console.error('Error fetching team form:', err);
+            setFormError(err instanceof Error ? err.message : 'Failed to fetch team form');
+        } finally {
+            setFormLoading(false);
+        }
+    };
 
     const calculateAllGamesBack = (standings: TeamStanding[]): TeamStandingWithGB[] => {
         const sorted = [...standings].sort((a, b) => b.win_pct - a.win_pct);
@@ -228,9 +304,79 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
 
     return (
         <div className="grid grid-cols-3 grid-rows-[21vh_10px] gap-4 h-200">
-            {/* Top left */}
-            <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] h-40">
-                <h2 className="ml-3 mt-3 text-white">Team Form</h2>
+            {/* Top left - Team Form */}
+            <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] h-40 overflow-hidden">
+                <h2 className="ml-3 mt-3 text-white font-semibold">Team Form</h2>
+
+                {formLoading ? (
+                    <div className="flex items-center justify-center h-20">
+                        <p className="text-gray-400 text-sm">Loading form...</p>
+                    </div>
+                ) : formError ? (
+                    <div className="flex items-center justify-center h-20">
+                        <p className="text-red-400 text-sm">{formError}</p>
+                    </div>
+                ) : teamForm.length === 0 ? (
+                    <div className="flex items-center justify-center h-20">
+                        <p className="text-gray-400 text-sm">No recent games</p>
+                    </div>
+                ) : (
+                    <div className="flex justify-center items-center h-24 space-x-4 px-2">
+                        {teamForm.map((game, index) => {
+                            // Determine home and away scores from the game data
+                            let homeScore, awayScore;
+
+                            if (game.is_home) {
+                                // Our team is home
+                                homeScore = game.points_for;      // Our team's score (home)
+                                awayScore = game.points_against;  // Opponent's score (away)
+                            } else {
+                                // Our team is away
+                                homeScore = game.points_against;  // Opponent's score (home)
+                                awayScore = game.points_for;       // Our team's score (away)
+                            }
+
+                            return (
+                                <div
+                                    key={index}
+                                    onClick={() => navigate(`/game/${game.game_id}`)}
+                                    className="flex flex-col items-center justify-center w-15 cursor-pointer hover:scale-110 transition"
+                                    title={`${game.opponent} (${game.is_home ? 'Home' : 'Away'})`}
+                                >
+                                    {/* Score always shows as Home-Away */}
+                                    <div className={`w-full text-center py-1 rounded-lg font-bold text-xs mb-1 ${game.result === 'W'
+                                            ? 'bg-green-500 text-white'
+                                            : 'bg-red-500 text-white'
+                                        }`}>
+                                        {game.home_score}-{game.away_score}
+                                    </div>
+
+                                    {/* Team Logo - opponent's logo */}
+                                    <div className="w-full flex justify-center pt-1">
+                                        <img
+                                            src={`http://127.0.0.1:5000/api/team-logo/${game.opponent_id}`}
+                                            alt={game.opponent}
+                                            className="w-8 h-8"
+                                            onError={(e) => {
+                                                const teamWords = game.opponent.split(' ');
+                                                const teamAbbreviation = teamWords[teamWords.length - 1];
+                                                e.currentTarget.style.display = 'none';
+                                                const parent = e.currentTarget.parentElement;
+                                                if (parent) {
+                                                    // Create fallback div
+                                                    const fallbackDiv = document.createElement('div');
+                                                    fallbackDiv.className = 'w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center';
+                                                    fallbackDiv.innerHTML = `<span class="text-xs font-bold text-white">${teamAbbreviation.substring(0, 2)}</span>`;
+                                                    parent.appendChild(fallbackDiv);
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
             {/* Top middle */}
             <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] h-40">
