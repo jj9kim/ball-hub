@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getTeamName } from '../utils/teamMappings';
 import { useParams, useNavigate } from 'react-router-dom';
-import { NBAService, type NBAAPIResponse, type NBAGame, type NBATeamStats } from '../api/nbaService';
+import { NBAService, type NBAGame, type FullScheduleGame } from '../api/nbaService';
 
 const formatDateForURL = (date: Date): string => {
     const year = date.getFullYear();
@@ -19,18 +19,40 @@ interface MainProps {
 
 function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: MainProps) {
     const [games, setGames] = useState<NBAGame[]>([]);
+    const [futureGames, setFutureGames] = useState<FullScheduleGame[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [futureLoading, setFutureLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const { date: urlDate } = useParams<{ date?: string }>();
     const navigate = useNavigate();
 
-    // Fetch games from API
+    // Add this useEffect to see all future game dates
+    useEffect(() => {
+        if (futureGames.length > 0) {
+            const uniqueDates = [...new Set(futureGames.map(game => game.gameDate || game.gameDateEst))];
+            console.log('All future game dates in data:', uniqueDates.sort());
+
+            // Show first few games with their dates
+            console.log('Sample future games:');
+            futureGames.slice(0, 5).forEach(game => {
+                console.log({
+                    date: game.gameDate || game.gameDateEst,
+                    gameId: game.gameId,
+                    away: game.awayTeam_teamName,
+                    home: game.homeTeam_teamName
+                });
+            });
+        }
+    }, [futureGames]);
+
+    // Fetch past games from API
     useEffect(() => {
         const loadGames = async () => {
             try {
                 setLoading(true);
                 const data = await NBAService.fetchGames();
                 setGames(data.games);
+                console.log('Past games loaded:', data.games.length);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load games');
                 console.error('Error loading games:', err);
@@ -40,6 +62,99 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         };
 
         loadGames();
+    }, []);
+
+    // Fetch future games separately
+    useEffect(() => {
+        const loadFutureGames = async () => {
+            try {
+                setFutureLoading(true);
+                const data = await NBAService.fetchFullSchedule();
+                console.log('Full schedule data received. Total games:', data.games.length);
+
+                // Log status distribution
+                const statusCounts: Record<number, number> = {};
+                data.games.forEach(game => {
+                    statusCounts[game.gameStatus] = (statusCounts[game.gameStatus] || 0) + 1;
+                });
+                console.log('Game status distribution:', statusCounts);
+
+                // Try without filtering first to see what we get
+                console.log('All games sample (first 3):', data.games.slice(0, 3));
+
+                // Filter only future games (gameStatus === 1)
+                const future = data.games.filter(game => {
+                    const isFuture = game.gameStatus === 1;
+                    return isFuture;
+                });
+
+                setFutureGames(future);
+                console.log('Future games after filter:', future.length);
+
+                // If no future games with status 1, try status 2 or just any game with future date
+                if (future.length === 0) {
+                    console.log('No games with status 1. Checking by date...');
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+
+                    const futureByDate = data.games.filter(game => {
+                        const gameDateStr = game.gameDate || game.gameDateEst;
+                        if (!gameDateStr) return false;
+
+                        const gameDate = new Date(gameDateStr);
+                        gameDate.setHours(0, 0, 0, 0);
+
+                        return gameDate >= today;
+                    });
+
+                    console.log('Games with future dates:', futureByDate.length);
+                    if (futureByDate.length > 0) {
+                        setFutureGames(futureByDate);
+                    }
+                }
+
+            } catch (err) {
+                console.error('Error loading future games:', err);
+            } finally {
+                setFutureLoading(false);
+            }
+        };
+
+        loadFutureGames();
+    }, []);
+
+    // Fetch future games separately
+    useEffect(() => {
+        const loadFutureGames = async () => {
+            try {
+                setFutureLoading(true);
+                const data = await NBAService.fetchFullSchedule();
+                console.log('Full schedule data:', data);
+
+                // Log the first game to see its structure
+                if (data.games.length > 0) {
+                    console.log('First game sample:', data.games[0]);
+                }
+
+                // Filter only future games (gameStatus === 1)
+                const future = data.games.filter(game => {
+                    const isFuture = game.gameStatus === 1;
+                    if (isFuture) {
+                        console.log('Future game found:', game.gameDate, game.gameId, game.awayTeam_teamName, '@', game.homeTeam_teamName);
+                    }
+                    return isFuture;
+                });
+
+                setFutureGames(future);
+                console.log('Future games loaded:', future.length);
+            } catch (err) {
+                console.error('Error loading future games:', err);
+            } finally {
+                setFutureLoading(false);
+            }
+        };
+
+        loadFutureGames();
     }, []);
 
     // Sync selectedDate with URL parameter
@@ -95,40 +210,99 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         const newDate = new Date(selectedDate);
         newDate.setDate(newDate.getDate() + offset);
 
-        // Use local date string instead of ISO string
         const dateString = formatDateForURL(newDate);
         navigate(`/${dateString}`);
         onDateSelect(newDate);
     };
 
-    const getGamesForSelectedDate = () => {
+    // Format selected date as YYYY-MM-DD
+    const getFormattedSelectedDate = (): string => {
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Get past games for selected date
+    const getPastGamesForSelectedDate = () => {
         if (!games.length) return [];
 
+        const selectedDateStr = getFormattedSelectedDate();
+
         const selectedGames = games.filter(game => {
-            const [year, month, day] = game.game_date.split('-').map(Number);
-            const gameDate = new Date(year, month - 1, day);
-
-            // Compare dates without time components
-            const compareSelectedDate = new Date(selectedDate);
-            compareSelectedDate.setHours(0, 0, 0, 0);
-            gameDate.setHours(0, 0, 0, 0);
-
-            return gameDate.getTime() === compareSelectedDate.getTime();
+            return game.game_date === selectedDateStr;
         });
 
-        // Sort by game_id in ascending order
         selectedGames.sort((a, b) => {
-            // Convert string IDs to numbers for proper numeric sorting
             const idA = parseInt(a.game_id);
             const idB = parseInt(b.game_id);
-            return idA - idB; // Ascending order
+            return idA - idB;
         });
 
-        console.log('Games for date:', selectedDate, 'found:', selectedGames.length);
         return selectedGames;
     };
 
-    const gamesForSelectedDate = getGamesForSelectedDate();
+    // Get future games for selected date
+    // Get future games for selected date
+    const getFutureGamesForSelectedDate = () => {
+        if (!futureGames.length) return [];
+
+        const selectedDateStr = getFormattedSelectedDate();
+
+        // Try different date formats for matching
+        const selectedDateObj = new Date(selectedDate);
+        selectedDateObj.setHours(0, 0, 0, 0);
+
+        const selectedDateISO = selectedDateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+
+        console.log('Looking for games on:', {
+            formatted: selectedDateStr,
+            iso: selectedDateISO,
+            original: selectedDate
+        });
+
+        const selectedFutureGames = futureGames.filter(game => {
+            const gameDateStr = game.gameDate || game.gameDateEst;
+
+            if (!gameDateStr) return false;
+
+            // Try multiple comparison methods
+            const exactMatch = gameDateStr === selectedDateStr || gameDateStr === selectedDateISO;
+
+            // Try parsing both as Date objects
+            const gameDate = new Date(gameDateStr);
+            gameDate.setHours(0, 0, 0, 0);
+
+            const dateMatch = gameDate.getTime() === selectedDateObj.getTime();
+
+            if (exactMatch || dateMatch) {
+                console.log('Match found:', gameDateStr, 'for date', selectedDateStr);
+                return true;
+            }
+
+            return false;
+        });
+
+        console.log(`Future games for ${selectedDateStr}:`, selectedFutureGames.length);
+        return selectedFutureGames;
+    };
+
+    const pastGamesForDate = getPastGamesForSelectedDate();
+    const futureGamesForDate = getFutureGamesForSelectedDate();
+
+    // Combine both types of games
+    const allGamesForDate = [
+        ...pastGamesForDate.map(game => ({ type: 'past' as const, data: game })),
+        ...futureGamesForDate.map(game => ({ type: 'future' as const, data: game }))
+    ];
+
+    // Log what we're showing
+    useEffect(() => {
+        console.log('Selected date:', getFormattedSelectedDate());
+        console.log('Past games for date:', pastGamesForDate.length);
+        console.log('Future games for date:', futureGamesForDate.length);
+        console.log('Total games to display:', allGamesForDate.length);
+    }, [selectedDate, pastGamesForDate, futureGamesForDate]);
 
     if (loading) {
         return (
@@ -186,95 +360,152 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                     </button>
                 </div>
             </div>
+
+            {/* Games list - Combined past and future */}
             <div className="p-4 w-screen border-white border-4 flex justify-center">
                 <div className="w-1/2 flex flex-col space-y-2">
-                    {gamesForSelectedDate.length === 0 ? (
+                    {allGamesForDate.length === 0 ? (
                         <div className="text-white text-center py-4">
                             No games found for {selectedDate.toLocaleDateString()}
                         </div>
                     ) : (
-                        gamesForSelectedDate.map((game) => {
-                            // Each game should have exactly 2 teams
-                            if (game.teams.length !== 2) {
-                                console.log('Incomplete game data for game:', game.game_id);
-                                return null;
+                        allGamesForDate.map((item, index) => {
+                            if (item.type === 'past') {
+                                // Past game format
+                                const game = item.data as NBAGame;
+                                if (game.teams.length !== 2) {
+                                    console.log('Incomplete game data for game:', game.game_id);
+                                    return null;
+                                }
+
+                                const [team1, team2] = game.teams;
+
+                                return (
+                                    <button
+                                        key={`past-${game.game_id}`}
+                                        className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
+                                        onClick={() => {
+                                            const dateString = formatDateForURL(selectedDate);
+                                            navigate(`/${dateString}/game/${game.game_id}`, {
+                                                state: {
+                                                    game: game,
+                                                    teams: [team1, team2]
+                                                }
+                                            });
+                                        }}
+                                    >
+                                        {/* Team 1 */}
+                                        <div className="flex items-center justify-end flex-1">
+                                            <p className="mr-2 text-white">{getTeamName(team1.team_id)}</p>
+                                            <img
+                                                src={`http://127.0.0.1:5000/api/team-logo/${team1.team_id}`}
+                                                alt={team1.team_name}
+                                                className="w-5 h-5"
+                                                onError={(e) => {
+                                                    const teamWords = team1.team_name.split(' ');
+                                                    const teamAbbreviation = teamWords[teamWords.length - 1];
+                                                    e.currentTarget.style.display = 'none';
+                                                    const parent = e.currentTarget.parentElement;
+                                                    if (parent) {
+                                                        parent.innerHTML = `
+                                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                                            </div>
+                                                            <span>${team1.team_name}</span>
+                                                        `;
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* Scores - Centered */}
+                                        <div className="flex items-center gap-2 mx-4">
+                                            <p className="text-white">{team1.pts}</p>
+                                            <span className="text-gray-400">-</span>
+                                            <p className="text-white">{team2.pts}</p>
+                                        </div>
+
+                                        {/* Team 2 */}
+                                        <div className="flex items-center justify-start flex-1">
+                                            <img
+                                                src={`http://127.0.0.1:5000/api/team-logo/${team2.team_id}`}
+                                                alt={team2.team_name}
+                                                className="w-5 h-5 mr-2"
+                                                onError={(e) => {
+                                                    const teamWords = team2.team_name.split(' ');
+                                                    const teamAbbreviation = teamWords[teamWords.length - 1];
+                                                    e.currentTarget.style.display = 'none';
+                                                    const parent = e.currentTarget.parentElement;
+                                                    if (parent) {
+                                                        parent.innerHTML = `
+                                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                                            </div>
+                                                            <span>${team2.team_name}</span>
+                                                        `;
+                                                    }
+                                                }}
+                                            />
+                                            <p className="text-white">{getTeamName(team2.team_id)}</p>
+                                        </div>
+                                    </button>
+                                );
+                            } else {
+                                // Future game format
+                                const game = item.data as FullScheduleGame;
+                                return (
+                                    <button
+                                        key={`future-${game.gameId}`}
+                                        className="border-2 border-yellow-500 flex flex-col items-start hover:bg-[#393939] bg-[#1d1d1d] px-4 py-3 w-full rounded-lg"
+                                        onClick={() => {
+                                            const dateString = formatDateForURL(selectedDate);
+                                            navigate(`/${dateString}/game/${game.gameId}`, {
+                                                state: {
+                                                    game: game,
+                                                    isFuture: true
+                                                }
+                                            });
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center">
+                                                <img
+                                                    src={`http://127.0.0.1:5000/api/team-logo/${game.awayTeam_teamId}`}
+                                                    alt={game.awayTeam_teamName}
+                                                    className="w-6 h-6 mr-2"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                    }}
+                                                />
+                                                <span className="text-white text-sm">{game.awayTeam_teamName}</span>
+                                            </div>
+                                            <span className="text-gray-400 text-xs mx-2 font-bold">@</span>
+                                            <div className="flex items-center">
+                                                <span className="text-white text-sm mr-2">{game.homeTeam_teamName}</span>
+                                                <img
+                                                    src={`http://127.0.0.1:5000/api/team-logo/${game.homeTeam_teamId}`}
+                                                    alt={game.homeTeam_teamName}
+                                                    className="w-6 h-6"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="text-gray-400 text-xs mt-2">
+                                            {game.gameTimeEst ? game.gameTimeEst : 'Time TBD'} • {game.arenaName || 'Arena TBD'}
+                                        </div>
+                                    </button>
+                                );
                             }
-
-                            const [team1, team2] = game.teams;
-
-                            return (
-                                <button
-                                    key={game.game_id}
-                                    className="border-red-600 border-2 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
-                                    onClick={() => {
-                                        const dateString = formatDateForURL(selectedDate);
-                                        navigate(`/${dateString}/game/${game.game_id}`, {
-                                            state: {
-                                                game: game,
-                                                teams: [team1, team2]
-                                            }
-                                        });
-                                    }}
-                                >
-                                    {/* Team 1 */}
-                                    <div className="flex items-center justify-end flex-1">
-                                        <p className="mr-2 text-white">{getTeamName(team1.team_id)}</p>
-                                        <img
-                                            src={`http://127.0.0.1:5000/api/team-logo/${team1.team_id}`}
-                                            alt={team1.team_name}
-                                            className="w-5 h-5"
-                                            onError={(e) => {
-                                                // Fallback: Show team abbreviation
-                                                const teamWords = team1.team_name.split(' ');
-                                                const teamAbbreviation = teamWords[teamWords.length - 1];
-                                                e.currentTarget.style.display = 'none';
-                                                const parent = e.currentTarget.parentElement;
-                                                if (parent) {
-                                                    parent.innerHTML = `
-                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
-                                            </div>
-                                            <span>${team1.team_name}</span>
-                                        `;
-                                                }
-                                            }}
-                                        />
-                                    </div>
-
-                                    {/* Scores - Centered */}
-                                    <div className="flex items-center gap-2 mx-4">
-                                        <p className="text-white">{team1.pts}</p>
-                                        <span className="text-gray-400">-</span>
-                                        <p className="text-white">{team2.pts}</p>
-                                    </div>
-
-                                    {/* Team 2 */}
-                                    <div className="flex items-center justify-start flex-1">
-                                        <img
-                                            src={`http://127.0.0.1:5000/api/team-logo/${team2.team_id}`}
-                                            alt={team2.team_name}
-                                            className="w-5 h-5 mr-2"
-                                            onError={(e) => {
-                                                // Fallback: Show team abbreviation
-                                                const teamWords = team2.team_name.split(' ');
-                                                const teamAbbreviation = teamWords[teamWords.length - 1];
-                                                e.currentTarget.style.display = 'none';
-                                                const parent = e.currentTarget.parentElement;
-                                                if (parent) {
-                                                    parent.innerHTML = `
-                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
-                                            </div>
-                                            <span>${team2.team_name}</span>
-                                        `;
-                                                }
-                                            }}
-                                        />
-                                        <p className="text-white">{getTeamName(team2.team_id)}</p>
-                                    </div>
-                                </button>
-                            );
                         })
+                    )}
+
+                    {/* Show loading indicator for future games if needed */}
+                    {futureLoading && (
+                        <div className="text-gray-400 text-center py-2 text-sm">
+                            Loading future games...
+                        </div>
                     )}
                 </div>
             </div>

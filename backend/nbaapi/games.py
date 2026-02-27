@@ -2,7 +2,7 @@ from flask import Flask, jsonify, Response, send_file, request
 import io
 from flask_cors import CORS
 import pandas as pd
-from nba_api.stats.endpoints import leaguegamefinder, playergamelog, leaguestandings, commonteamroster, playercareerstats, commonplayerinfo, leaguedashplayerstats, leaguehustlestatsplayer, playerestimatedmetrics
+from nba_api.stats.endpoints import leaguegamefinder, playergamelog, leaguestandings, commonteamroster, playercareerstats, commonplayerinfo, leaguedashplayerstats, leaguehustlestatsplayer, playerestimatedmetrics, scoreboardv2, scheduleleaguev2
 from nba_boxscore_safe import get_boxscore_client
 import requests
 import numpy as np
@@ -2257,6 +2257,168 @@ def get_player_stats_with_percentiles(player_id):
             'error': str(e),
             'player_id': player_id
         }), 500
+
+from nba_api.stats.endpoints import scheduleleaguev2
+
+@app.route('/api/full-schedule', methods=['GET'])
+def get_full_schedule():
+    """Get complete NBA schedule including future games"""
+    try:
+        cache_key = "full_nba_schedule"
+        
+        def fetch_full_schedule():
+            print("[FULL SCHEDULE] Fetching complete NBA schedule...")
+            
+            # Get the full schedule
+            schedule = scheduleleaguev2.ScheduleLeagueV2(league_id="00")
+            df_schedule = schedule.get_data_frames()[0]
+            
+            print(f"[FULL SCHEDULE] Total games: {len(df_schedule)}")
+            
+            # Select only the specific fields we want
+            selected_fields = [
+                'leagueId', 'seasonYear', 'gameDate', 'gameId', 'gameCode', 
+                'gameStatus', 'gameStatusText', 'gameSequence', 'gameDateEst', 
+                'gameTimeEst', 'gameDateTimeEst', 'gameDateUTC', 'gameTimeUTC', 
+                'gameDateTimeUTC', 'awayTeamTime', 'homeTeamTime', 'day', 
+                'monthNum', 'weekNumber', 'weekName', 'ifNecessary', 
+                'seriesGameNumber', 'gameLabel', 'gameSubLabel', 'seriesText', 
+                'arenaName', 'arenaState', 'arenaCity', 'postponedStatus', 
+                'branchLink', 'gameSubtype', 'isNeutral', 
+                'homeTeam_teamId', 'homeTeam_teamName', 'homeTeam_teamCity', 
+                'homeTeam_teamTricode', 'homeTeam_teamSlug', 'homeTeam_wins', 
+                'homeTeam_losses', 'homeTeam_score', 'homeTeam_seed',
+                'awayTeam_teamId', 'awayTeam_teamName', 'awayTeam_teamCity', 
+                'awayTeam_teamTricode', 'awayTeam_teamSlug', 'awayTeam_wins', 
+                'awayTeam_losses', 'awayTeam_score', 'awayTeam_seed'
+            ]
+            
+            # Filter to only include the fields that exist in the dataframe
+            available_fields = [field for field in selected_fields if field in df_schedule.columns]
+            print(f"[FULL SCHEDULE] Available fields: {len(available_fields)}/{len(selected_fields)}")
+            
+            # Create filtered dataframe
+            df_filtered = df_schedule[available_fields].copy()
+            
+            # Convert to list of dictionaries
+            schedule_list = []
+            for _, row in df_filtered.iterrows():
+                game_dict = {}
+                for col in available_fields:
+                    game_dict[col] = clean_value(row[col])
+                schedule_list.append(game_dict)
+            
+            # Separate past and future games based on gameStatus
+            # gameStatus: 1 = Scheduled, 2 = In Progress, 3 = Final
+            future_games = [g for g in schedule_list if g.get('gameStatus') == 1]
+            past_games = [g for g in schedule_list if g.get('gameStatus') == 3]
+            live_games = [g for g in schedule_list if g.get('gameStatus') == 2]
+            
+            return {
+                'games': schedule_list,
+                'count': len(schedule_list),
+                'future_count': len(future_games),
+                'past_count': len(past_games),
+                'live_count': len(live_games),
+                'fields': available_fields
+            }
+        
+        # Cache for 6 hours (schedule doesn't change often)
+        data = cached_nba_data(cache_key, fetch_full_schedule, cache_minutes=360)
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[FULL SCHEDULE] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/team/<team_id>/full-schedule', methods=['GET'])
+def get_team_full_schedule(team_id):
+    """Get complete schedule for a specific team"""
+    try:
+        team_id_int = int(team_id)
+        
+        cache_key = f"team_full_schedule_{team_id}"
+        
+        def fetch_team_full_schedule():
+            # Get the full schedule first
+            schedule = scheduleleaguev2.ScheduleLeagueV2(league_id="00")
+            df_schedule = schedule.get_data_frames()[0]
+            
+            # Filter for this team's games
+            team_games = df_schedule[
+                (df_schedule['homeTeam_teamId'] == team_id_int) | 
+                (df_schedule['awayTeam_teamId'] == team_id_int)
+            ].copy()
+            
+            # Select only the specific fields we want
+            selected_fields = [
+                'leagueId', 'seasonYear', 'gameDate', 'gameId', 'gameCode', 
+                'gameStatus', 'gameStatusText', 'gameSequence', 'gameDateEst', 
+                'gameTimeEst', 'gameDateTimeEst', 'gameDateUTC', 'gameTimeUTC', 
+                'gameDateTimeUTC', 'awayTeamTime', 'homeTeamTime', 'day', 
+                'monthNum', 'weekNumber', 'weekName', 'ifNecessary', 
+                'seriesGameNumber', 'gameLabel', 'gameSubLabel', 'seriesText', 
+                'arenaName', 'arenaState', 'arenaCity', 'postponedStatus', 
+                'branchLink', 'gameSubtype', 'isNeutral', 
+                'homeTeam_teamId', 'homeTeam_teamName', 'homeTeam_teamCity', 
+                'homeTeam_teamTricode', 'homeTeam_teamSlug', 'homeTeam_wins', 
+                'homeTeam_losses', 'homeTeam_score', 'homeTeam_seed',
+                'awayTeam_teamId', 'awayTeam_teamName', 'awayTeam_teamCity', 
+                'awayTeam_teamTricode', 'awayTeam_teamSlug', 'awayTeam_wins', 
+                'awayTeam_losses', 'awayTeam_score', 'awayTeam_seed'
+            ]
+            
+            available_fields = [field for field in selected_fields if field in team_games.columns]
+            
+            # Convert to list of dictionaries
+            schedule_list = []
+            for _, row in team_games.iterrows():
+                game_dict = {}
+                for col in available_fields:
+                    game_dict[col] = clean_value(row[col])
+                
+                # Add helper field to know if team is home or away
+                game_dict['is_home'] = (row.get('homeTeam_teamId') == team_id_int)
+                schedule_list.append(game_dict)
+            
+            # Sort by date
+            schedule_list.sort(key=lambda x: x.get('gameDate', ''))
+            
+            # Separate past and future games
+            future_games = [g for g in schedule_list if g.get('gameStatus') == 1]
+            past_games = [g for g in schedule_list if g.get('gameStatus') == 3]
+            
+            return {
+                'team_id': team_id,
+                'games': schedule_list,
+                'count': len(schedule_list),
+                'future_count': len(future_games),
+                'past_count': len(past_games),
+                'fields': available_fields
+            }
+        
+        data = cached_nba_data(cache_key, fetch_team_full_schedule, cache_minutes=360)
+        
+        return jsonify({
+            'success': True,
+            **data
+        })
+        
+    except Exception as e:
+        print(f"[TEAM FULL SCHEDULE] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

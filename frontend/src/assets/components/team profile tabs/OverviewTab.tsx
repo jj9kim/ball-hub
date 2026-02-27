@@ -74,6 +74,9 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
     const [teamForm, setTeamForm] = useState<any[]>([]);
     const [formLoading, setFormLoading] = useState(true);
     const [formError, setFormError] = useState<string | null>(null);
+    const [futureGames, setFutureGames] = useState<any[]>([]);
+    const [futureGamesLoading, setFutureGamesLoading] = useState(true);
+    const [futureGamesError, setFutureGamesError] = useState<string | null>(null);
 
     const navigate = useNavigate();
 
@@ -182,6 +185,7 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
         fetchStandings();
         fetchLastGameStarters();
         fetchTeamForm();
+        fetchFutureGames()
     }, []);
 
     const fetchTeamForm = async () => {
@@ -240,6 +244,35 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
             setFormError(err instanceof Error ? err.message : 'Failed to fetch team form');
         } finally {
             setFormLoading(false);
+        }
+    };
+
+    const fetchFutureGames = async () => {
+        try {
+            setFutureGamesLoading(true);
+            // Try with 180 days first
+            const response = await fetch(`http://127.0.0.1:5000/api/team/${teamInfo.team_id}/future-games?days=180`);
+            const data = await response.json();
+
+            if (data.success) {
+                setFutureGames(data.games);
+                console.log(`Found ${data.games.length} future games`);
+            } else {
+                // If that fails, try with the schedule endpoint
+                const scheduleResponse = await fetch(`http://127.0.0.1:5000/api/team/${teamInfo.team_id}/schedule`);
+                const scheduleData = await scheduleResponse.json();
+
+                if (scheduleData.success) {
+                    setFutureGames(scheduleData.schedule);
+                } else {
+                    setFutureGamesError('Failed to load future games');
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching future games:', err);
+            setFutureGamesError(err instanceof Error ? err.message : 'Failed to fetch future games');
+        } finally {
+            setFutureGamesLoading(false);
         }
     };
 
@@ -344,7 +377,7 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                     title={`${game.opponent} (${game.is_home ? 'Home' : 'Away'})`}
                                 >
                                     {/* Score always shows as Home-Away */}
-                                    <div className={`w-full text-center py-1 rounded-lg font-bold text-xs mb-1 ${game.result === 'W'
+                                    <div className={`w-full text-center py-1 rounded-lg font-semibold text-xs mb-1 ${game.result === 'W'
                                             ? 'bg-green-500 text-white'
                                             : 'bg-red-500 text-white'
                                         }`}>
@@ -378,9 +411,116 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                     </div>
                 )}
             </div>
-            {/* Top middle */}
-            <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] h-40">
-                <h2 className="ml-3 mt-3 text-white">Next Match</h2>
+            <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] h-40 overflow-hidden">
+                <h2 className="ml-3 mt-3 text-white font-semibold">Next Match</h2>
+
+                {futureGamesLoading ? (
+                    <div className="flex items-center justify-center h-20">
+                        <p className="text-gray-400 text-sm">Loading future games...</p>
+                    </div>
+                ) : futureGamesError ? (
+                    <div className="flex items-center justify-center h-20">
+                        <p className="text-red-400 text-sm">{futureGamesError}</p>
+                    </div>
+                ) : futureGames.length === 0 ? (
+                    <div className="flex items-center justify-center h-20">
+                        <p className="text-gray-400 text-sm">No upcoming games</p>
+                    </div>
+                ) : (
+                    <div className="flex items-center h-20 px-3">
+                        {/* Show next game */}
+                        {futureGames.slice(0, 1).map((game) => {
+                            const isHome = game.home_team.team_id === teamInfo.team_id;
+                            const opponent = isHome ? game.away_team : game.home_team;
+                            const gameDate = new Date(game.game_date);
+                            const formattedDate = gameDate.toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric'
+                            });
+
+                            return (
+                                <div
+                                    key={game.game_id}
+                                    onClick={() => navigate(`/game/${game.game_id}`)}
+                                    className="flex items-center w-full cursor-pointer hover:bg-gray-800 p-2 rounded-lg transition"
+                                >
+                                    {/* Date and location */}
+                                    <div className="flex flex-col items-center mr-4">
+                                        <span className="text-white font-bold text-sm">{formattedDate}</span>
+                                        <span className="text-gray-400 text-xs">{isHome ? 'HOME' : 'AWAY'}</span>
+                                    </div>
+
+                                    {/* Opponent logo */}
+                                    <div className="flex items-center flex-1">
+                                        <img
+                                            src={`http://127.0.0.1:5000/api/team-logo/${opponent.team_id}`}
+                                            alt={opponent.team_name}
+                                            className="w-10 h-10 mr-3"
+                                            onError={(e) => {
+                                                const teamWords = opponent.team_name.split(' ');
+                                                const teamAbbreviation = teamWords[teamWords.length - 1];
+                                                e.currentTarget.style.display = 'none';
+                                                const parent = e.currentTarget.parentElement;
+                                                if (parent) {
+                                                    const fallbackDiv = document.createElement('div');
+                                                    fallbackDiv.className = 'w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center mr-3';
+                                                    fallbackDiv.innerHTML = `<span class="text-sm font-bold text-white">${teamAbbreviation.substring(0, 2)}</span>`;
+                                                    parent.insertBefore(fallbackDiv, e.currentTarget);
+                                                }
+                                            }}
+                                        />
+
+                                        {/* Opponent name */}
+                                        <div className="flex flex-col">
+                                            <span className="text-white text-sm font-semibold">{opponent.team_name}</span>
+                                            <span className="text-gray-400 text-xs">{game.arena}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* VS indicator */}
+                                    <div className="text-gray-500 font-bold text-sm ml-auto">
+                                        VS
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* Show next 2-3 games as small indicators */}
+                        {futureGames.length > 1 && (
+                            <div className="flex ml-2 space-x-1">
+                                {futureGames.slice(1, 4).map((game, idx) => {
+                                    const isHome = game.home_team.team_id === teamInfo.team_id;
+                                    const opponent = isHome ? game.away_team : game.home_team;
+
+                                    return (
+                                        <div
+                                            key={game.game_id}
+                                            onClick={() => navigate(`/game/${game.game_id}`)}
+                                            className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-700 transition"
+                                            title={`${isHome ? 'vs' : '@'} ${opponent.team_name}`}
+                                        >
+                                            <img
+                                                src={`http://127.0.0.1:5000/api/team-logo/${opponent.team_id}`}
+                                                alt={opponent.team_name}
+                                                className="w-5 h-5"
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                    const parent = e.currentTarget.parentElement;
+                                                    if (parent) {
+                                                        const teamWords = opponent.team_name.split(' ');
+                                                        const teamAbbreviation = teamWords[teamWords.length - 1];
+                                                        parent.innerHTML = `<span class="text-xs font-bold text-white">${teamAbbreviation.substring(0, 2)}</span>`;
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
             {/* Right tall (spans both rows) */}
             <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] row-span-2 h-110">
