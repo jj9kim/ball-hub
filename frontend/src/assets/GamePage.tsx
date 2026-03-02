@@ -1,18 +1,21 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, useRef, useMemo } from "react";
 import type { Stats, TabType, Player } from './components/types/index.ts';
-import { NBAService, type NBAGame, type NBATeamStats } from '../api/nbaService';
+import { NBAService, type NBAGame, type NBATeamStats, type FullScheduleGame } from '../api/nbaService';
 import GameHeader from './components/GameHeader';
 import FactsTab from './components/tabs/FactsTab';
 import LineupTab from './components/tabs/LineupTab';
 import TableTab from './components/tabs/TableTab';
 import StatsTab from './components/tabs/StatsTab';
 import PlayerCard from './components/PlayerCard';
+import FutureGameView from './FutureGameView'; // Create this new component
 import { calculatePlayerRating } from '../utils/teamMappings.ts';
 
 export default function GamePage() {
     const [gameStats, setGameStats] = useState<Stats[]>([]);
     const [nbaGames, setNbaGames] = useState<NBAGame[]>([]);
+    const [futureGame, setFutureGame] = useState<FullScheduleGame | null>(null);
+    const [isFutureGame, setIsFutureGame] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('facts');
@@ -24,62 +27,79 @@ export default function GamePage() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Get game data from NBA API instead of location.state
     const [teamsThisGame, setTeamsThisGame] = useState<Array<{ team_id: number, team_name: string, points: number }>>([]);
     const [teamStats, setTeamStats] = useState<NBATeamStats[]>([]);
 
-    // Fetch NBA games data
+    // Check if this is a future game and load appropriate data
     useEffect(() => {
-        const loadNBAGames = async () => {
+        const loadGameData = async () => {
             try {
                 setLoading(true);
-                const data = await NBAService.fetchGames();
-                console.log('NBA games loaded:', data.games?.length || 0);
-                setNbaGames(data.games);
 
-                // Find the specific game by ID
-                const currentGame = data.games.find(game => game.game_id === id);
-                console.log('Current game found:', currentGame);
+                // First try to load from past games
+                const pastGamesData = await NBAService.fetchGames();
+                const pastGame = pastGamesData.games.find(game => game.game_id === id);
 
-                if (currentGame) {
+                if (pastGame) {
+                    // This is a past game - load normally
+                    console.log('Past game found:', pastGame);
+                    setIsFutureGame(false);
+                    setNbaGames([pastGame]);
+
                     // Set teams for this game
-                    const gameTeams = currentGame.teams.map(team => ({
+                    const gameTeams = pastGame.teams.map(team => ({
                         team_id: team.team_id,
                         team_name: team.team_name,
                         points: team.pts
                     }));
-                    console.log('Setting teamsThisGame:', gameTeams);
                     setTeamsThisGame(gameTeams);
-                    setTeamStats(currentGame.teams);
+                    setTeamStats(pastGame.teams);
 
-                    // Convert NBA game data to your Stats format
-                    const convertedStats = await convertNBAGameToStats(currentGame);
-                    console.log('Setting gameStats with:', convertedStats.length, 'players');
+                    // Convert NBA game data to Stats format
+                    const convertedStats = await convertNBAGameToStats(pastGame);
+                    setGameStats(convertedStats);
 
                     if (convertedStats.length === 0) {
                         console.log('No player stats available for this game');
-                        // You could set a user-friendly error message here
-                        setError('Player statistics not available for this game');
                     }
-
-                    setGameStats(convertedStats);
                 } else {
-                    console.log('Game not found for id:', id);
-                    setError('Game not found');
-                }
+                    // Try future games
+                    const futureData = await NBAService.fetchFullSchedule();
+                    const futureGameData = futureData.games.find(game => game.gameId === id);
 
-                setError(null);
+                    if (futureGameData) {
+                        // This is a future game
+                        console.log('Future game found:', futureGameData);
+                        setIsFutureGame(true);
+                        setFutureGame(futureGameData);
+
+                        // Set basic team info for future game
+                        setTeamsThisGame([
+                            {
+                                team_id: futureGameData.homeTeam_teamId,
+                                team_name: futureGameData.homeTeam_teamName,
+                                points: 0
+                            },
+                            {
+                                team_id: futureGameData.awayTeam_teamId,
+                                team_name: futureGameData.awayTeam_teamName,
+                                points: 0
+                            }
+                        ]);
+                    } else {
+                        setError('Game not found');
+                    }
+                }
             } catch (err) {
-                console.error('Error loading NBA games:', err);
-                setError(err instanceof Error ? err.message : 'Failed to load NBA games');
+                console.error('Error loading game data:', err);
+                setError(err instanceof Error ? err.message : 'Failed to load game');
             } finally {
                 setLoading(false);
             }
         };
 
         if (id) {
-            console.log('Loading NBA games for id:', id);
-            loadNBAGames();
+            loadGameData();
         }
     }, [id]);
 
@@ -126,8 +146,8 @@ export default function GamePage() {
                             ft_made: player.ft_made || 0,
                             ft_attempted: player.ft_attempted || 0,
                             ft_percentage: player.ft_percentage || 0,
-                            offensive_rebounds: 0, // Not in simple API
-                            defensive_rebounds: 0, // Not in simple API
+                            offensive_rebounds: 0,
+                            defensive_rebounds: 0,
                             total_rebounds: player.rebounds || 0,
                             assists: player.assists || 0,
                             steals: player.steals || 0,
@@ -138,7 +158,7 @@ export default function GamePage() {
                             ejected: 0,
                             ortg: 0,
                             usg: 0,
-                            url: player.headshot_url || '',
+                            url: '',
                             jersey: player.jersey || '',
                             plus_minus: player.plus_minus || 0,
                             player_rating: calculatePlayerRating({
@@ -164,17 +184,14 @@ export default function GamePage() {
                     return stats;
                 } else {
                     console.log('Box score API returned no players or success: false');
-                    // Return empty array instead of mock data
                     return [];
                 }
             } else {
                 console.log('API response not OK:', response.status);
-                // Return empty array instead of mock data
                 return [];
             }
         } catch (error) {
             console.error('Error fetching box score:', error);
-            // Return empty array instead of mock data
             return [];
         }
     };
@@ -197,41 +214,19 @@ export default function GamePage() {
         return positionOrder[position] || 6;
     };
 
-    // Move getStatsForTeams inside the component
     const getStatsForTeams = () => {
-        console.log('getStatsForTeams called with:', {
-            id,
-            teamsThisGame,
-            gameStatsLength: gameStats.length
-        });
-
-        if (!id || !teamsThisGame.length) {
-            console.log('Missing id or teamsThisGame');
+        if (!id || !teamsThisGame.length || !gameStats.length) {
             return { Team1: [], Team2: [], Team1All: null, Team2All: null };
         }
 
         const statsPerTeam = gameStats.filter(g => g.game_id === Number(id));
-        console.log('statsPerTeam filtered:', statsPerTeam.length);
-
-        // Log the team_ids we're looking for
-        console.log('Looking for team IDs:', {
-            team1Id: teamsThisGame[0]?.team_id,
-            team2Id: teamsThisGame[1]?.team_id
-        });
 
         const Team1 = statsPerTeam.filter(s => s.team_id === teamsThisGame[0].team_id);
         const Team2 = statsPerTeam.filter(s => s.team_id === teamsThisGame[1].team_id);
 
-        console.log('Filtered results:', {
-            Team1Count: Team1.length,
-            Team2Count: Team2.length
-        });
-
-        // Create team totals from teamStats
         const Team1All = teamStats.find((t: NBATeamStats) => t.team_id === teamsThisGame[0].team_id);
         const Team2All = teamStats.find((t: NBATeamStats) => t.team_id === teamsThisGame[1].team_id);
 
-        // Convert NBATeamStats to your Stats format for compatibility
         const convertTeamStats = (team: NBATeamStats | undefined) => {
             if (!team) return null;
 
@@ -242,7 +237,7 @@ export default function GamePage() {
                 position: 'TM',
                 position_sort: 0,
                 game_id: Number(id),
-                minutes: 240, // Full game
+                minutes: 240,
                 points: team.pts,
                 fg_made: team.fgm,
                 fg_attempted: team.fga,
@@ -279,14 +274,12 @@ export default function GamePage() {
         };
     };
 
-    // Combine all players from both teams
     const allPlayers = useMemo(() => {
         if (!gameStats.length || !teamsThisGame.length) return [];
 
         const { Team1, Team2 } = getStatsForTeams();
         const players: Player[] = [];
 
-        // Convert Team1 stats to Player objects
         Team1.forEach(stat => {
             players.push({
                 player_id: stat.player_id,
@@ -326,7 +319,6 @@ export default function GamePage() {
             });
         });
 
-        // Convert Team2 stats to Player objects
         Team2.forEach(stat => {
             players.push({
                 player_id: stat.player_id,
@@ -396,11 +388,9 @@ export default function GamePage() {
         setCurrentPlayerIndex(-1);
     };
 
-    // Navigation states
     const hasNext = allPlayers.length > 0;
     const hasPrevious = allPlayers.length > 0;
 
-    // Handle click outside to close PlayerCard
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (playerCardRef.current && !playerCardRef.current.contains(event.target as Node)) {
@@ -473,9 +463,14 @@ export default function GamePage() {
             );
         }
 
+        // If this is a future game, show future game view
+        if (isFutureGame && futureGame) {
+            return <FutureGameView game={futureGame} />;
+        }
+
+        // Otherwise show regular game tabs for past games
         const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
 
-        // Check if we have player data for the lineup tab
         if (activeTab === 'lineup' && Team1.length === 0 && Team2.length === 0) {
             return (
                 <div className="text-white text-center py-8">
@@ -508,7 +503,9 @@ export default function GamePage() {
         }
     };
 
-    if (loading && !gameStats.length) {
+    // In GamePage.tsx, replace the return statement with this:
+
+    if (loading && !gameStats.length && !futureGame) {
         return (
             <div className="text-white text-center py-8">
                 <div className="spinner"></div>
@@ -517,6 +514,36 @@ export default function GamePage() {
         );
     }
 
+    // If it's a future game, use a completely different layout
+    if (isFutureGame && futureGame) {
+        return (
+            <>
+                <div className='w-full flex flex-row justify-center'>
+                    <div className='w-2/3 min-h-[80vh]'>
+                        {/* You can use a simpler header for future games or the same one */}
+                        <div className="mb-4">
+                            <button
+                                onClick={handleBack}
+                                className="text-gray-400 hover:text-white flex items-center gap-2 transition mb-4"
+                            >
+                                <span>←</span> Back to Games
+                            </button>
+                        </div>
+
+                        {/* Future Game View - no tabs, no extra structure */}
+                        <div className='border-2 border-yellow-500 rounded-2xl bg-[#1d1d1d] overflow-hidden'>
+                            <FutureGameView game={futureGame} />
+                        </div>
+                    </div>
+
+                    {/* Optional side panel - you can keep or remove */}
+                    <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
+                </div>
+            </>
+        );
+    }
+
+    // For past games, use the existing layout with tabs
     return (
         <>
             <div className='w-full flex flex-row justify-center'>
@@ -527,6 +554,7 @@ export default function GamePage() {
                         onBack={handleBack}
                         activeTab={activeTab}
                         onTabClick={handleTabClick}
+                        isFutureGame={isFutureGame}
                     />
 
                     <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>

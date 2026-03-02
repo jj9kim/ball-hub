@@ -2,12 +2,14 @@ import { getTeamName } from '../../utils/teamMappings';
 import type { TabType, UnderlineStyle } from './types';
 import { useRef, useEffect, useState } from 'react';
 
+// In GameHeader.tsx, add this prop
 interface GameHeaderProps {
     date?: string;
-    teamsThisGame: any[];
+    teamsThisGame: Array<{ team_id: number; team_name: string; points: number }>;
     onBack: () => void;
-    activeTab: TabType;
+    activeTab: string;
     onTabClick: (tabKey: TabType, index: number) => void;
+    isFutureGame?: boolean; // Add this
 }
 
 const tabs: { key: TabType; label: string }[] = [

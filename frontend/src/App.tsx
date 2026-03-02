@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Header from './assets/Header';
 import Main from './assets/Main';
 import Popup from './assets/Popup';
-import GamePage from './assets/GamePage';
+import GamePage from './assets/GamePage'; // This will handle both past and future
 import TeamsPage from './assets/components/TeamPage';
 import TeamProfile from './assets/components/TeamProfile';
 import PlayerProfilePage from './assets/components/PlayerProfile';
@@ -50,14 +50,13 @@ function App() {
         {/* Specific date route */}
         <Route path="/:date" element={<HomePage />} />
 
-        {/* Game page with Header */}
+        {/* Game page - handles BOTH past and future games */}
         <Route path="/:date/game/:id" element={
           <Layout>
             <GamePage />
           </Layout>
         } />
 
-        {/* Fallback for game pages without date */}
         <Route path="/game/:id" element={
           <Layout>
             <GamePage />
@@ -71,7 +70,7 @@ function App() {
           </Layout>
         } />
 
-        {/* Player Profile routes - ADD THESE */}
+        {/* Player Profile routes */}
         <Route path="/player/:playerId" element={
           <Layout>
             <PlayerProfilePage />

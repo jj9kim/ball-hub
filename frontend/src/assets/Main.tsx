@@ -452,11 +452,12 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                 );
                             } else {
                                 // Future game format
+                                // Future game format - matching past game style
                                 const game = item.data as FullScheduleGame;
                                 return (
                                     <button
                                         key={`future-${game.gameId}`}
-                                        className="border-2 border-yellow-500 flex flex-col items-start hover:bg-[#393939] bg-[#1d1d1d] px-4 py-3 w-full rounded-lg"
+                                        className="border-2 border-red-600 flex justify-center items-center h-10 hover:bg-[#393939] bg-[#1d1d1d] gap-4 px-4 w-full"
                                         onClick={() => {
                                             const dateString = formatDateForURL(selectedDate);
                                             navigate(`/${dateString}/game/${game.gameId}`, {
@@ -467,33 +468,57 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                             });
                                         }}
                                     >
-                                        <div className="flex items-center justify-between w-full">
-                                            <div className="flex items-center">
-                                                <img
-                                                    src={`http://127.0.0.1:5000/api/team-logo/${game.awayTeam_teamId}`}
-                                                    alt={game.awayTeam_teamName}
-                                                    className="w-6 h-6 mr-2"
-                                                    onError={(e) => {
-                                                        e.currentTarget.style.display = 'none';
-                                                    }}
-                                                />
-                                                <span className="text-white text-sm">{game.awayTeam_teamName}</span>
-                                            </div>
-                                            <span className="text-gray-400 text-xs mx-2 font-bold">@</span>
-                                            <div className="flex items-center">
-                                                <span className="text-white text-sm mr-2">{game.homeTeam_teamName}</span>
-                                                <img
-                                                    src={`http://127.0.0.1:5000/api/team-logo/${game.homeTeam_teamId}`}
-                                                    alt={game.homeTeam_teamName}
-                                                    className="w-6 h-6"
-                                                    onError={(e) => {
-                                                        e.currentTarget.style.display = 'none';
-                                                    }}
-                                                />
-                                            </div>
+                                        {/* Home Team */}
+                                        <div className="flex items-center justify-end flex-1">
+                                            <img
+                                                src={`http://127.0.0.1:5000/api/team-logo/${game.homeTeam_teamId}`}
+                                                alt={game.homeTeam_teamName}
+                                                className="w-5 h-5 mr-2"
+                                                onError={(e) => {
+                                                    const teamWords = game.homeTeam_teamName.split(' ');
+                                                    const teamAbbreviation = teamWords[teamWords.length - 1];
+                                                    e.currentTarget.style.display = 'none';
+                                                    const parent = e.currentTarget.parentElement;
+                                                    if (parent) {
+                                                        parent.innerHTML = `
+                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                            </div>
+                            <span>${game.homeTeam_teamName}</span>
+                        `;
+                                                    }
+                                                }}
+                                            />
+                                            <p className="text-white">{game.homeTeam_teamName}</p>
                                         </div>
-                                        <div className="text-gray-400 text-xs mt-2">
-                                            {game.gameTimeEst ? game.gameTimeEst : 'Time TBD'} • {game.arenaName || 'Arena TBD'}
+                                        {/* Game Time - Centered (instead of scores) */}
+                                        <div className="flex items-center gap-2 mx-4">
+                                            <p className="text-yellow-500 text-sm font-semibold">
+                                                {game.gameTimeEst ? game.gameTimeEst.replace(' ET', '') : 'TBD'}
+                                            </p>
+                                        </div>
+                                        {/* Away Team */}
+                                        <div className="flex items-center justify-start flex-1">
+                                            <p className="mr-2 text-white">{game.awayTeam_teamName}</p>
+                                            <img
+                                                src={`http://127.0.0.1:5000/api/team-logo/${game.awayTeam_teamId}`}
+                                                alt={game.awayTeam_teamName}
+                                                className="w-5 h-5"
+                                                onError={(e) => {
+                                                    const teamWords = game.awayTeam_teamName.split(' ');
+                                                    const teamAbbreviation = teamWords[teamWords.length - 1];
+                                                    e.currentTarget.style.display = 'none';
+                                                    const parent = e.currentTarget.parentElement;
+                                                    if (parent) {
+                                                        parent.innerHTML = `
+                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                            </div>
+                            <span>${game.awayTeam_teamName}</span>
+                        `;
+                                                    }
+                                                }}
+                                            />
                                         </div>
                                     </button>
                                 );
