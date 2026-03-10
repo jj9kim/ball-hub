@@ -296,6 +296,8 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         ...futureGamesForDate.map(game => ({ type: 'future' as const, data: game }))
     ];
 
+    
+
     // Log what we're showing
     useEffect(() => {
         console.log('Selected date:', getFormattedSelectedDate());
@@ -451,9 +453,35 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                     </button>
                                 );
                             } else {
-                                // Future game format
                                 // Future game format - matching past game style
                                 const game = item.data as FullScheduleGame;
+
+                                // Helper function to format time from ISO string, preserving the original hour
+                                const formatGameTime = (timeStr: string | undefined): string => {
+                                    if (!timeStr) return 'TBD';
+
+                                    try {
+                                        // Parse the ISO string
+                                        const date = new Date(timeStr);
+
+                                        // Check if valid date
+                                        if (isNaN(date.getTime())) return 'TBD';
+
+                                        // Get UTC hours and minutes directly to avoid timezone conversion
+                                        const hours = date.getUTCHours();
+                                        const minutes = date.getUTCMinutes();
+
+                                        // Convert to 12-hour format
+                                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                                        const hour12 = hours % 12 || 12;
+                                        const minuteStr = minutes.toString().padStart(2, '0');
+
+                                        return `${hour12}:${minuteStr} ${ampm}`;
+                                    } catch (error) {
+                                        return 'TBD';
+                                    }
+                                };
+
                                 return (
                                     <button
                                         key={`future-${game.gameId}`}
@@ -491,12 +519,14 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
                                             />
                                             <p className="text-white">{game.homeTeam_teamName}</p>
                                         </div>
-                                        {/* Game Time - Centered (instead of scores) */}
-                                        <div className="flex items-center gap-2 mx-4">
-                                            <p className="text-yellow-500 text-sm font-semibold">
-                                                {game.gameTimeEst ? game.gameTimeEst.replace(' ET', '') : 'TBD'}
+
+                                        {/* Game Time - Centered */}
+                                        <div className="flex items-center gap-2 mx-4 min-w-[70px] justify-center">
+                                            <p className="text-[#9f9f9f] text-sm font-semibold">
+                                                {formatGameTime(game.gameTimeEst)}
                                             </p>
                                         </div>
+
                                         {/* Away Team */}
                                         <div className="flex items-center justify-start flex-1">
                                             <p className="mr-2 text-white">{game.awayTeam_teamName}</p>

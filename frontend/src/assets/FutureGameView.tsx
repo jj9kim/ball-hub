@@ -1,103 +1,233 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import type { FullScheduleGame } from '../api/nbaService';
+
+// Define TabType to match the one in GamePage
+export type TabType = 'facts' | 'lineup' | 'table' | 'stats';
 
 interface FutureGameViewProps {
     game: FullScheduleGame;
+    activeTab: TabType;  // Use TabType instead of string
+    onTabClick: (tabKey: TabType, index: number) => void;  // Match the type
+    renderTabContent: () => React.ReactNode;
 }
 
-export default function FutureGameView({ game }: FutureGameViewProps) {
-    const formatGameTime = (timeStr: string | undefined): string => {
-        if (!timeStr) return 'TBD';
-        return timeStr;
+interface UnderlineStyle {
+    width: number;
+    left: number;
+}
+
+const tabs: { key: TabType; label: string }[] = [
+    { key: 'facts', label: 'Facts' },
+    { key: 'lineup', label: 'Lineup' },
+    { key: 'table', label: 'Table' },
+    { key: 'stats', label: 'Stats' }
+];
+
+// Helper function to format time from ISO string
+const formatGameTime = (timeStr: string | undefined): string => {
+    if (!timeStr) return 'TBD';
+
+    try {
+        const date = new Date(timeStr);
+        if (isNaN(date.getTime())) return 'TBD';
+
+        const hours = date.getUTCHours();
+        const minutes = date.getUTCMinutes();
+
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const hour12 = hours % 12 || 12;
+        const minuteStr = minutes.toString().padStart(2, '0');
+
+        return `${hour12}:${minuteStr} ${ampm}`;
+    } catch (error) {
+        return 'TBD';
+    }
+};
+
+export default function FutureGameView({ game, activeTab, onTabClick, renderTabContent }: FutureGameViewProps) {
+    const [underlineStyle, setUnderlineStyle] = useState<UnderlineStyle>({ width: 0, left: 0 });
+    const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        buttonRefs.current = buttonRefs.current.slice(0, tabs.length);
+        const activeIndex = tabs.findIndex(tab => tab.key === activeTab);
+        updateUnderlinePosition(activeIndex);
+    }, [activeTab]);
+
+    const updateUnderlinePosition = (tabIndex: number) => {
+        const activeButton = buttonRefs.current[tabIndex];
+        const container = containerRef.current;
+
+        if (!activeButton || !container) return;
+
+        const buttonRect = activeButton.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        setUnderlineStyle({
+            width: buttonRect.width,
+            left: buttonRect.left - containerRect.left,
+        });
+    };
+
+    const handleTabClick = (tabKey: TabType, index: number) => {
+        onTabClick(tabKey, index);
+        updateUnderlinePosition(index);
     };
 
     return (
-        <div className="p-8">
-            <div className="flex items-center justify-between">
-                {/* Away Team */}
-                <div className="flex-1 text-center">
-                    <img
-                        src={`http://127.0.0.1:5000/api/team-logo/${game.awayTeam_teamId}`}
-                        alt={game.awayTeam_teamName}
-                        className="w-24 h-24 mx-auto mb-4"
-                        onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                        }}
-                    />
-                    <div className="text-white text-xl font-bold">{game.awayTeam_teamName}</div>
-                    <div className="text-gray-400 mt-2">
-                        {game.awayTeam_wins} - {game.awayTeam_losses}
+        <div className="bg-[#1d1d1d] text-white flex flex-col mt-25 border-2 border-red-500 rounded-2xl mr-5">
+            <div className="flex flex-col w-full pt-5">
+                <div className="grid grid-cols-3 items-center pb-5 pt-2">
+                    {/* Left button */}
+                    <div className="flex justify-start">
+                        <button
+                            className="px-4 rounded hover:underline hover:font-bold"
+                        >
+                            ← Games
+                        </button>
+                    </div>
+
+                    {/* Center logo + text */}
+                    <div className="flex flex-row items-center justify-center">
+                        <img
+                            src="https://content.rotowire.com/images/teamlogo/basketball/100fa.png?v=7"
+                            alt="NBA"
+                            className="w-8 h-8"
+                        />
+                        <p className="ml-2">NBA</p>
+                    </div>
+
+                    {/* Right button */}
+                    <div className="flex justify-end pr-5">
+                        <button className="hover:font-bold hover:underline">Follow</button>
                     </div>
                 </div>
 
-                {/* VS */}
-                <div className="px-8">
-                    <div className="text-yellow-500 text-4xl font-bold">VS</div>
-                    <div className="text-gray-500 text-center mt-2">{formatGameTime(game.gameTimeEst)}</div>
+                {/* Arena Information */}
+                <div className='pt-3 pb-3 flex justify-center border-y-2 border-y-[#5b5b5b33] mb-5'>
+                    <p className="text-gray-400 text-xs">
+                        {game.arenaName || 'Arena TBD'} • {game.arenaCity || ''} {game.arenaState || ''}
+                    </p>
                 </div>
 
-                {/* Home Team */}
-                <div className="flex-1 text-center">
-                    <img
-                        src={`http://127.0.0.1:5000/api/team-logo/${game.homeTeam_teamId}`}
-                        alt={game.homeTeam_teamName}
-                        className="w-24 h-24 mx-auto mb-4"
-                        onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                        }}
-                    />
-                    <div className="text-white text-xl font-bold">{game.homeTeam_teamName}</div>
-                    <div className="text-gray-400 mt-2">
-                        {game.homeTeam_wins} - {game.homeTeam_losses}
+                <div className='grid grid-cols-[1fr_auto_1fr] items-center pb-10 px-10'>
+                    {/* Home Team */}
+                    <div className="flex items-center justify-end gap-4">
+                        <p className="text-white text-2xl text-right whitespace-nowrap">
+                            {game.homeTeam_teamName}
+                        </p>
+                        <img
+                            src={`http://127.0.0.1:5000/api/team-logo/${game.homeTeam_teamId}`}
+                            alt={game.homeTeam_teamName}
+                            className="w-14 h-14 mr-5 ml-2"
+                            onError={(e) => {
+                                const teamWords = game.homeTeam_teamName.split(' ');
+                                const teamAbbreviation = teamWords[teamWords.length - 1];
+                                e.currentTarget.style.display = 'none';
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) {
+                                    parent.innerHTML = `
+                                    <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                        <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                    </div>
+                                    <span>${game.homeTeam_teamName}</span>
+                                `;
+                                }
+                            }}
+                        />
+                    </div>
+
+                    {/* Game Time */}
+                    <div className="flex flex-col items-center mx-4">
+                        <div className="flex items-center gap-2">
+                            <p className="text-white text-2xl font-semibold">
+                                {formatGameTime(game.gameTimeEst)}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Away Team */}
+                    <div className="flex items-center justify-start gap-4">
+                        <img
+                            src={`http://127.0.0.1:5000/api/team-logo/${game.awayTeam_teamId}`}
+                            alt={game.awayTeam_teamName}
+                            className="w-14 h-14 ml-5 mr-2"
+                            onError={(e) => {
+                                const teamWords = game.awayTeam_teamName.split(' ');
+                                const teamAbbreviation = teamWords[teamWords.length - 1];
+                                e.currentTarget.style.display = 'none';
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) {
+                                    parent.innerHTML = `
+                                    <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                        <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                    </div>
+                                    <span>${game.awayTeam_teamName}</span>
+                                `;
+                                }
+                            }}
+                        />
+                        <p className="text-white text-2xl text-left whitespace-nowrap">
+                            {game.awayTeam_teamName}
+                        </p>
                     </div>
                 </div>
+
+                {/* Record Information */}
+                <div className='pt-4 pb-4 flex justify-center gap-8 border-b-2 border-b-[#5b5b5b33]'>
+                    <div className="text-center">
+                        <p className="text-gray-400 text-sm">Home Record</p>
+                        <p className="text-white font-semibold">{game.homeTeam_wins} - {game.homeTeam_losses}</p>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-gray-400 text-sm">Away Record</p>
+                        <p className="text-white font-semibold">{game.awayTeam_wins} - {game.awayTeam_losses}</p>
+                    </div>
+                </div>
+
+                {/* Series Information - if applicable */}
+                {game.seriesText && (
+                    <div className='pt-4 pb-4 text-center border-b-2 border-b-[#5b5b5b33]'>
+                        <p className="text-gray-400 text-sm">Series</p>
+                        <p className="text-white font-semibold">{game.seriesText}</p>
+                        {game.ifNecessary && (
+                            <p className="text-yellow-500 text-xs mt-1">* If necessary</p>
+                        )}
+                    </div>
+                )}
             </div>
 
-            {/* Game details */}
-            <div className="mt-8 border-t border-gray-700 pt-6">
-                <div className="grid grid-cols-2 gap-4 text-center">
-                    <div>
-                        <div className="text-gray-400 text-sm">Game Time</div>
-                        <div className="text-white font-semibold">
-                            {game.gameTimeEst || 'TBD'}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-gray-400 text-sm">Arena</div>
-                        <div className="text-white font-semibold">
-                            {game.arenaName || 'TBD'}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-gray-400 text-sm">Location</div>
-                        <div className="text-white font-semibold">
-                            {game.arenaCity || ''} {game.arenaState || ''}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-gray-400 text-sm">Status</div>
-                        <div className="text-yellow-500 font-semibold">
-                            {game.gameStatusText || 'Scheduled'}
-                        </div>
+            {/* Tab Navigation with underline */}
+            <div className="w-full mt-4 border-t-2 border-t-[#5b5b5b33]">
+                <div className="w-2/3">
+                    <div ref={containerRef} className='flex justify-between pl-5 relative'>
+                        {tabs.map((tab, index) => (
+                            <button
+                                key={tab.key}
+                                ref={(el: HTMLButtonElement | null) => {
+                                    buttonRefs.current[index] = el;
+                                }}
+                                className={`relative px-4 py-2 transition-colors duration-200 z-10 ${activeTab === tab.key
+                                        ? 'text-white font-medium'
+                                        : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
+                                    }`}
+                                onClick={() => handleTabClick(tab.key, index)}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+
+                        {/* Underline */}
+                        <div
+                            className="absolute bottom-0 h-1 rounded-t-full bg-white transition-all duration-300 ease-out"
+                            style={{
+                                width: `${underlineStyle.width}px`,
+                                left: `${underlineStyle.left}px`,
+                            }}
+                        />
                     </div>
                 </div>
-            </div>
-
-            {/* Series info if applicable */}
-            {game.seriesText && (
-                <div className="mt-6 bg-gray-800 p-4 rounded-lg">
-                    <div className="text-gray-400 text-sm">Series</div>
-                    <div className="text-white font-semibold">{game.seriesText}</div>
-                    {game.ifNecessary && (
-                        <div className="text-yellow-500 text-sm mt-1">* If necessary</div>
-                    )}
-                </div>
-            )}
-
-            {/* Additional info */}
-            <div className="mt-6 text-gray-400 text-sm text-center">
-                {game.isNeutral && 'Neutral Site'}
-                {game.postponedStatus && <div className="text-red-400 mt-2">{game.postponedStatus}</div>}
             </div>
         </div>
     );

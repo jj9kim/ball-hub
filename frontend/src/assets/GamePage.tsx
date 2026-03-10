@@ -463,11 +463,7 @@ export default function GamePage() {
             );
         }
 
-        // If this is a future game, show future game view
-        if (isFutureGame && futureGame) {
-            return <FutureGameView game={futureGame} />;
-        }
-
+        
         // Otherwise show regular game tabs for past games
         const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
 
@@ -515,28 +511,79 @@ export default function GamePage() {
     }
 
     // If it's a future game, use a completely different layout
+    // If it's a future game, use the FutureGameView with tabs
     if (isFutureGame && futureGame) {
         return (
             <>
                 <div className='w-full flex flex-row justify-center'>
                     <div className='w-2/3 min-h-[80vh]'>
-                        {/* You can use a simpler header for future games or the same one */}
-                        <div className="mb-4">
-                            <button
-                                onClick={handleBack}
-                                className="text-gray-400 hover:text-white flex items-center gap-2 transition mb-4"
-                            >
-                                <span>←</span> Back to Games
-                            </button>
-                        </div>
-
-                        {/* Future Game View - no tabs, no extra structure */}
-                        <div className='border-2 border-yellow-500 rounded-2xl bg-[#1d1d1d] overflow-hidden'>
-                            <FutureGameView game={futureGame} />
-                        </div>
+                        <FutureGameView
+                            game={futureGame}
+                            activeTab={activeTab}
+                            onTabClick={handleTabClick}
+                            renderTabContent={() => {
+                                // Future game tab content
+                                switch (activeTab) {
+                                    case 'facts':
+                                        return (
+                                            <div className="p-6 text-white">
+                                                <h3 className="text-lg font-semibold mb-4">Game Facts</h3>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="bg-gray-800 p-4 rounded-lg">
+                                                        <p className="text-gray-400 text-sm">Season</p>
+                                                        <p className="text-white font-semibold">{futureGame.seasonYear || '2025-26'}</p>
+                                                    </div>
+                                                    <div className="bg-gray-800 p-4 rounded-lg">
+                                                        <p className="text-gray-400 text-sm">Game Code</p>
+                                                        <p className="text-white font-semibold">{futureGame.gameCode || 'TBD'}</p>
+                                                    </div>
+                                                    <div className="bg-gray-800 p-4 rounded-lg">
+                                                        <p className="text-gray-400 text-sm">Week</p>
+                                                        <p className="text-white font-semibold">Week {futureGame.weekNumber || 'TBD'}</p>
+                                                    </div>
+                                                    <div className="bg-gray-800 p-4 rounded-lg">
+                                                        <p className="text-gray-400 text-sm">Day</p>
+                                                        <p className="text-white font-semibold">{futureGame.day || 'TBD'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    case 'lineup':
+                                        return (
+                                            <div className="p-6 text-white">
+                                                <h3 className="text-lg font-semibold mb-4">Expected Lineups</h3>
+                                                <p className="text-gray-400">Lineups will be available closer to game time.</p>
+                                            </div>
+                                        );
+                                    case 'table':
+                                        return (
+                                            <div className="p-6 text-white">
+                                                <h3 className="text-lg font-semibold mb-4">Season Stats</h3>
+                                                <div className="flex justify-around">
+                                                    <div className="text-center">
+                                                        <p className="text-gray-400 text-sm">{futureGame.homeTeam_teamName}</p>
+                                                        <p className="text-white font-bold text-xl">{futureGame.homeTeam_wins} - {futureGame.homeTeam_losses}</p>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-gray-400 text-sm">{futureGame.awayTeam_teamName}</p>
+                                                        <p className="text-white font-bold text-xl">{futureGame.awayTeam_wins} - {futureGame.awayTeam_losses}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    case 'stats':
+                                        return (
+                                            <div className="p-6 text-white">
+                                                <h3 className="text-lg font-semibold mb-4">Team Statistics</h3>
+                                                <p className="text-gray-400">Stats will be updated after the game.</p>
+                                            </div>
+                                        );
+                                    default:
+                                        return null;
+                                }
+                            }}
+                        />
                     </div>
-
-                    {/* Optional side panel - you can keep or remove */}
                     <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
                 </div>
             </>
