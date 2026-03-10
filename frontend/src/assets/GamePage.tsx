@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, useRef, useMemo } from "react";
-import type { Stats, TabType, Player } from './components/types/index.ts';
+import type { Stats, Player } from './components/types/index.ts';
 import { NBAService, type NBAGame, type NBATeamStats, type FullScheduleGame } from '../api/nbaService';
 import GameHeader from './components/GameHeader';
 import FactsTab from './components/tabs/FactsTab';
@@ -8,7 +8,7 @@ import LineupTab from './components/tabs/LineupTab';
 import TableTab from './components/tabs/TableTab';
 import StatsTab from './components/tabs/StatsTab';
 import PlayerCard from './components/PlayerCard';
-import FutureGameView from './FutureGameView'; // Create this new component
+import FutureGameView, { type TabType as FutureTabType, formatGameTime } from './FutureGameView';
 import { calculatePlayerRating } from '../utils/teamMappings.ts';
 
 export default function GamePage() {
@@ -18,7 +18,8 @@ export default function GamePage() {
     const [isFutureGame, setIsFutureGame] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('facts');
+    const [activeTab, setActiveTab] = useState<'facts' | 'lineup' | 'table' | 'stats'>('facts');
+    const [futureActiveTab, setFutureActiveTab] = useState<FutureTabType>('preview');
     const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
     const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(-1);
     const playerCardRef = useRef<HTMLDivElement>(null);
@@ -29,6 +30,13 @@ export default function GamePage() {
 
     const [teamsThisGame, setTeamsThisGame] = useState<Array<{ team_id: number, team_name: string, points: number }>>([]);
     const [teamStats, setTeamStats] = useState<NBATeamStats[]>([]);
+
+    const futureTabs = [
+        { key: 'preview', label: 'Preview' },
+        { key: 'table', label: 'Table' },
+        { key: 'stats', label: 'Stats' }
+    ];
+
 
     // Check if this is a future game and load appropriate data
     useEffect(() => {
@@ -426,8 +434,72 @@ export default function GamePage() {
         }
     };
 
-    const handleTabClick = (tabKey: TabType, index: number) => {
-        setActiveTab(tabKey);
+    const handleFutureTabClick = (tabKey: FutureTabType, index: number) => {
+        setFutureActiveTab(tabKey);
+    };
+
+    const renderFutureTabContent = () => {
+        if (!futureGame) return null;
+
+        switch (futureActiveTab) {
+            case 'preview':
+                return (
+                    <div className="p-6 text-white">
+                        <h3 className="text-lg font-semibold mb-4">Game Preview</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-gray-800 p-4 rounded-lg">
+                                <p className="text-gray-400 text-sm">Season</p>
+                                <p className="text-white font-semibold">{futureGame.seasonYear || '2025-26'}</p>
+                            </div>
+                            <div className="bg-gray-800 p-4 rounded-lg">
+                                <p className="text-gray-400 text-sm">Game Time</p>
+                                <p className="text-white font-semibold">{formatGameTime(futureGame.gameTimeEst)}</p>
+                            </div>
+                            <div className="bg-gray-800 p-4 rounded-lg">
+                                <p className="text-gray-400 text-sm">Arena</p>
+                                <p className="text-white font-semibold">{futureGame.arenaName || 'TBD'}</p>
+                            </div>
+                            <div className="bg-gray-800 p-4 rounded-lg">
+                                <p className="text-gray-400 text-sm">Location</p>
+                                <p className="text-white font-semibold">{futureGame.arenaCity || ''} {futureGame.arenaState || ''}</p>
+                            </div>
+                            <div className="bg-gray-800 p-4 rounded-lg">
+                                <p className="text-gray-400 text-sm">Arena</p>
+                                <p className="text-white font-semibold">{futureGame.arenaName || 'TBD'}</p>
+                            </div>
+                            <div className="bg-gray-800 p-4 rounded-lg">
+                                <p className="text-gray-400 text-sm">Location</p>
+                                <p className="text-white font-semibold">{futureGame.arenaCity || ''} {futureGame.arenaState || ''}</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            case 'table':
+                return (
+                    <div className="p-6 text-white">
+                        <h3 className="text-lg font-semibold mb-4">Season Stats Comparison</h3>
+                        <div className="flex justify-around">
+                            <div className="text-center">
+                                <p className="text-gray-400 text-sm">{futureGame.homeTeam_teamName}</p>
+                                <p className="text-white font-bold text-xl">{futureGame.homeTeam_wins} - {futureGame.homeTeam_losses}</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-gray-400 text-sm">{futureGame.awayTeam_teamName}</p>
+                                <p className="text-white font-bold text-xl">{futureGame.awayTeam_wins} - {futureGame.awayTeam_losses}</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            case 'stats':
+                return (
+                    <div className="p-6 text-white">
+                        <h3 className="text-lg font-semibold mb-4">Team Statistics</h3>
+                        <p className="text-gray-400">Advanced statistics will be available closer to game time.</p>
+                    </div>
+                );
+            default:
+                return null;
+        }
     };
 
     const renderTabContent = () => {
@@ -463,7 +535,11 @@ export default function GamePage() {
             );
         }
 
-        
+        // If this is a future game, return null (FutureGameView will handle its own content)
+        if (isFutureGame) {
+            return null;
+        }
+
         // Otherwise show regular game tabs for past games
         const { Team1, Team2, Team1All, Team2All } = getStatsForTeams();
 
@@ -499,8 +575,6 @@ export default function GamePage() {
         }
     };
 
-    // In GamePage.tsx, replace the return statement with this:
-
     if (loading && !gameStats.length && !futureGame) {
         return (
             <div className="text-white text-center py-8">
@@ -510,80 +584,27 @@ export default function GamePage() {
         );
     }
 
-    // If it's a future game, use a completely different layout
-    // If it's a future game, use the FutureGameView with tabs
+    // If it's a future game, use FutureGameView with its own tabs
     if (isFutureGame && futureGame) {
         return (
             <>
                 <div className='w-full flex flex-row justify-center'>
                     <div className='w-2/3 min-h-[80vh]'>
-                        <FutureGameView
-                            game={futureGame}
-                            activeTab={activeTab}
-                            onTabClick={handleTabClick}
-                            renderTabContent={() => {
-                                // Future game tab content
-                                switch (activeTab) {
-                                    case 'facts':
-                                        return (
-                                            <div className="p-6 text-white">
-                                                <h3 className="text-lg font-semibold mb-4">Game Facts</h3>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="bg-gray-800 p-4 rounded-lg">
-                                                        <p className="text-gray-400 text-sm">Season</p>
-                                                        <p className="text-white font-semibold">{futureGame.seasonYear || '2025-26'}</p>
-                                                    </div>
-                                                    <div className="bg-gray-800 p-4 rounded-lg">
-                                                        <p className="text-gray-400 text-sm">Game Code</p>
-                                                        <p className="text-white font-semibold">{futureGame.gameCode || 'TBD'}</p>
-                                                    </div>
-                                                    <div className="bg-gray-800 p-4 rounded-lg">
-                                                        <p className="text-gray-400 text-sm">Week</p>
-                                                        <p className="text-white font-semibold">Week {futureGame.weekNumber || 'TBD'}</p>
-                                                    </div>
-                                                    <div className="bg-gray-800 p-4 rounded-lg">
-                                                        <p className="text-gray-400 text-sm">Day</p>
-                                                        <p className="text-white font-semibold">{futureGame.day || 'TBD'}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    case 'lineup':
-                                        return (
-                                            <div className="p-6 text-white">
-                                                <h3 className="text-lg font-semibold mb-4">Expected Lineups</h3>
-                                                <p className="text-gray-400">Lineups will be available closer to game time.</p>
-                                            </div>
-                                        );
-                                    case 'table':
-                                        return (
-                                            <div className="p-6 text-white">
-                                                <h3 className="text-lg font-semibold mb-4">Season Stats</h3>
-                                                <div className="flex justify-around">
-                                                    <div className="text-center">
-                                                        <p className="text-gray-400 text-sm">{futureGame.homeTeam_teamName}</p>
-                                                        <p className="text-white font-bold text-xl">{futureGame.homeTeam_wins} - {futureGame.homeTeam_losses}</p>
-                                                    </div>
-                                                    <div className="text-center">
-                                                        <p className="text-gray-400 text-sm">{futureGame.awayTeam_teamName}</p>
-                                                        <p className="text-white font-bold text-xl">{futureGame.awayTeam_wins} - {futureGame.awayTeam_losses}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    case 'stats':
-                                        return (
-                                            <div className="p-6 text-white">
-                                                <h3 className="text-lg font-semibold mb-4">Team Statistics</h3>
-                                                <p className="text-gray-400">Stats will be updated after the game.</p>
-                                            </div>
-                                        );
-                                    default:
-                                        return null;
-                                }
-                            }}
+                        <GameHeader
+                            date={date}
+                            teamsThisGame={teamsThisGame}
+                            onBack={handleBack}
+                            activeTab={futureActiveTab}
+                            onTabClick={(tabKey, index) => setFutureActiveTab(tabKey)}
+                            isFutureGame={true}
+                            tabs={futureTabs} // Pass custom tabs
                         />
+
+                        <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>
+                            {renderFutureTabContent()}
+                        </div>
                     </div>
+
                     <div className='border-2 border-amber-400 w-1/5 mt-25 rounded-2xl bg-[#1d1d1d]'></div>
                 </div>
             </>
@@ -600,7 +621,7 @@ export default function GamePage() {
                         teamsThisGame={teamsThisGame}
                         onBack={handleBack}
                         activeTab={activeTab}
-                        onTabClick={handleTabClick}
+                        onTabClick={(tabKey, index) => setActiveTab(tabKey)}
                         isFutureGame={isFutureGame}
                     />
 

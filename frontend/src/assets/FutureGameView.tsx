@@ -2,12 +2,12 @@ import React, { useRef, useEffect, useState } from 'react';
 import type { FullScheduleGame } from '../api/nbaService';
 
 // Define TabType to match the one in GamePage
-export type TabType = 'facts' | 'lineup' | 'table' | 'stats';
+export type TabType = 'preview' | 'table' | 'stats';
 
 interface FutureGameViewProps {
     game: FullScheduleGame;
-    activeTab: TabType;  // Use TabType instead of string
-    onTabClick: (tabKey: TabType, index: number) => void;  // Match the type
+    activeTab: TabType;
+    onTabClick: (tabKey: TabType, index: number) => void;
     renderTabContent: () => React.ReactNode;
 }
 
@@ -17,14 +17,13 @@ interface UnderlineStyle {
 }
 
 const tabs: { key: TabType; label: string }[] = [
-    { key: 'facts', label: 'Facts' },
-    { key: 'lineup', label: 'Lineup' },
+    { key: 'preview', label: 'Preview' },
     { key: 'table', label: 'Table' },
     { key: 'stats', label: 'Stats' }
 ];
 
 // Helper function to format time from ISO string
-const formatGameTime = (timeStr: string | undefined): string => {
+export const formatGameTime = (timeStr: string | undefined): string => {
     if (!timeStr) return 'TBD';
 
     try {
@@ -173,29 +172,6 @@ export default function FutureGameView({ game, activeTab, onTabClick, renderTabC
                         </p>
                     </div>
                 </div>
-
-                {/* Record Information */}
-                <div className='pt-4 pb-4 flex justify-center gap-8 border-b-2 border-b-[#5b5b5b33]'>
-                    <div className="text-center">
-                        <p className="text-gray-400 text-sm">Home Record</p>
-                        <p className="text-white font-semibold">{game.homeTeam_wins} - {game.homeTeam_losses}</p>
-                    </div>
-                    <div className="text-center">
-                        <p className="text-gray-400 text-sm">Away Record</p>
-                        <p className="text-white font-semibold">{game.awayTeam_wins} - {game.awayTeam_losses}</p>
-                    </div>
-                </div>
-
-                {/* Series Information - if applicable */}
-                {game.seriesText && (
-                    <div className='pt-4 pb-4 text-center border-b-2 border-b-[#5b5b5b33]'>
-                        <p className="text-gray-400 text-sm">Series</p>
-                        <p className="text-white font-semibold">{game.seriesText}</p>
-                        {game.ifNecessary && (
-                            <p className="text-yellow-500 text-xs mt-1">* If necessary</p>
-                        )}
-                    </div>
-                )}
             </div>
 
             {/* Tab Navigation with underline */}
@@ -209,8 +185,8 @@ export default function FutureGameView({ game, activeTab, onTabClick, renderTabC
                                     buttonRefs.current[index] = el;
                                 }}
                                 className={`relative px-4 py-2 transition-colors duration-200 z-10 ${activeTab === tab.key
-                                        ? 'text-white font-medium'
-                                        : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
+                                    ? 'text-white font-medium'
+                                    : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
                                     }`}
                                 onClick={() => handleTabClick(tab.key, index)}
                             >
@@ -228,6 +204,11 @@ export default function FutureGameView({ game, activeTab, onTabClick, renderTabC
                         />
                     </div>
                 </div>
+            </div>
+
+            {/* Tab Content - Add this div to render the tab content */}
+            <div className="w-full mt-4 p-4">
+                {renderTabContent()}
             </div>
         </div>
     );

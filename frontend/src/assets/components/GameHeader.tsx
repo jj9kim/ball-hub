@@ -2,33 +2,50 @@ import { getTeamName } from '../../utils/teamMappings';
 import type { TabType, UnderlineStyle } from './types';
 import { useRef, useEffect, useState } from 'react';
 
-// In GameHeader.tsx, add this prop
 interface GameHeaderProps {
     date?: string;
     teamsThisGame: Array<{ team_id: number; team_name: string; points: number }>;
     onBack: () => void;
     activeTab: string;
-    onTabClick: (tabKey: TabType, index: number) => void;
-    isFutureGame?: boolean; // Add this
+    onTabClick: (tabKey: any, index: number) => void;
+    isFutureGame?: boolean;
+    tabs?: { key: any; label: string }[]; // Make tabs customizable
 }
 
-const tabs: { key: TabType; label: string }[] = [
+const pastTabs = [
     { key: 'facts', label: 'Facts' },
     { key: 'lineup', label: 'Lineup' },
     { key: 'table', label: 'Table' },
     { key: 'stats', label: 'Stats' }
 ];
 
-export default function GameHeader({ date, teamsThisGame, onBack, activeTab, onTabClick }: GameHeaderProps) {
+const futureTabs = [
+    { key: 'preview', label: 'Preview' },
+    { key: 'table', label: 'Table' },
+    { key: 'stats', label: 'Stats' }
+];
+
+export default function GameHeader({
+    date,
+    teamsThisGame,
+    onBack,
+    activeTab,
+    onTabClick,
+    isFutureGame = false,
+    tabs: customTabs
+}: GameHeaderProps) {
     const [underlineStyle, setUnderlineStyle] = useState<UnderlineStyle>({ width: 0, left: 0 });
     const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    // Use custom tabs if provided, otherwise use default based on game type
+    const tabs = customTabs || (isFutureGame ? futureTabs : pastTabs);
 
     useEffect(() => {
         buttonRefs.current = buttonRefs.current.slice(0, tabs.length);
         const activeIndex = tabs.findIndex(tab => tab.key === activeTab);
         updateUnderlinePosition(activeIndex);
-    }, [tabs.length, activeTab]);
+    }, [activeTab, tabs]);
 
     const updateUnderlinePosition = (tabIndex: number) => {
         const activeButton = buttonRefs.current[tabIndex];
@@ -45,7 +62,7 @@ export default function GameHeader({ date, teamsThisGame, onBack, activeTab, onT
         });
     };
 
-    const handleTabClick = (tabKey: TabType, index: number) => {
+    const handleTabClick = (tabKey: any, index: number) => {
         onTabClick(tabKey, index);
         updateUnderlinePosition(index);
     };
@@ -113,31 +130,38 @@ export default function GameHeader({ date, teamsThisGame, onBack, activeTab, onT
                             alt={teamsThisGame[0].team_name}
                             className="w-14 h-14 mr-5 ml-2"
                             onError={(e) => {
-                                // Fallback: Show team abbreviation
                                 const teamWords = teamsThisGame[0].team_name.split(' ');
                                 const teamAbbreviation = teamWords[teamWords.length - 1];
                                 e.currentTarget.style.display = 'none';
                                 const parent = e.currentTarget.parentElement;
                                 if (parent) {
                                     parent.innerHTML = `
-                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
-                                            </div>
-                                            <span>${teamsThisGame[0].team_name}</span>
-                                        `;
+                                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                            <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                        </div>
+                                        <span>${teamsThisGame[0].team_name}</span>
+                                    `;
                                 }
                             }}
                         />
                     </div>
 
-                    {/* Scores */}
+                    {/* Scores or Game Time */}
                     <div className="flex flex-col items-center mx-4">
                         <div className="flex items-center gap-2">
-                            <p className="text-white text-2xl">{teamsThisGame[0].points}</p>
-                            <span className="text-gray-400 text-2xl">-</span>
-                            <p className="text-white text-2xl">{teamsThisGame[1].points}</p>
+                            {isFutureGame ? (
+                                <p className="text-white text-2xl">{teamsThisGame[0].points}</p>
+                            ) : (
+                                <>
+                                    <p className="text-white text-2xl">{teamsThisGame[0].points}</p>
+                                    <span className="text-gray-400 text-2xl">-</span>
+                                    <p className="text-white text-2xl">{teamsThisGame[1].points}</p>
+                                </>
+                            )}
                         </div>
-                        <p className="text-gray-400 text-lg pt-5">Final</p>
+                        <p className="text-gray-400 text-lg pt-5">
+                            {isFutureGame ? 'Scheduled' : 'Final'}
+                        </p>
                     </div>
 
                     {/* Team 2 */}
@@ -147,18 +171,17 @@ export default function GameHeader({ date, teamsThisGame, onBack, activeTab, onT
                             alt={teamsThisGame[1].team_name}
                             className="w-14 h-14 ml-5 mr-2"
                             onError={(e) => {
-                                // Fallback: Show team abbreviation
-                                const teamWords = teamsThisGame[0].team_name.split(' ');
+                                const teamWords = teamsThisGame[1].team_name.split(' ');
                                 const teamAbbreviation = teamWords[teamWords.length - 1];
                                 e.currentTarget.style.display = 'none';
                                 const parent = e.currentTarget.parentElement;
                                 if (parent) {
                                     parent.innerHTML = `
-                                            <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                                <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
-                                            </div>
-                                            <span>${teamsThisGame[1].team_name}</span>
-                                        `;
+                                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                            <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                        </div>
+                                        <span>${teamsThisGame[1].team_name}</span>
+                                    `;
                                 }
                             }}
                         />
@@ -180,8 +203,8 @@ export default function GameHeader({ date, teamsThisGame, onBack, activeTab, onT
                                     buttonRefs.current[index] = el;
                                 }}
                                 className={`relative px-4 py-2 transition-colors duration-200 z-10 ${activeTab === tab.key
-                                        ? 'text-white font-medium'
-                                        : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
+                                    ? 'text-white font-medium'
+                                    : 'text-[#9f9f9f] hover:text-[#6f6f6f]'
                                     }`}
                                 onClick={() => handleTabClick(tab.key, index)}
                             >
