@@ -9,7 +9,8 @@ interface GameHeaderProps {
     activeTab: string;
     onTabClick: (tabKey: any, index: number) => void;
     isFutureGame?: boolean;
-    tabs?: { key: any; label: string }[]; // Make tabs customizable
+    tabs?: { key: any; label: string }[];
+    customHeader?: React.ReactNode; // Add this prop for custom header content
 }
 
 const pastTabs = [
@@ -32,13 +33,13 @@ export default function GameHeader({
     activeTab,
     onTabClick,
     isFutureGame = false,
-    tabs: customTabs
+    tabs: customTabs,
+    customHeader // New prop
 }: GameHeaderProps) {
     const [underlineStyle, setUnderlineStyle] = useState<UnderlineStyle>({ width: 0, left: 0 });
     const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Use custom tabs if provided, otherwise use default based on game type
     const tabs = customTabs || (isFutureGame ? futureTabs : pastTabs);
 
     useEffect(() => {
@@ -103,97 +104,98 @@ export default function GameHeader({
                 </div>
             </div>
 
-            <div className='pt-3 pb-3 flex justify-center'>
-                {displayDate && (
-                    <p className="text-gray-400 text-xs">
-                        {displayDate.toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        })}
-                    </p>
-                )}
-            </div>
-
-            <div className='border-b-2 border-b-[#5b5b5b33]'></div>
-
-            <div className="flex flex-col w-full pt-5">
-                <div className='grid grid-cols-[1fr_auto_1fr] items-center pb-10 px-10'>
-                    {/* Team 1 */}
-                    <div className="flex items-center justify-end gap-4">
-                        <p className="text-white text-2xl text-right whitespace-nowrap">
-                            {getTeamName(teamsThisGame[0].team_id)}
-                        </p>
-                        <img
-                            src={`http://127.0.0.1:5000/api/team-logo/${teamsThisGame[0].team_id}`}
-                            alt={teamsThisGame[0].team_name}
-                            className="w-14 h-14 mr-5 ml-2"
-                            onError={(e) => {
-                                const teamWords = teamsThisGame[0].team_name.split(' ');
-                                const teamAbbreviation = teamWords[teamWords.length - 1];
-                                e.currentTarget.style.display = 'none';
-                                const parent = e.currentTarget.parentElement;
-                                if (parent) {
-                                    parent.innerHTML = `
-                                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                            <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
-                                        </div>
-                                        <span>${teamsThisGame[0].team_name}</span>
-                                    `;
-                                }
-                            }}
-                        />
+            {/* Conditional Header Content */}
+            {customHeader ? (
+                // Use custom header if provided (for future games)
+                customHeader
+            ) : (
+                // Default header for past games
+                <>
+                    <div className='pt-3 pb-3 flex justify-center'>
+                        {displayDate && (
+                            <p className="text-gray-400 text-xs">
+                                {displayDate.toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                })}
+                            </p>
+                        )}
                     </div>
 
-                    {/* Scores or Game Time */}
-                    <div className="flex flex-col items-center mx-4">
-                        <div className="flex items-center gap-2">
-                            {isFutureGame ? (
-                                <p className="text-white text-2xl">{teamsThisGame[0].points}</p>
-                            ) : (
-                                <>
+                    <div className='border-b-2 border-b-[#5b5b5b33]'></div>
+
+                    <div className="flex flex-col w-full pt-5">
+                        <div className='grid grid-cols-[1fr_auto_1fr] items-center pb-10 px-10'>
+                            {/* Team 1 */}
+                            <div className="flex items-center justify-end gap-4">
+                                <p className="text-white text-2xl text-right whitespace-nowrap">
+                                    {getTeamName(teamsThisGame[0].team_id)}
+                                </p>
+                                <img
+                                    src={`http://127.0.0.1:5000/api/team-logo/${teamsThisGame[0].team_id}`}
+                                    alt={teamsThisGame[0].team_name}
+                                    className="w-14 h-14 mr-5 ml-2"
+                                    onError={(e) => {
+                                        const teamWords = teamsThisGame[0].team_name.split(' ');
+                                        const teamAbbreviation = teamWords[teamWords.length - 1];
+                                        e.currentTarget.style.display = 'none';
+                                        const parent = e.currentTarget.parentElement;
+                                        if (parent) {
+                                            parent.innerHTML = `
+                                                <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                    <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                                </div>
+                                                <span>${teamsThisGame[0].team_name}</span>
+                                            `;
+                                        }
+                                    }}
+                                />
+                            </div>
+
+                            {/* Scores */}
+                            <div className="flex flex-col items-center mx-4">
+                                <div className="flex items-center gap-2">
                                     <p className="text-white text-2xl">{teamsThisGame[0].points}</p>
                                     <span className="text-gray-400 text-2xl">-</span>
                                     <p className="text-white text-2xl">{teamsThisGame[1].points}</p>
-                                </>
-                            )}
+                                </div>
+                                <p className="text-gray-400 text-lg pt-5">Final</p>
+                            </div>
+
+                            {/* Team 2 */}
+                            <div className="flex items-center justify-start gap-4">
+                                <img
+                                    src={`http://127.0.0.1:5000/api/team-logo/${teamsThisGame[1].team_id}`}
+                                    alt={teamsThisGame[1].team_name}
+                                    className="w-14 h-14 ml-5 mr-2"
+                                    onError={(e) => {
+                                        const teamWords = teamsThisGame[1].team_name.split(' ');
+                                        const teamAbbreviation = teamWords[teamWords.length - 1];
+                                        e.currentTarget.style.display = 'none';
+                                        const parent = e.currentTarget.parentElement;
+                                        if (parent) {
+                                            parent.innerHTML = `
+                                                <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
+                                                    <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
+                                                </div>
+                                                <span>${teamsThisGame[1].team_name}</span>
+                                            `;
+                                        }
+                                    }}
+                                />
+                                <p className="text-white text-2xl text-left whitespace-nowrap">
+                                    {getTeamName(teamsThisGame[1].team_id)}
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-gray-400 text-lg pt-5">
-                            {isFutureGame ? 'Scheduled' : 'Final'}
-                        </p>
                     </div>
+                </>
+            )}
 
-                    {/* Team 2 */}
-                    <div className="flex items-center justify-start gap-4">
-                        <img
-                            src={`http://127.0.0.1:5000/api/team-logo/${teamsThisGame[1].team_id}`}
-                            alt={teamsThisGame[1].team_name}
-                            className="w-14 h-14 ml-5 mr-2"
-                            onError={(e) => {
-                                const teamWords = teamsThisGame[1].team_name.split(' ');
-                                const teamAbbreviation = teamWords[teamWords.length - 1];
-                                e.currentTarget.style.display = 'none';
-                                const parent = e.currentTarget.parentElement;
-                                if (parent) {
-                                    parent.innerHTML = `
-                                        <div class="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center mr-3">
-                                            <span class="text-xs font-bold">${teamAbbreviation.substring(0, 2)}</span>
-                                        </div>
-                                        <span>${teamsThisGame[1].team_name}</span>
-                                    `;
-                                }
-                            }}
-                        />
-                        <p className="text-white text-2xl text-left whitespace-nowrap">
-                            {getTeamName(teamsThisGame[1].team_id)}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Tab Navigation with proper underline */}
-            <div className="w-full">
+            {/* Tab Navigation with proper underline - this stays the same for both */}
+            <div className="w-full mt-4">
                 <div className="w-2/3">
                     <div ref={containerRef} className='flex justify-between pl-5 relative'>
                         {tabs.map((tab, index) => (

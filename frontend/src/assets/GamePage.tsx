@@ -8,8 +8,9 @@ import LineupTab from './components/tabs/LineupTab';
 import TableTab from './components/tabs/TableTab';
 import StatsTab from './components/tabs/StatsTab';
 import PlayerCard from './components/PlayerCard';
-import FutureGameView, { type TabType as FutureTabType, formatGameTime } from './FutureGameView';
+import { formatGameTime, type TabType as FutureTabType } from './components/FutureGameHeader.tsx';
 import { calculatePlayerRating } from '../utils/teamMappings.ts';
+import FutureGameHeader from './components/FutureGameHeader.tsx';
 
 export default function GamePage() {
     const [gameStats, setGameStats] = useState<Stats[]>([]);
@@ -597,7 +598,8 @@ export default function GamePage() {
                             activeTab={futureActiveTab}
                             onTabClick={(tabKey, index) => setFutureActiveTab(tabKey)}
                             isFutureGame={true}
-                            tabs={futureTabs} // Pass custom tabs
+                            tabs={futureTabs}
+                            customHeader={<FutureGameHeader game={futureGame} />}
                         />
 
                         <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>
