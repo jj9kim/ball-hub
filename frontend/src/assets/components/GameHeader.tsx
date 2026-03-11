@@ -196,7 +196,7 @@ export default function GameHeader({
 
             {/* Tab Navigation with proper underline - this stays the same for both */}
             <div className="w-full mt-4">
-                <div className="w-2/3">
+                <div className="w-1/2">
                     <div ref={containerRef} className='flex justify-between pl-5 relative'>
                         {tabs.map((tab, index) => (
                             <button
