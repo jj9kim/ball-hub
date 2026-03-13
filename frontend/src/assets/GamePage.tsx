@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, useRef, useMemo } from "react";
-import type { Stats, Player } from './components/types/index.ts';
+import type { Stats, TabType, Player } from './components/types/index.ts';
 import { NBAService, type NBAGame, type NBATeamStats, type FullScheduleGame } from '../api/nbaService';
 import GameHeader from './components/GameHeader';
 import FactsTab from './components/tabs/FactsTab';
@@ -8,9 +8,12 @@ import LineupTab from './components/tabs/LineupTab';
 import TableTab from './components/tabs/TableTab';
 import StatsTab from './components/tabs/StatsTab';
 import PlayerCard from './components/PlayerCard';
-import { formatGameTime, type TabType as FutureTabType } from './components/FutureGameHeader.tsx';
 import { calculatePlayerRating } from '../utils/teamMappings.ts';
-import FutureGameHeader from './components/FutureGameHeader.tsx';
+import PreviewTabs from './components/future games/PreviewTab.tsx';
+import TableTabs from './components/future games/TableTab';
+import StatsTabs from './components/future games/StatsTab';
+
+export type FutureTabType = 'preview' | 'table' | 'stats';
 
 export default function GamePage() {
     const [gameStats, setGameStats] = useState<Stats[]>([]);
@@ -19,11 +22,17 @@ export default function GamePage() {
     const [isFutureGame, setIsFutureGame] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'facts' | 'lineup' | 'table' | 'stats'>('facts');
+    const [activeTab, setActiveTab] = useState<TabType>('facts');
     const [futureActiveTab, setFutureActiveTab] = useState<FutureTabType>('preview');
     const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
     const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(-1);
     const playerCardRef = useRef<HTMLDivElement>(null);
+
+    // Court starters state
+    const [homeTeamStarters, setHomeTeamStarters] = useState<any[]>([]);
+    const [awayTeamStarters, setAwayTeamStarters] = useState<any[]>([]);
+    const [startersLoading, setStartersLoading] = useState(true);
+    const [startersError, setStartersError] = useState<string | null>(null);
 
     const { date, id } = useParams<{ date?: string; id: string }>();
     const navigate = useNavigate();
@@ -32,12 +41,26 @@ export default function GamePage() {
     const [teamsThisGame, setTeamsThisGame] = useState<Array<{ team_id: number, team_name: string, points: number }>>([]);
     const [teamStats, setTeamStats] = useState<NBATeamStats[]>([]);
 
-    const futureTabs = [
-        { key: 'preview', label: 'Preview' },
-        { key: 'table', label: 'Table' },
-        { key: 'stats', label: 'Stats' }
-    ];
+    // Format time for future games
+    const formatGameTime = (timeStr: string | undefined): string => {
+        if (!timeStr) return 'TBD';
 
+        try {
+            const date = new Date(timeStr);
+            if (isNaN(date.getTime())) return 'TBD';
+
+            const hours = date.getUTCHours();
+            const minutes = date.getUTCMinutes();
+
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const hour12 = hours % 12 || 12;
+            const minuteStr = minutes.toString().padStart(2, '0');
+
+            return `${hour12}:${minuteStr} ${ampm}`;
+        } catch (error) {
+            return 'TBD';
+        }
+    };
 
     // Check if this is a future game and load appropriate data
     useEffect(() => {
@@ -71,6 +94,9 @@ export default function GamePage() {
                     if (convertedStats.length === 0) {
                         console.log('No player stats available for this game');
                     }
+
+                    // Fetch starters for both teams
+                    await fetchLastGameStarters(gameTeams[0].team_id, gameTeams[1].team_id);
                 } else {
                     // Try future games
                     const futureData = await NBAService.fetchFullSchedule();
@@ -83,7 +109,7 @@ export default function GamePage() {
                         setFutureGame(futureGameData);
 
                         // Set basic team info for future game
-                        setTeamsThisGame([
+                        const gameTeams = [
                             {
                                 team_id: futureGameData.homeTeam_teamId,
                                 team_name: futureGameData.homeTeam_teamName,
@@ -94,7 +120,11 @@ export default function GamePage() {
                                 team_name: futureGameData.awayTeam_teamName,
                                 points: 0
                             }
-                        ]);
+                        ];
+                        setTeamsThisGame(gameTeams);
+
+                        // FETCH STARTERS FOR FUTURE GAME TOO!
+                        await fetchLastGameStarters(gameTeams[0].team_id, gameTeams[1].team_id);
                     } else {
                         setError('Game not found');
                     }
@@ -111,6 +141,86 @@ export default function GamePage() {
             loadGameData();
         }
     }, [id]);
+
+    // Fetch last game starters for both teams
+    // Simplified fetch last game starters
+    const fetchLastGameStarters = async (homeTeamId: number, awayTeamId: number) => {
+        try {
+            setStartersLoading(true);
+            setStartersError(null);
+
+            console.log('Fetching starters for teams:', homeTeamId, awayTeamId);
+
+            // Fetch all games
+            const gamesResponse = await fetch('http://127.0.0.1:5000/api/nba-games');
+            const gamesData = await gamesResponse.json();
+
+            if (!gamesData.success) {
+                throw new Error('Failed to fetch games');
+            }
+
+            // Helper function to get last game for a team
+            const getLastGameForTeam = (teamId: number) => {
+                const teamGames = gamesData.games
+                    .filter((game: any) =>
+                        game.teams.some((team: any) => team.team_id === teamId)
+                    )
+                    .sort((a: any, b: any) => b.game_date.localeCompare(a.game_date));
+
+                return teamGames.length > 0 ? teamGames[0] : null;
+            };
+
+            // Helper function to get starters from a game
+            const getStartersFromGame = async (game: any, teamId: number) => {
+                if (!game) return [];
+
+                try {
+                    const boxscoreResponse = await fetch(`http://127.0.0.1:5000/api/game/${game.game_id}/simple-boxscore`);
+                    const boxscoreData = await boxscoreResponse.json();
+
+                    if (boxscoreData.success) {
+                        return boxscoreData.players
+                            .filter((player: any) =>
+                                player.team_id === teamId &&
+                                player.starter === true
+                            )
+                            .map((player: any) => ({
+                                ...player,
+                                position: player.position?.toUpperCase().replace(/\s+/g, '') || ''
+                            }));
+                    }
+                } catch (error) {
+                    console.error(`Error fetching boxscore for team ${teamId}:`, error);
+                }
+                return [];
+            };
+
+            // Get last games
+            const homeLastGame = getLastGameForTeam(homeTeamId);
+            const awayLastGame = getLastGameForTeam(awayTeamId);
+
+            console.log('Home last game:', homeLastGame?.game_id);
+            console.log('Away last game:', awayLastGame?.game_id);
+
+            // Fetch starters for both teams
+            const [homeStarters, awayStarters] = await Promise.all([
+                getStartersFromGame(homeLastGame, homeTeamId),
+                getStartersFromGame(awayLastGame, awayTeamId)
+            ]);
+
+            console.log('Home starters found:', homeStarters.length);
+            console.log('Away starters found:', awayStarters.length);
+
+            setHomeTeamStarters(homeStarters);
+            setAwayTeamStarters(awayStarters);
+
+        } catch (err) {
+            console.error('Error fetching starters:', err);
+            setStartersError(err instanceof Error ? err.message : 'Failed to fetch starters');
+        } finally {
+            setStartersLoading(false);
+        }
+    };
 
     // Convert NBA game data to your Stats format
     const convertNBAGameToStats = async (game: NBAGame): Promise<Stats[]> => {
@@ -132,7 +242,6 @@ export default function GamePage() {
 
                     // Convert box score players to Stats format
                     const stats = boxScoreData.players.map((player: any) => {
-                        // Calculate missed shots for rating calculation
                         const fg_missed = Math.max(0, (player.fg_attempted || 0) - (player.fg_made || 0));
                         const ft_missed = Math.max(0, (player.ft_attempted || 0) - (player.ft_made || 0));
 
@@ -323,6 +432,8 @@ export default function GamePage() {
                     ortg: stat.ortg,
                     usg: stat.usg,
                     url: stat.url,
+                    jersey: stat.jersey,
+                    plus_minus: stat.plus_minus || 0,
                     player_rating: stat.player_rating,
                 }
             });
@@ -362,6 +473,8 @@ export default function GamePage() {
                     ortg: stat.ortg,
                     usg: stat.usg,
                     url: stat.url,
+                    jersey: stat.jersey,
+                    plus_minus: stat.plus_minus || 0,
                     player_rating: stat.player_rating,
                 }
             });
@@ -439,84 +552,49 @@ export default function GamePage() {
         setFutureActiveTab(tabKey);
     };
 
+    // Map starters to court positions
+    const mapStartersToCourt = (starters: any[], isHomeTeam: boolean) => {
+        if (!starters || starters.length === 0) return [];
+
+        return starters.map((player) => {
+            let courtPosition = { x: 50, y: 50 };
+
+            if (player.position === 'C') {
+                courtPosition = isHomeTeam ? { x: 10, y: 50 } : { x: 90, y: 72 };
+            } else if (player.position === 'PF') {
+                courtPosition = isHomeTeam ? { x: 10, y: 85 } : { x: 90, y: 37 };
+            } else if (player.position === 'SF') {
+                courtPosition = isHomeTeam ? { x: 27, y: 27 } : { x: 73, y: 95 };
+            } else if (player.position === 'SG') {
+                courtPosition = isHomeTeam ? { x: 32, y: 95 } : { x: 68, y: 25 };
+            } else if (player.position === 'PG') {
+                courtPosition = isHomeTeam ? { x: 42, y: 60 } : { x: 58, y: 60 };
+            }
+
+            return { ...player, courtPosition };
+        });
+    };
+
     const renderFutureTabContent = () => {
         if (!futureGame) return null;
 
         switch (futureActiveTab) {
             case 'preview':
                 return (
-                    <div className='rounded-2xl min-h-[100vh]'>
-                        <div className='bg-[#343434] h-15 rounded-t-2xl'></div>
-                        <div className='bg-[#2c2c2c] h-1'></div>
-                        <div className='bg-[#343434] h-15'></div>
-                        <div className="relative w-full mx-auto aspect-[3/2] bg-[#2c2c2c] shadow-2xl ">
-                            <div className="relative w-full h-full bg-[#2c2c2c] overflow-hidden">
-                                {/* Court Base */}
-                                <div className="absolute inset-0 bg-[#2c2c2c]"></div>
-
-                                {/* Half-Court Line */}
-                                <div className="absolute top-0 bottom-0 left-1/2 w-1 bg-[#343434] transform -translate-x-1/2"></div>
-
-                                {/* Center Circle */}
-                                <div className="absolute top-1/2 left-1/2 w-28 h-28 border-4 border-[#343434] rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
-                                <div className="absolute top-1/2 left-1/2 w-3 h-3 bg-[#343434] rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
-
-                                {/* Left Key/Paint Area */}
-                                <div className="absolute top-1/2 w-60 h-50 border-4 border-[#343434] transform -translate-y-1/2 border-l-0"></div>
-
-                                {/* Right Key/Paint Area */}
-                                <div className="absolute top-1/2 right-0 w-60 h-50 border-4 border-[#343434] transform -translate-y-1/2 border-r-0"></div>
-
-                                {/* Left Free Throw Circle */}
-                                <div className="absolute top-1/2 left-41 w-36 h-36 border-4 border-[#343434] rounded-full transform -translate-y-1/2"></div>
-
-                                {/* Right Free Throw Circle */}
-                                <div className="absolute top-1/2 right-41 w-36 h-36 border-4 border-[#343434] rounded-full transform -translate-y-1/2"></div>
-
-                                {/* Left Three-Point Line */}
-                                <div className="absolute top-1/2 left-0 transform -translate-y-1/2">
-                                    <div className="relative">
-                                        <div className="pt-10 pb-10">
-                                            <div className="w-90 h-130 border-4 border-l-0 border-[#343434] rounded-r-full"></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Right Three-Point Line */}
-                                <div className="absolute top-1/2 right-0 transform -translate-y-1/2">
-                                    <div className="relative">
-                                        <div className="pt-10 pb-10">
-                                            <div className="w-90 h-130 border-4 border-r-0 border-[#343434] rounded-l-full"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <PreviewTabs
+                        futureGame={futureGame}
+                        homeTeamStarters={homeTeamStarters}
+                        awayTeamStarters={awayTeamStarters}
+                        startersLoading={startersLoading}
+                        startersError={startersError}
+                        teamsThisGame={teamsThisGame}
+                        mapStartersToCourt={mapStartersToCourt}
+                    />
                 );
             case 'table':
-                return (
-                    <div className="p-6 text-white">
-                        <h3 className="text-lg font-semibold mb-4">Season Stats Comparison</h3>
-                        <div className="flex justify-around">
-                            <div className="text-center">
-                                <p className="text-gray-400 text-sm">{futureGame.homeTeam_teamName}</p>
-                                <p className="text-white font-bold text-xl">{futureGame.homeTeam_wins} - {futureGame.homeTeam_losses}</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-gray-400 text-sm">{futureGame.awayTeam_teamName}</p>
-                                <p className="text-white font-bold text-xl">{futureGame.awayTeam_wins} - {futureGame.awayTeam_losses}</p>
-                            </div>
-                        </div>
-                    </div>
-                );
+                return <TableTabs futureGame={futureGame} />;
             case 'stats':
-                return (
-                    <div className="p-6 text-white">
-                        <h3 className="text-lg font-semibold mb-4">Team Statistics</h3>
-                        <p className="text-gray-400">Advanced statistics will be available closer to game time.</p>
-                    </div>
-                );
+                return <StatsTabs />;
             default:
                 return null;
         }
@@ -595,6 +673,12 @@ export default function GamePage() {
         }
     };
 
+    const futureTabs = [
+        { key: 'preview', label: 'Preview' },
+        { key: 'table', label: 'Table' },
+        { key: 'stats', label: 'Stats' }
+    ];
+
     if (loading && !gameStats.length && !futureGame) {
         return (
             <div className="text-white text-center py-8">
@@ -615,10 +699,9 @@ export default function GamePage() {
                             teamsThisGame={teamsThisGame}
                             onBack={handleBack}
                             activeTab={futureActiveTab}
-                            onTabClick={(tabKey, index) => setFutureActiveTab(tabKey)}
+                            onTabClick={(tabKey, index) => setFutureActiveTab(tabKey as FutureTabType)}
                             isFutureGame={true}
                             tabs={futureTabs}
-                            customHeader={<FutureGameHeader game={futureGame} />}
                         />
 
                         <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>
@@ -643,7 +726,7 @@ export default function GamePage() {
                         onBack={handleBack}
                         activeTab={activeTab}
                         onTabClick={(tabKey, index) => setActiveTab(tabKey)}
-                        isFutureGame={isFutureGame}
+                        isFutureGame={false}
                     />
 
                     <div className='flex mt-5 border-2 border-blue-400 mr-5 min-h-[20vh] rounded-2xl bg-[#1d1d1d] flex-col'>
