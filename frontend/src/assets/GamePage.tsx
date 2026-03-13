@@ -12,7 +12,9 @@ import { calculatePlayerRating } from '../utils/teamMappings.ts';
 import PreviewTabs from './components/future games/PreviewTab.tsx';
 import TableTabs from './components/future games/TableTab';
 import StatsTabs from './components/future games/StatsTab';
+import FutureGameHeader from './components/FutureGameHeader.tsx';
 
+export type PastTabType = 'facts' | 'lineup' | 'table' | 'stats';
 export type FutureTabType = 'preview' | 'table' | 'stats';
 
 export default function GamePage() {
@@ -22,7 +24,7 @@ export default function GamePage() {
     const [isFutureGame, setIsFutureGame] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('facts');
+    const [activeTab, setActiveTab] = useState<PastTabType>('facts');
     const [futureActiveTab, setFutureActiveTab] = useState<FutureTabType>('preview');
     const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
     const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(-1);
@@ -548,9 +550,14 @@ export default function GamePage() {
         }
     };
 
+    const handlePastTabClick = (tabKey: PastTabType, index: number) => {
+        setActiveTab(tabKey);
+    };
+
     const handleFutureTabClick = (tabKey: FutureTabType, index: number) => {
         setFutureActiveTab(tabKey);
     };
+
 
     // Map starters to court positions
     const mapStartersToCourt = (starters: any[], isHomeTeam: boolean) => {
@@ -673,7 +680,7 @@ export default function GamePage() {
         }
     };
 
-    const futureTabs = [
+    const futureTabs: { key: FutureTabType; label: string }[] = [
         { key: 'preview', label: 'Preview' },
         { key: 'table', label: 'Table' },
         { key: 'stats', label: 'Stats' }
@@ -694,12 +701,13 @@ export default function GamePage() {
             <>
                 <div className='w-full flex flex-row justify-center'>
                     <div className='w-2/3 min-h-[80vh]'>
-                        <GameHeader
+                        <FutureGameHeader
+                            game={futureGame}
                             date={date}
                             teamsThisGame={teamsThisGame}
                             onBack={handleBack}
                             activeTab={futureActiveTab}
-                            onTabClick={(tabKey, index) => setFutureActiveTab(tabKey as FutureTabType)}
+                            onTabClick={handleFutureTabClick}  // Use future handler
                             isFutureGame={true}
                             tabs={futureTabs}
                         />
@@ -714,7 +722,7 @@ export default function GamePage() {
             </>
         );
     }
-
+    
     // For past games, use the existing layout with tabs
     return (
         <>
@@ -725,7 +733,7 @@ export default function GamePage() {
                         teamsThisGame={teamsThisGame}
                         onBack={handleBack}
                         activeTab={activeTab}
-                        onTabClick={(tabKey, index) => setActiveTab(tabKey)}
+                        onTabClick={handlePastTabClick}  // Use past handler
                         isFutureGame={false}
                     />
 

@@ -26,7 +26,6 @@ export default function PreviewTab({
     return (
         <div className='rounded-2xl min-h-[100vh]'>
             <div className='bg-[#343434] h-15 rounded-t-2xl flex items-center px-6'>
-                <h3 className="text-white font-semibold">Projected Starting Lineups</h3>
             </div>
             <div className='bg-[#2c2c2c] h-1'></div>
             <div className='bg-[#343434] h-15 flex items-center px-6'>
@@ -85,7 +84,6 @@ export default function PreviewTab({
                                 </div>
                             </div>
 
-                            
 
                             {/* Home Team Starters (Left Side) */}
                             {mapStartersToCourt(homeTeamStarters, true).map((player) => (
