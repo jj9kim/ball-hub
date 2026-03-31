@@ -24,7 +24,7 @@ export default function PreviewTab({
     const navigate = useNavigate();
 
     return (
-        <div className='rounded-2xl min-h-[100vh]'>
+        <div className='rounded-2xl overflow-hidden'>
             <div className='bg-[#343434] h-15 rounded-t-2xl flex items-center px-6'>
             </div>
             <div className='bg-[#2c2c2c] h-1'></div>
@@ -89,7 +89,7 @@ export default function PreviewTab({
                             {mapStartersToCourt(homeTeamStarters, true).map((player) => (
                                 <div
                                     key={`home-${player.player_id}`}
-                                    className="absolute cursor-pointer hover:scale-110 transition-transform"
+                                    className="absolute cursor-pointer hover:opacity-50 transition-transform"
                                     style={{
                                         left: `${player.courtPosition.x}%`,
                                         top: `${player.courtPosition.y}%`,
@@ -97,8 +97,8 @@ export default function PreviewTab({
                                     }}
                                     onClick={() => navigate(`/player/${player.player_id}`)}
                                 >
-                                    <div className="relative w-30 h-30 flex flex-col items-center whitespace-nowrap">
-                                        <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2  bg-white">
+                                    <div className="relative w-50 h-50 flex flex-col items-center">
+                                        <div className="w-16 h-16 rounded-full flex items-center justify-center relative overflow-hidden border-2  bg-white">
                                             <img
                                                 src={`http://127.0.0.1:5000/api/nba-image/${player.player_id}`}
                                                 alt={player.name}
@@ -122,12 +122,12 @@ export default function PreviewTab({
                                                 }}
                                             />
                                         </div>
-                                        <div className='flex flex-row justify-center mt-1 bg-black bg-opacity-60 px-2 py-0.5 rounded-full'>
-                                            <div className='text-[#ababab] text-[11px] pr-1'>
+                                        <div className='flex flex-row justify-center'>
+                                            <div className='text-[#ababab] text-xs pr-1'>
                                                 #{player.jersey || ''}
                                             </div>
                                             <div className='text-white text-[11px]'>
-                                                {player.name.split(' ').pop()}
+                                                {player.name}
                                             </div>
                                         </div>
                                     </div>
@@ -138,7 +138,7 @@ export default function PreviewTab({
                             {mapStartersToCourt(awayTeamStarters, false).map((player) => (
                                 <div
                                     key={`away-${player.player_id}`}
-                                    className="absolute cursor-pointer hover:scale-110 transition-transform"
+                                    className="absolute cursor-pointer hover:opacity-50 transition-transform"
                                     style={{
                                         left: `${player.courtPosition.x}%`,
                                         top: `${player.courtPosition.y}%`,
@@ -146,8 +146,8 @@ export default function PreviewTab({
                                     }}
                                     onClick={() => navigate(`/player/${player.player_id}`)}
                                 >
-                                    <div className="relative w-30 h-30 flex flex-col items-center whitespace-nowrap">
-                                        <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2 border-red-500 bg-white">
+                                    <div className="relative w-50 h-50 flex flex-col items-center">
+                                        <div className="w-16 h-16 rounded-full flex items-center justify-center relative overflow-hidden border-2  bg-white">
                                             <img
                                                 src={`http://127.0.0.1:5000/api/nba-image/${player.player_id}`}
                                                 alt={player.name}
@@ -171,12 +171,12 @@ export default function PreviewTab({
                                                 }}
                                             />
                                         </div>
-                                        <div className='flex flex-row justify-center mt-1 bg-black bg-opacity-60 px-2 py-0.5 rounded-full'>
-                                            <div className='text-[#ababab] text-[11px] pr-1'>
+                                        <div className='flex flex-row justify-center'>
+                                            <div className='text-[#ababab] text-xs pr-1'>
                                                 #{player.jersey || ''}
                                             </div>
                                             <div className='text-white text-[11px]'>
-                                                {player.name.split(' ').pop()}
+                                                {player.name}
                                             </div>
                                         </div>
                                     </div>
