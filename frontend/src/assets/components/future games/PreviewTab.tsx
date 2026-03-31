@@ -40,7 +40,7 @@ export default function PreviewTab({
                     <p className="text-red-400">{startersError}</p>
                 </div>
             ) : (
-                <div className="p-4">
+                <div className="">
                     {/* Single Court with Both Teams */}
                     <div className="relative w-full mx-auto aspect-[3/2] bg-[#2c2c2c] shadow-2xl">
                         <div className="relative w-full h-full bg-[#2c2c2c] overflow-hidden">
@@ -98,7 +98,7 @@ export default function PreviewTab({
                                     onClick={() => navigate(`/player/${player.player_id}`)}
                                 >
                                     <div className="relative w-30 h-30 flex flex-col items-center whitespace-nowrap">
-                                        <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2 border-blue-500 bg-white">
+                                        <div className="w-14 h-14 rounded-full flex items-center justify-center relative overflow-hidden border-2  bg-white">
                                             <img
                                                 src={`http://127.0.0.1:5000/api/nba-image/${player.player_id}`}
                                                 alt={player.name}
