@@ -599,7 +599,8 @@ export default function GamePage() {
                     />
                 );
             case 'table':
-                return <TableTabs futureGame={futureGame} />;
+                return <TableTabs team1Id={teamsThisGame[0].team_id}
+                    team2Id={teamsThisGame[1].team_id} />;
             case 'stats':
                 return <StatsTabs />;
             default:
@@ -722,7 +723,7 @@ export default function GamePage() {
             </>
         );
     }
-    
+
     // For past games, use the existing layout with tabs
     return (
         <>
