@@ -1,6 +1,7 @@
 // assets/components/teamprofile/tabs/TeamOverviewTab.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
+import { NBAService, type FullScheduleGame } from '../../../api/nbaService';
 
 interface TeamOverviewTabProps {
     teamInfo: {
@@ -28,7 +29,7 @@ interface TeamStanding {
     win_pct: number;
     conference_rank: number;
     division_rank: number;
-    games_back: number; // Conference games back
+    games_back: number;
     streak: string;
     record: string;
     home_record: string;
@@ -59,8 +60,8 @@ interface GameFormData {
     points_for: number;
     points_against: number;
     is_home: boolean;
-    home_score: number;  // Add this
-    away_score: number;  // Add this
+    home_score: number;
+    away_score: number;
     matchup: string;
 }
 
@@ -74,24 +75,40 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
     const [teamForm, setTeamForm] = useState<any[]>([]);
     const [formLoading, setFormLoading] = useState(true);
     const [formError, setFormError] = useState<string | null>(null);
-    const [futureGames, setFutureGames] = useState<any[]>([]);
+
+    // Future games state
+    const [futureGames, setFutureGames] = useState<FullScheduleGame[]>([]);
     const [futureGamesLoading, setFutureGamesLoading] = useState(true);
     const [futureGamesError, setFutureGamesError] = useState<string | null>(null);
 
     const navigate = useNavigate();
 
-    useEffect(() => {
-        // Scroll to top when component mounts
-        window.scrollTo(0, 0);
+    // Helper function to format time from ISO string
+    const formatGameTime = (timeStr: string | undefined): string => {
+        if (!timeStr) return 'TBD';
 
-        // Also scroll to top when playerId changes
-        return () => {
-            // Optional: Cleanup if needed
-        };
-    });
+        try {
+            const date = new Date(timeStr);
+            if (isNaN(date.getTime())) return 'TBD';
+
+            const hours = date.getUTCHours();
+            const minutes = date.getUTCMinutes();
+
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const hour12 = hours % 12 || 12;
+            const minuteStr = minutes.toString().padStart(2, '0');
+
+            return `${hour12}:${minuteStr} ${ampm}`;
+        } catch (error) {
+            return 'TBD';
+        }
+    };
 
     useEffect(() => {
         fetchStandings();
+        fetchLastGameStarters();
+        fetchTeamForm();
+        fetchFutureGames();
     }, []);
 
     const fetchStandings = async () => {
@@ -118,7 +135,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
         try {
             setStartersLoading(true);
 
-            // First, get the last game for this team
             const gamesResponse = await fetch('http://127.0.0.1:5000/api/nba-games');
             const gamesData = await gamesResponse.json();
 
@@ -126,7 +142,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                 throw new Error('Failed to fetch games');
             }
 
-            // Find the most recent game for this team
             const teamGames = gamesData.games
                 .filter((game: any) =>
                     game.teams.some((team: any) => team.team_id === teamInfo.team_id)
@@ -142,7 +157,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
             const lastGame = teamGames[0];
             const gameId = lastGame.game_id;
 
-            // Fetch the boxscore for that game
             const boxscoreResponse = await fetch(`http://127.0.0.1:5000/api/game/${gameId}/simple-boxscore`);
             const boxscoreData = await boxscoreResponse.json();
 
@@ -150,10 +164,8 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                 throw new Error('Failed to fetch boxscore');
             }
 
-            // Get the team ID to filter players
             const teamId = teamInfo.team_id;
 
-            // Filter starters for this team
             const starters = boxscoreData.players
                 .filter((player: any) =>
                     player.team_id === teamId &&
@@ -161,11 +173,9 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                 )
                 .map((player: any) => ({
                     ...player,
-                    // Normalize position names
                     position: player.position?.toUpperCase().replace(/\s+/g, '') || ''
                 }))
                 .sort((a: any, b: any) => {
-                    // Sort by position order: PG, SG, SF, PF, C
                     const positionOrder = ['PG', 'SG', 'SF', 'PF', 'C'];
                     return positionOrder.indexOf(a.position) - positionOrder.indexOf(b.position);
                 });
@@ -180,13 +190,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
             setStartersLoading(false);
         }
     };
-
-    useEffect(() => {
-        fetchStandings();
-        fetchLastGameStarters();
-        fetchTeamForm();
-        fetchFutureGames()
-    }, []);
 
     const fetchTeamForm = async () => {
         try {
@@ -207,17 +210,10 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                 .slice(-5);
 
             const formattedGames = teamGames.map((game: any) => {
-                // Find both teams
-                const homeTeam = game.teams[0]; // First team is home
-                const awayTeam = game.teams[1]; // Second team is away
-
-                // Determine if our team is home or away
+                const homeTeam = game.teams[0];
+                const awayTeam = game.teams[1];
                 const isHome = homeTeam?.team_id === teamInfo.team_id;
-
-                // Get opponent
                 const opponent = isHome ? awayTeam : homeTeam;
-
-                // Get result (W/L) for our team
                 const ourTeam = isHome ? homeTeam : awayTeam;
 
                 return {
@@ -229,7 +225,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                     points_for: ourTeam?.pts || 0,
                     points_against: opponent?.pts || 0,
                     is_home: isHome,
-                    // Store both home and away scores for proper display
                     home_score: homeTeam?.pts || 0,
                     away_score: awayTeam?.pts || 0,
                     matchup: game.matchup
@@ -250,24 +245,23 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
     const fetchFutureGames = async () => {
         try {
             setFutureGamesLoading(true);
-            // Try with 180 days first
-            const response = await fetch(`http://127.0.0.1:5000/api/team/${teamInfo.team_id}/future-games?days=180`);
-            const data = await response.json();
 
-            if (data.success) {
-                setFutureGames(data.games);
-                console.log(`Found ${data.games.length} future games`);
-            } else {
-                // If that fails, try with the schedule endpoint
-                const scheduleResponse = await fetch(`http://127.0.0.1:5000/api/team/${teamInfo.team_id}/schedule`);
-                const scheduleData = await scheduleResponse.json();
+            // Use the full schedule endpoint to get all future games
+            const data = await NBAService.fetchFullSchedule();
 
-                if (scheduleData.success) {
-                    setFutureGames(scheduleData.schedule);
-                } else {
-                    setFutureGamesError('Failed to load future games');
-                }
-            }
+            // Filter for this team's games that are future (gameStatus === 1)
+            const teamFutureGames = data.games.filter(game =>
+                game.gameStatus === 1 &&
+                (game.homeTeam_teamId === teamInfo.team_id || game.awayTeam_teamId === teamInfo.team_id)
+            ).sort((a, b) => {
+                const dateA = new Date(a.gameDate || a.gameDateEst);
+                const dateB = new Date(b.gameDate || b.gameDateEst);
+                return dateA.getTime() - dateB.getTime();
+            });
+
+            setFutureGames(teamFutureGames);
+            console.log(`Found ${teamFutureGames.length} future games for ${teamInfo.team_name}`);
+
         } catch (err) {
             console.error('Error fetching future games:', err);
             setFutureGamesError(err instanceof Error ? err.message : 'Failed to fetch future games');
@@ -278,11 +272,8 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
 
     const calculateAllGamesBack = (standings: TeamStanding[]): TeamStandingWithGB[] => {
         const sorted = [...standings].sort((a, b) => b.win_pct - a.win_pct);
-
-        // Find overall leader
         const overallLeader = sorted[0];
 
-        // Find division leaders
         const divisionLeaders: Record<string, TeamStanding> = {};
         standings.forEach(team => {
             const division = team.team_division;
@@ -292,13 +283,11 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
         });
 
         return sorted.map(team => {
-            // Calculate overall games back
             let overall_games_back = 0;
             if (team.team_id !== overallLeader.team_id) {
                 overall_games_back = ((overallLeader.wins - team.wins) + (team.losses - overallLeader.losses)) / 2;
             }
 
-            // Calculate division games back
             let division_games_back = 0;
             const divisionLeader = divisionLeaders[team.team_division];
             if (team.team_id !== divisionLeader.team_id) {
@@ -317,7 +306,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
         return `http://127.0.0.1:5000/api/team-logo/${teamId}`;
     };
 
-    // Helper functions for standings
     const formatGamesBack = (gamesBack: number): string => {
         if (gamesBack === 0) return '-';
         return gamesBack.toFixed(1);
@@ -332,7 +320,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
         return 'text-gray-400';
     };
 
-    // Sort all teams by win percentage (league standings)
     const leagueStandings = [...standings].sort((a, b) => b.win_pct - a.win_pct);
 
     return (
@@ -356,17 +343,14 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                 ) : (
                     <div className="flex justify-center items-center h-24 space-x-4 px-2">
                         {teamForm.map((game, index) => {
-                            // Determine home and away scores from the game data
-                            let homeScore, awayScore;
+                            let homeScore = 0, awayScore = 0;
 
                             if (game.is_home) {
-                                // Our team is home
-                                homeScore = game.points_for;      // Our team's score (home)
-                                awayScore = game.points_against;  // Opponent's score (away)
+                                homeScore = game.points_for;
+                                awayScore = game.points_against;
                             } else {
-                                // Our team is away
-                                homeScore = game.points_against;  // Opponent's score (home)
-                                awayScore = game.points_for;       // Our team's score (away)
+                                homeScore = game.points_against;
+                                awayScore = game.points_for;
                             }
 
                             return (
@@ -376,15 +360,12 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                     className="flex flex-col items-center justify-center w-15 cursor-pointer hover:scale-110 transition"
                                     title={`${game.opponent} (${game.is_home ? 'Home' : 'Away'})`}
                                 >
-                                    {/* Score always shows as Home-Away */}
                                     <div className={`w-full text-center py-1 rounded-lg font-semibold text-xs mb-1 ${game.result === 'W'
-                                            ? 'bg-green-500 text-white'
-                                            : 'bg-red-500 text-white'
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-red-500 text-white'
                                         }`}>
                                         {game.home_score}-{game.away_score}
                                     </div>
-
-                                    {/* Team Logo - opponent's logo */}
                                     <div className="w-full flex justify-center pt-1">
                                         <img
                                             src={`http://127.0.0.1:5000/api/team-logo/${game.opponent_id}`}
@@ -396,7 +377,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                                 e.currentTarget.style.display = 'none';
                                                 const parent = e.currentTarget.parentElement;
                                                 if (parent) {
-                                                    // Create fallback div
                                                     const fallbackDiv = document.createElement('div');
                                                     fallbackDiv.className = 'w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center';
                                                     fallbackDiv.innerHTML = `<span class="text-xs font-bold text-white">${teamAbbreviation.substring(0, 2)}</span>`;
@@ -411,6 +391,8 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                     </div>
                 )}
             </div>
+
+            {/* Next Match section */}
             <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] h-40 overflow-hidden">
                 <h2 className="ml-3 mt-3 text-white font-semibold">Next Match</h2>
 
@@ -430,35 +412,39 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                     <div className="flex items-center h-20 px-3">
                         {/* Show next game */}
                         {futureGames.slice(0, 1).map((game) => {
-                            const isHome = game.home_team.team_id === teamInfo.team_id;
-                            const opponent = isHome ? game.away_team : game.home_team;
-                            const gameDate = new Date(game.game_date);
+                            const isHome = game.homeTeam_teamId === teamInfo.team_id;
+                            const opponent = isHome ? game.awayTeam_teamName : game.homeTeam_teamName;
+                            const opponentId = isHome ? game.awayTeam_teamId : game.homeTeam_teamId;
+                            const gameDate = new Date(game.gameDate || game.gameDateEst);
                             const formattedDate = gameDate.toLocaleDateString('en-US', {
                                 weekday: 'short',
                                 month: 'short',
                                 day: 'numeric'
                             });
+                            const gameTime = formatGameTime(game.gameTimeEst);
+                            const gameDateStr = game.gameDateEst.split('T')[0];
 
                             return (
                                 <div
-                                    key={game.game_id}
-                                    onClick={() => navigate(`/game/${game.game_id}`)}
+                                    key={game.gameId}
+                                    onClick={() => navigate(`/${gameDateStr}/game/${game.gameId}`)}
                                     className="flex items-center w-full cursor-pointer hover:bg-gray-800 p-2 rounded-lg transition"
                                 >
                                     {/* Date and location */}
                                     <div className="flex flex-col items-center mr-4">
                                         <span className="text-white font-bold text-sm">{formattedDate}</span>
                                         <span className="text-gray-400 text-xs">{isHome ? 'HOME' : 'AWAY'}</span>
+                                        <span className="text-gray-500 text-[10px] mt-0.5">{gameTime}</span>
                                     </div>
 
                                     {/* Opponent logo */}
                                     <div className="flex items-center flex-1">
                                         <img
-                                            src={`http://127.0.0.1:5000/api/team-logo/${opponent.team_id}`}
-                                            alt={opponent.team_name}
+                                            src={`http://127.0.0.1:5000/api/team-logo/${opponentId}`}
+                                            alt={opponent}
                                             className="w-10 h-10 mr-3"
                                             onError={(e) => {
-                                                const teamWords = opponent.team_name.split(' ');
+                                                const teamWords = opponent.split(' ');
                                                 const teamAbbreviation = teamWords[teamWords.length - 1];
                                                 e.currentTarget.style.display = 'none';
                                                 const parent = e.currentTarget.parentElement;
@@ -473,8 +459,8 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
 
                                         {/* Opponent name */}
                                         <div className="flex flex-col">
-                                            <span className="text-white text-sm font-semibold">{opponent.team_name}</span>
-                                            <span className="text-gray-400 text-xs">{game.arena}</span>
+                                            <span className="text-white text-sm font-semibold">{opponent}</span>
+                                            <span className="text-gray-400 text-xs">{game.arenaName || 'Arena TBD'}</span>
                                         </div>
                                     </div>
 
@@ -490,25 +476,27 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                         {futureGames.length > 1 && (
                             <div className="flex ml-2 space-x-1">
                                 {futureGames.slice(1, 4).map((game, idx) => {
-                                    const isHome = game.home_team.team_id === teamInfo.team_id;
-                                    const opponent = isHome ? game.away_team : game.home_team;
+                                    const isHome = game.homeTeam_teamId === teamInfo.team_id;
+                                    const opponent = isHome ? game.awayTeam_teamName : game.homeTeam_teamName;
+                                    const opponentId = isHome ? game.awayTeam_teamId : game.homeTeam_teamId;
+                                    const gameDateStr = game.gameDateEst.split('T')[0];
 
                                     return (
                                         <div
-                                            key={game.game_id}
-                                            onClick={() => navigate(`/game/${game.game_id}`)}
+                                            key={game.gameId}
+                                            onClick={() => navigate(`/${gameDateStr}/game/${game.gameId}`)}
                                             className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-700 transition"
-                                            title={`${isHome ? 'vs' : '@'} ${opponent.team_name}`}
+                                            title={`${isHome ? 'vs' : '@'} ${opponent}`}
                                         >
                                             <img
-                                                src={`http://127.0.0.1:5000/api/team-logo/${opponent.team_id}`}
-                                                alt={opponent.team_name}
+                                                src={`http://127.0.0.1:5000/api/team-logo/${opponentId}`}
+                                                alt={opponent}
                                                 className="w-5 h-5"
                                                 onError={(e) => {
                                                     e.currentTarget.style.display = 'none';
                                                     const parent = e.currentTarget.parentElement;
                                                     if (parent) {
-                                                        const teamWords = opponent.team_name.split(' ');
+                                                        const teamWords = opponent.split(' ');
                                                         const teamAbbreviation = teamWords[teamWords.length - 1];
                                                         parent.innerHTML = `<span class="text-xs font-bold text-white">${teamAbbreviation.substring(0, 2)}</span>`;
                                                     }
@@ -522,9 +510,10 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                     </div>
                 )}
             </div>
+
             {/* Right tall (spans both rows) */}
             <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] row-span-2 h-110">
-
+                {/* ... your existing court diagram code ... */}
                 <div className="h-19 flex items-center flex-row-reverse px-4">
                     <h2 className="text-white mr-5">
                         {startersLoading ? 'Loading Starting 5...' : 'Last Starting 5'}
@@ -798,6 +787,7 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                     </div>
                 </div>
             </div>
+
             {/* Bottom wide (spans 2 columns) */}
             <div className="border-2 border-blue-400 rounded-2xl bg-[#1d1d1d] col-span-2 h-235">
                 <div className="p-3">
@@ -823,7 +813,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            {/* Table Header */}
                             <div className="grid grid-cols-[25px_1fr_repeat(8,0.3fr)] text-[#9f9f9f] font-semibold text-xs px-2 py-1 mb-3">
                                 <p>#</p>
                                 <p className="text-left">Team</p>
@@ -837,7 +826,6 @@ export default function TeamOverviewTab({ teamInfo }: TeamOverviewTabProps) {
                                 <p>Streak</p>
                             </div>
 
-                            {/* Table Rows - Top 5 teams */}
                             {leagueStandings.map((team, index) => (
                                 <div
                                     key={team.team_id}
