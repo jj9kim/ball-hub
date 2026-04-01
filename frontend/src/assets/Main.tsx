@@ -242,55 +242,50 @@ function Main({ isCalendarOpen, onOpenCalendar, selectedDate, onDateSelect }: Ma
         return selectedGames;
     };
 
-    // Get future games for selected date
-    // Get future games for selected date
+    // Get future games for selected date - sort by time (earliest first)
     const getFutureGamesForSelectedDate = () => {
         if (!futureGames.length) return [];
-
         const selectedDateStr = getFormattedSelectedDate();
-
-        // Try different date formats for matching
         const selectedDateObj = new Date(selectedDate);
         selectedDateObj.setHours(0, 0, 0, 0);
+        const selectedDateISO = selectedDateObj.toISOString().split('T')[0];
 
-        const selectedDateISO = selectedDateObj.toISOString().split('T')[0]; // YYYY-MM-DD
-
-        console.log('Looking for games on:', {
-            formatted: selectedDateStr,
-            iso: selectedDateISO,
-            original: selectedDate
-        });
-
-        const selectedFutureGames = futureGames.filter(game => {
+        const filteredGames = futureGames.filter(game => {
             const gameDateStr = game.gameDate || game.gameDateEst;
-
             if (!gameDateStr) return false;
-
-            // Try multiple comparison methods
             const exactMatch = gameDateStr === selectedDateStr || gameDateStr === selectedDateISO;
-
-            // Try parsing both as Date objects
             const gameDate = new Date(gameDateStr);
             gameDate.setHours(0, 0, 0, 0);
-
             const dateMatch = gameDate.getTime() === selectedDateObj.getTime();
-
-            if (exactMatch || dateMatch) {
-                console.log('Match found:', gameDateStr, 'for date', selectedDateStr);
-                return true;
-            }
-
-            return false;
+            return exactMatch || dateMatch;
         });
 
-        console.log(`Future games for ${selectedDateStr}:`, selectedFutureGames.length);
-        return selectedFutureGames;
+        // Sort future games by time (earliest first)
+        return filteredGames.sort((a, b) => {
+            const timeA = a.gameTimeEst || '';
+            const timeB = b.gameTimeEst || '';
+
+            // Parse ISO time strings (e.g., "1900-01-01T19:00:00Z")
+            const parseTime = (timeStr: string): number => {
+                if (!timeStr) return 0;
+                try {
+                    const date = new Date(timeStr);
+                    return date.getTime();
+                } catch {
+                    return 0;
+                }
+            };
+
+            return parseTime(timeA) - parseTime(timeB);
+        });
     };
 
+    // Combine both types of games
     const pastGamesForDate = getPastGamesForSelectedDate();
     const futureGamesForDate = getFutureGamesForSelectedDate();
 
-    // Combine both types of games
+    // For the display, we want all games in a single list
+    // Since past games come in order and future games are sorted, we can just concat
     const allGamesForDate = [
         ...pastGamesForDate.map(game => ({ type: 'past' as const, data: game })),
         ...futureGamesForDate.map(game => ({ type: 'future' as const, data: game }))

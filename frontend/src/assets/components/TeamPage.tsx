@@ -2,7 +2,7 @@ import { useState } from 'react';
 import TeamTabNavigation from './TeamTabNavigation';
 import OverviewTab from './team tabs/OverviewTab';
 import StandingsTab from './team tabs/StandingsTab';
-import StatsTab from './tabs/StatsTab';
+import MatchesTab from './team tabs/MatchesTab';
 import TeamStatsTab from './team tabs/TeamStatsTab';
 
 type TeamTabType = 'overview' | 'standings' | 'matches' | 'stats';
@@ -27,10 +27,7 @@ export default function TeamsPage() {
                 );
             case 'matches':
                 return (
-                    <div className="p-6">
-                        <h3 className="text-xl font-bold text-white mb-4">Matches</h3>
-                        <p className="text-gray-400">Matches content will go here</p>
-                    </div>
+                    <MatchesTab/>
                 );
             case 'stats':
                 return (
